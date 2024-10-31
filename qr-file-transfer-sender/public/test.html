@@ -1,0 +1,33 @@
+
+<canvas id="myCanvas" width="400" height="400" style="border:1px solid #000;"></canvas>
+<script>
+ 
+ const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 绘制红色圆
+        ctx.fillStyle = 'red';
+        ctx.beginPath();
+        ctx.arc(150, 150, 100, 0, Math.PI * 2); // 圆心在 (150, 150)，半径为 100
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // 设置透明度
+        ctx.fill();
+        ctx.closePath();
+
+        // 使用正片叠加绘制绿色圆
+        //ctx.globalCompositeOperation = 'multiply'; // 设置为正片叠加
+        ctx.fillStyle = 'green';
+        ctx.beginPath();
+        ctx.arc(250, 150, 100, 0, Math.PI * 2); // 圆心在 (250, 150)，半径为 100
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; // 设置透明度
+        ctx.fill();
+        ctx.closePath();
+
+        // 使用正片叠加绘制蓝色圆
+        ctx.fillStyle = 'blue';
+        ctx.beginPath();
+        ctx.arc(200, 250, 100, 0, Math.PI * 2); // 圆心在 (200, 250)，半径为 100
+        ctx.fillStyle = 'rgba(0, 0, 255, 0.5)'; // 设置透明度
+        ctx.fill();
+        ctx.closePath();
+ 
+</script>
