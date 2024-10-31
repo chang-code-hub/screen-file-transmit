@@ -1,0 +1,139 @@
+﻿<Window
+    x:Class="screen_file_transmit.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:screen_file_transmit"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="Screen File Sender"
+    Width="500"
+    ResizeMode="NoResize"
+    SizeToContent="Height"
+    mc:Ignorable="d">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  File Selection  -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Label VerticalAlignment="Center" Content="Select File:" />
+            <TextBox
+                x:Name="FilePathTextBox"
+                Grid.Column="1"
+                Margin="0,0,5,0"
+                VerticalContentAlignment="Center"
+                Text="{Binding FilePath}" />
+            <Button
+                Grid.Column="2"
+                Width="80"
+                Command="{Binding BrowseFileCommand}"
+                Content="Browse..." />
+        </Grid>
+
+        <!--  Color Mode Selection  -->
+        <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Label VerticalAlignment="Center" Content="Color Mode:" />
+            <ComboBox
+                x:Name="ColorModeComboBox"
+                Grid.Column="1"
+                VerticalContentAlignment="Center"
+                ItemsSource="{Binding ColorModeList}"
+                SelectedValue="{Binding ColorMode}" />
+
+            <Label
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                Content="Screen Size:" />
+            <TextBlock Grid.Column="3" VerticalAlignment="Center">
+                <Run Text="{Binding ScreenSize.Width}" />
+                <Run Text=" * " />
+                <Run Text="{Binding ScreenSize.Height}" />
+            </TextBlock>
+
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!--  Color Depth Selection  -->
+            <Label VerticalAlignment="Center" Content="Color Depth:" />
+            <ComboBox
+                x:Name="ColorDepthComboBox"
+                Grid.Column="1"
+                VerticalContentAlignment="Center"
+                ItemsSource="{Binding ColorDepthList}"
+                SelectedValue="{Binding ColorDepth}" />
+
+            <!--  Encoding Scale  -->
+
+            <Label
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                Content="Encoding Scale:" />
+            <ComboBox
+                x:Name="ScaleComboBox"
+                Grid.Column="3"
+                VerticalContentAlignment="Center"
+                ItemsSource="{Binding ScaleList}"
+                SelectedValue="{Binding Scale}" />
+        </Grid>
+
+        <Grid Grid.Row="4" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Label
+                Grid.Column="0"
+                VerticalAlignment="Center"
+                Content="File Size:" />
+            <TextBlock
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Text="{Binding FileSizeStr}" />
+            <Label
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                Content="File Offset:" />
+            <TextBox
+                Grid.Column="3"
+                VerticalContentAlignment="Center"
+                Text="{Binding FileOffset}" />
+        </Grid>
+        <!--  Submit Button  -->
+        <Grid Grid.Row="5" Margin="0,0,0,10">
+            <Button
+                Width="110"
+                Height="24"
+                HorizontalAlignment="Center"
+                Command="{Binding StartCommand}"
+                Content="Start" />
+        </Grid>
+    </Grid>
+</Window>

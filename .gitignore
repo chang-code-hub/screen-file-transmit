@@ -12,3 +12,7 @@ modern.jsonp
 resources/sass/.sass-cache/
 resources/.arch-internal-preview.css
 .arch-internal-preview.css
+/screen-file-transmit/screen-file-transmit/bin/Debug/net461
+/screen-file-transmit/screen-file-transmit/obj
+/screen-file-transmit/screen-file-receiver/bin
+/screen-file-transmit/screen-file-receiver/obj
