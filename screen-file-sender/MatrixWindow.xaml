@@ -9,7 +9,7 @@
     MinWidth="600"
     MinHeight="400"
     BorderThickness="0"
-    WindowState="Normal"
+    WindowState="Maximized"
     WindowStyle="ToolWindow"
     mc:Ignorable="d">
 
@@ -26,7 +26,7 @@
         <Image
             x:Name="InfoImage"
             Width="200"
-            Height="40"
+            Height="50"
             Margin="5,5,0,0"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"

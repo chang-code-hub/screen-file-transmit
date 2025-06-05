@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35027.167
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "screen-file-sender", "screen-file-transmit\screen-file-sender.csproj", "{9ECFE9C7-E868-4442-9439-AE8AF600FF40}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "screen-file-receiver", "screen-file-receiver\screen-file-receiver.csproj", "{86E764F9-75E8-47BF-B57D-425217CBD87A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "screen-file-sender", "screen-file-sender\screen-file-sender.csproj", "{6B549F01-737B-4FAD-A36D-967227856BDC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,14 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{9ECFE9C7-E868-4442-9439-AE8AF600FF40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9ECFE9C7-E868-4442-9439-AE8AF600FF40}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9ECFE9C7-E868-4442-9439-AE8AF600FF40}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9ECFE9C7-E868-4442-9439-AE8AF600FF40}.Release|Any CPU.Build.0 = Release|Any CPU
 		{86E764F9-75E8-47BF-B57D-425217CBD87A}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{86E764F9-75E8-47BF-B57D-425217CBD87A}.Debug|Any CPU.Build.0 = Debug|x64
 		{86E764F9-75E8-47BF-B57D-425217CBD87A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{86E764F9-75E8-47BF-B57D-425217CBD87A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6B549F01-737B-4FAD-A36D-967227856BDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6B549F01-737B-4FAD-A36D-967227856BDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6B549F01-737B-4FAD-A36D-967227856BDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6B549F01-737B-4FAD-A36D-967227856BDC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

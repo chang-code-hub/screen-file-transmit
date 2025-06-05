@@ -18,6 +18,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using Image = System.Windows.Controls.Image;
 using Point = System.Drawing.Point;
+using Rectangle = System.Drawing.Rectangle;
 using Size = System.Windows.Size;
 
 
@@ -93,57 +94,38 @@ namespace screen_file_transmit
             int infoHeight = 0;// scale * (infoCodeHeight + 3);
             var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(screenWidth, screenHeight - infoHeight, scale);
             //Trace.WriteLine("{ width: canvas.width, height: canvas.height, size: code.codeSize, scale: options.scale })
-            var width = ((matrix.MaxCols * (matrix.CodeSize + 4))) * scale;
-            var height = ((matrix.MaxRows * (matrix.CodeSize + 4))) * scale + infoHeight;
+            var width = ((matrix.MaxCols * (matrix.CodeSize + 6))) * scale;
+            var height = ((matrix.MaxRows * (matrix.CodeSize + 6))) * scale + infoHeight;
             Bitmap bitmap = new Bitmap(width, height);
             using (Graphics g = Graphics.FromImage(bitmap))
             {
                 g.Clear(Color.White);
-                g.DrawLine(new Pen(Brushes.Black, scale * 2), new Point(0, height), new Point(width, height));
-                g.DrawLine(new Pen(Brushes.Black, scale * 2), new Point(width, infoHeight), new Point(width, height));
+                //g.DrawLine(new Pen(Brushes.Black, scale * 2), new Point(0, height), new Point(width, height));
+                //g.DrawLine(new Pen(Brushes.Black, scale * 2), new Point(width, infoHeight), new Point(width, height));
             }
             //
             var offset = fileStream.Position;
 
             var chuck = new byte[matrix.CodeByteCount];
             bool end = false;
+            int count = 0;
             for (int row = 0; !end && row < matrix.MaxRows; row++)
             {
-                var top = (((matrix.CodeSize + 4)) * row) * scale + infoHeight;
-                using (Graphics g = Graphics.FromImage(bitmap))
-                {
-                    if (row > 0)
-                    {
-                        g.DrawLine(new Pen(Brushes.Black, scale), new Point(0, top), new Point(width, top));
-                    }
-                    else
-                    {
-                        g.DrawLine(new Pen(Brushes.Black, scale), new Point(0, top + scale / 2), new Point(width, top + scale / 2));
-                    }
-                }
+                var top = (((matrix.CodeSize + 6 )) * row) * scale + infoHeight; 
 
                 for (int column = 0; !end && column < matrix.MaxCols; column++)
                 {
-                    var left = (((matrix.CodeSize + 4)) * column) * scale;
-                    using (Graphics g = Graphics.FromImage(bitmap))
-                    {
-                        if (column > 0)
-                        {
-                            g.DrawLine(new Pen(Brushes.Black, scale), new Point(left, infoHeight), new Point(left, height));
-                        }
-                        else
-                        {
-                            g.DrawLine(new Pen(Brushes.Black, scale * 2), new Point(left, infoHeight), new Point(left, height));
-                        }
-                    }
-                    var bitmapPart = DataMatrixEncoder.DrawDataMatrix(fileStream, scale, chuck, matrix, colorDepth, colorful);
+                    var left = (((matrix.CodeSize + 6)) * column) * scale; 
+                    var bitmapPart = DataMatrixEncoder.DrawDataMatrix(fileStream, row, column, scale, chuck, matrix, colorDepth, colorful);
 
                     if (bitmapPart != null)
                     {
+                        count++;
                         using (Graphics g = Graphics.FromImage(bitmap))
                         {
                             g.CompositingMode = CompositingMode.SourceOver;
-                            g.DrawImage(bitmapPart, left + 2 * scale, top + 2 * scale);
+                            g.DrawRectangle(new Pen(Brushes.Black, scale), new Rectangle(left + scale, top + scale, (matrix.CodeSize + 3) * scale, (matrix.CodeSize + 3) * scale));
+                            g.DrawImage(bitmapPart, new PointF( (float)(left + 2.5 * scale), (float)(top + 2.5 * scale)));
                         }
                     }
                 }
@@ -161,7 +143,7 @@ namespace screen_file_transmit
                 Source = bitmapSource
             });
 
-            var info = $"{matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{fileStream.Position - offset},{fileStream.Length}";
+            var info = $"${matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{fileStream.Position - offset},{fileStream.Length},{count}";
             var infoBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(info, infoCodeHeight, infoCodeWidth, 1, true);
             var infoBitmapSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(infoBitmap);
             InfoImage.Source = infoBitmapSource;

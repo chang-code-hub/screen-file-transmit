@@ -13,9 +13,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
- 
 using OpenCvSharp;
-using screen_file_transmit;
 using Window = System.Windows.Window;
 
 namespace screen_file_receiver
@@ -26,11 +24,11 @@ namespace screen_file_receiver
     public partial class MainWindow : Window
     {
         private MainWindowViewModel viewModel = new MainWindowViewModel();
+
         public MainWindow()
         {
             InitializeComponent();
             this.DataContext = viewModel;
         }
-         
     }
 }

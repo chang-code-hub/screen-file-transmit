@@ -12,14 +12,12 @@
 	  <PackageReference Include="Costura.Fody" />
 	  <PackageReference Include="Microsoft.CSharp" />
 	  <PackageReference Include="OpenCvSharp4" />
+	  <PackageReference Include="OpenCvSharp4.Extensions" />
 	  <PackageReference Include="OpenCvSharp4.runtime.win" />
 	  <PackageReference Include="PropertyChanged.Fody" />
 	  <PackageReference Include="System.Data.DataSetExtensions" />
 	  <PackageReference Include="System.Linq.Expressions" />
 	  <PackageReference Include="ZXing.Net" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\screen-file-transmit\screen-file-sender.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />

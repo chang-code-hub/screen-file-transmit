@@ -1,18 +1,84 @@
-.architect
-bootstrap.css
-bootstrap.js
-bootstrap.json
-bootstrap.jsonp
-build/
-classic.json
-classic.jsonp
-ext/
-modern.json
-modern.jsonp
-resources/sass/.sass-cache/
-resources/.arch-internal-preview.css
-.arch-internal-preview.css
-/screen-file-transmit/screen-file-transmit/bin/Debug/net461
-/screen-file-transmit/screen-file-transmit/obj
-/screen-file-transmit/screen-file-receiver/bin
-/screen-file-transmit/screen-file-receiver/obj
+# Build results
+bin/
+obj/
+
+# User-specific files
+.vscode/
+.vs/
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Auto-generated files
+*.designer.cs
+*.g.cs
+*.g.i.cs
+Generated_Code/
+
+# Packages directory
+packages/
+*.nupkg
+# Uncomment if you have not committed `package.json`
+# node_modules/
+
+# Enable if you're using npm or Yarn
+# node_modules/
+# yarn-error.log
+# yarn.lock
+
+# Resharper
+_ReSharper*/
+*.DotSettings.user
+
+# Rider
+.idea/
+*.sln.iml
+
+# Backup & report files
+*.stackdump
+*.log
+
+# Crashlytics
+crashlytics.properties
+
+# Code analysis results
+TestResults/
+
+# StyleCop files
+StyleCopReport.xml
+
+# Mac
+.DS_Store
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+Desktop.ini
+
+# End of files
+*.swp
+
+# Include if using VSCode for debugging
+.vscode/
+
+# Ignore publish output
+publish/
+
+# Uncomment if you have publish profiles
+# PublishProfiles/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# ASP.NET temp files
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Ignore EF migrations
+Migrations/
+/files

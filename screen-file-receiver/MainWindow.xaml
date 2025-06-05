@@ -51,24 +51,6 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Label VerticalAlignment="Center" Content="Color Mode:" />
-            <ComboBox
-                x:Name="ColorModeComboBox"
-                Grid.Column="1"
-                VerticalContentAlignment="Center"
-                ItemsSource="{Binding ColorModeList}"
-                SelectedValue="{Binding ColorMode}" />
-
-            <Label
-                Grid.Column="2"
-                VerticalAlignment="Center"
-                Content="Code Version:" />
-            <ComboBox
-                Grid.Column="3"
-                VerticalContentAlignment="Center"
-                ItemsSource="{Binding CodeVersionList}"
-                SelectedValue="{Binding CodeVersion}" />
-
         </Grid>
 
         <Grid Grid.Row="2" Margin="0,0,0,10">
@@ -80,26 +62,8 @@
             </Grid.ColumnDefinitions>
 
             <!--  Color Depth Selection  -->
-            <Label VerticalAlignment="Center" Content="Color Depth:" />
-            <ComboBox
-                x:Name="ColorDepthComboBox"
-                Grid.Column="1"
-                VerticalContentAlignment="Center"
-                ItemsSource="{Binding ColorDepthList}"
-                SelectedValue="{Binding ColorDepth}" />
 
             <!--  Encoding Scale  -->
-
-            <Label
-                Grid.Column="2"
-                VerticalAlignment="Center"
-                Content="Encoding Scale:" />
-            <ComboBox
-                x:Name="ScaleComboBox"
-                Grid.Column="3"
-                VerticalContentAlignment="Center"
-                ItemsSource="{Binding ScaleList}"
-                SelectedValue="{Binding Scale}" />
         </Grid>
 
         <!--  Submit Button  -->
