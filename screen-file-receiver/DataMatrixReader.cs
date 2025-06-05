@@ -18,9 +18,10 @@ namespace screen_file_receiver
 {
     public static class DataMatrixReader
     {
+        private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
         public static bool ReadToFile(string fileName, FileStream fileStream)
         {
-
             // 读取图像
             Mat image = Cv2.ImRead(fileName);
 
@@ -34,7 +35,8 @@ namespace screen_file_receiver
             //Cv2.ImShow("Threshold", thresh);
 
             // 查找轮廓
-            Cv2.FindContours(thresh, out Point[][] contours, out HierarchyIndex[] hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+            Cv2.FindContours(thresh, out Point[][] contours, out HierarchyIndex[] hierarchy, RetrievalModes.External,
+                ContourApproximationModes.ApproxSimple);
 
             var lagerContours = contours.Where(c => Cv2.ContourArea(c) > 100).ToList();
 
@@ -48,14 +50,15 @@ namespace screen_file_receiver
             var reader = new BarcodeReader();
             List<string> readResult = new List<string>();
             // 设置 X 坐标容差值 
-            var list = lagerContours.Select(c =>new {Rect = Cv2.BoundingRect(c), Contour = c})
-                .Where(c=>c.Rect.Height>2 & c.Rect.Width>2 && (c.Rect.Height*1.0 / c.Rect.Width)<4 && (c.Rect.Height * 1.0 / c.Rect.Width)> 1.0/4)
-                .OrderBy(c=>c.Rect.Width + c.Rect.Height).ThenBy(c => c.Rect.Y).ThenBy(c => c.Rect.X).ToList();
+            var list = lagerContours.Select(c => new { Rect = Cv2.BoundingRect(c), Contour = c })
+                .Where(c => c.Rect.Height > 2 & c.Rect.Width > 2 && (c.Rect.Height * 1.0 / c.Rect.Width) < 4 &&
+                            (c.Rect.Height * 1.0 / c.Rect.Width) > 1.0 / 4)
+                .OrderBy(c => c.Rect.Width + c.Rect.Height).ThenBy(c => c.Rect.Y).ThenBy(c => c.Rect.X).ToList();
 
             //MessageBox.Show(string.Join(";", list.Select(c => $"{c.Rect.X},{c.Rect.Y}"))); 
             string info = null;
             int index = 0;
-            foreach (var contour in list)
+            foreach (var contour in list.ToList())
             {
                 index++;
                 // 获取外接矩形
@@ -67,7 +70,8 @@ namespace screen_file_receiver
 
                 if (!ReadImage(roi, reader, readResult))
                 {
-                    //Cv2.ImShow("Error " , roi);
+                    list.Remove(contour);
+                    //Cv2.ImShow("Error ", roi);
                     //MessageBox.Show("找不到信息" + fileName);
                     //return false;
                 }
@@ -75,14 +79,15 @@ namespace screen_file_receiver
                 {
                     info = readResult.First();
                     readResult.Clear();
+                    //list.Remove(contour);
                     break;
                 }
             }
-             
+
             if (info == null)
             {
                 MessageBox.Show("找不到信息" + fileName);
-                return false; 
+                return false;
             }
 
             var splited = info.TrimStart('$').Split(',');
@@ -109,7 +114,6 @@ namespace screen_file_receiver
 
                 if (!ReadImage(roi, reader, readResult))
                 {
-
                     Mat roiBin = new Mat();
                     Cv2.Threshold(roi, roiBin, 127, 255, ThresholdTypes.Binary);
                     if (!ReadImage(roiBin, reader, readResult))
@@ -120,27 +124,32 @@ namespace screen_file_receiver
                     }
                 }
             }
-            fileStream.Position = offset; 
+
+            List<(int row, int column, byte[] data)> decodes = new List<(int row, int column, byte[] data)>();
+
+            fileStream.Position = offset;
             foreach (var code in readResult)
             {
-                var base64 = code;
-                if (base64.StartsWith("9"))
-                {
-                    base64 = base64.Substring(2);
-                }
-                else if (base64.StartsWith("10"))
-                {
-                    base64 = base64.Substring(3);
-                }
+                int row = rcString.IndexOf(code[0]);
+                int column = rcString.IndexOf(code[1]);
+                var base64 = code.Substring(2);
 
                 var bytes = Convert.FromBase64String(base64);
+                decodes.Add((row, column, bytes));
+            }
+
+            var final = decodes.OrderBy(c => c.row).ThenBy(c => c.column).ToList();
+            foreach (var valueTuple in final)
+            {
+                var bytes = valueTuple.data;
                 fileStream.Write(bytes, 0, bytes.Length);
             }
 
             return true;
         }
 
-        private static bool ReadImage(Mat image, BarcodeReader reader, List<string> readResult, int retryCount = 3,int retryIndex = 0 )
+        private static bool ReadImage(Mat image, BarcodeReader reader, List<string> readResult, int retryCount = 3,
+            int retryIndex = 0)
         {
             // 转换为 Bitmap 格式，因为 ZXing 读取 Bitmap 格式
             using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(image))
@@ -150,7 +159,7 @@ namespace screen_file_receiver
 
                 if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
                 {
-                    readResult.Add(result.Text); 
+                    readResult.Add(result.Text);
                     // 在图像上绘制矩形框并显示
                     //Cv2.Rectangle(image, rect, new Scalar(0, 255, 0), 2);
                     return true;
@@ -164,7 +173,7 @@ namespace screen_file_receiver
                     //Cv2.ImShow("Error " + retryIndex, image);
 
                     // 放大图像 (双线性插值)
-                    double scaleFactor = 2.0;  // 放大倍数
+                    double scaleFactor = 2.0; // 放大倍数
                     Mat resizedImage = new Mat();
                     Cv2.Resize(image, resizedImage, new Size(), scaleFactor, scaleFactor, InterpolationFlags.Linear);
 
@@ -172,9 +181,9 @@ namespace screen_file_receiver
                     Mat sharpenKernel = Mat.FromArray(new float[,]
                     {
                         { -1, -1, -1 },
-                        { -1,  9, -1 },
+                        { -1, 9, -1 },
                         { -1, -1, -1 }
-                    }); 
+                    });
 
                     // 应用锐化滤波器
                     Mat sharpenedImage = new Mat();
@@ -183,7 +192,7 @@ namespace screen_file_receiver
                     // 显示结果
                     //Cv2.ImShow("Resized Image " + retryIndex, resizedImage);
                     //Cv2.ImShow("Sharpened Image " + retryIndex, sharpenedImage);
-                    Cv2.WaitKey(0);
+                    //Cv2.WaitKey(0);
 
                     return ReadImage(sharpenedImage, reader, readResult, retryCount, retryIndex + 1);
                 }
