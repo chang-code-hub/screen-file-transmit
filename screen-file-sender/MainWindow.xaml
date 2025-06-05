@@ -51,13 +51,13 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Label VerticalAlignment="Center" Content="Color Mode:" />
+            <!--<Label VerticalAlignment="Center" Content="Color Mode:" />
             <ComboBox
                 x:Name="ColorModeComboBox"
                 Grid.Column="1"
                 VerticalContentAlignment="Center"
                 ItemsSource="{Binding ColorModeList}"
-                SelectedValue="{Binding ColorMode}" />
+                SelectedValue="{Binding ColorMode}" />-->
 
             <Label
                 Grid.Column="2"
@@ -68,35 +68,26 @@
                 <Run Text=" * " />
                 <Run Text="{Binding ScreenSize.Height}" />
             </TextBlock>
+ 
 
-        </Grid>
-
-        <Grid Grid.Row="2" Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="110" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="110" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!--  Color Depth Selection  -->
+            <!--  Color Depth Selection  --><!--
             <Label VerticalAlignment="Center" Content="Color Depth:" />
             <ComboBox
                 x:Name="ColorDepthComboBox"
                 Grid.Column="1"
                 VerticalContentAlignment="Center"
                 ItemsSource="{Binding ColorDepthList}"
-                SelectedValue="{Binding ColorDepth}" />
+                SelectedValue="{Binding ColorDepth}" />-->
 
             <!--  Encoding Scale  -->
 
             <Label
-                Grid.Column="2"
+                Grid.Column="0"
                 VerticalAlignment="Center"
                 Content="Encoding Scale:" />
             <ComboBox
                 x:Name="ScaleComboBox"
-                Grid.Column="3"
+                Grid.Column="1"
                 VerticalContentAlignment="Center"
                 ItemsSource="{Binding ScaleList}"
                 SelectedValue="{Binding Scale}" />

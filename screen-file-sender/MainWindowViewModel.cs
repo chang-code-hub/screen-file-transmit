@@ -5,33 +5,32 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows; 
+using System.Windows;
 using System.Drawing;
 using System.Windows.Input;
 using System.IO;
 using Microsoft.Win32;
 using MessageBox = System.Windows.MessageBox;
-using System.IO.Pipes; 
+using System.IO.Pipes;
 
 namespace screen_file_transmit
 {
     public class MainWindowViewModel : INotifyPropertyChanged
-    { 
-
+    {
         public string FilePath { get; set; }
         public long FileSize { get; set; }
         public string FileSizeStr { get; set; }
         public long FileOffset { get; set; }
 
-        public string ColorMode { get; set; } = "RGB";
+        public string ColorMode { get; set; } = "Black";
 
         public int ColorDepth { get; set; } = 1;
 
         public int Scale { get; set; } = 2;
-        public List<string> ColorModeList => new List<string>() { "Black","RGB" };
+        public List<string> ColorModeList => new List<string>() { "Black", "RGB" };
 
         public List<int> ColorDepthList => new List<int>() { 1, 2, 3, 4, 5, 6, 7, 8 };
-        public List<int> ScaleList => new List<int>() { 1, 2, 3, 4, 5  };
+        public List<int> ScaleList => new List<int>() { 1, 2, 3, 4, 5 };
 
         public int ScreenWidth { get; set; }
         public int ScreenHeight { get; set; }
@@ -54,6 +53,7 @@ namespace screen_file_transmit
                 order++;
                 len /= 1024;
             }
+
             return $"{len:0.##} {sizes[order]}";
         }
 
@@ -71,12 +71,13 @@ namespace screen_file_transmit
                 FileSizeStr = GetFriendlyFileSize(FileSize);
             }
         }
+
         private void StartEncoding()
         {
             try
             {
                 var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read);
-              
+
                 fs.Seek(FileOffset, SeekOrigin.Begin);
 
                 var window = new MatrixWindow(fs, ColorDepth, ColorMode == "RGB", Scale);
