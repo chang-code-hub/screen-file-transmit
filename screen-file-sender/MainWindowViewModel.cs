@@ -197,8 +197,19 @@ namespace screen_file_transmit
                         targetHeight = SelectedResolution.Height;
                     }
 
+                    // 计算元数据区域高度（与 DrawInfoArea 保持一致）
+                    int qrHeight = 8;
+                    int qrWidth = 48;
+                    int qrScale = Scale;
+                    var testInfo = new string('A', 50);
+                    var testBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(testInfo, qrHeight, qrWidth, qrScale, false);
+                    int qrActualHeight = testBitmap.Height;
+                    testBitmap.Dispose();
+                    int infoAreaHeight = qrActualHeight + 8 * Scale;
+
+                    // 计算网格布局（扣除元数据区域高度）
                     var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
-                        targetWidth, targetHeight, Scale);
+                        targetWidth, targetHeight - infoAreaHeight, Scale);
 
                     // 计算生成多少页
                     long totalBytes = fs.Length;
@@ -263,8 +274,14 @@ namespace screen_file_transmit
             int colorDepth, bool colorful, int scale, string fileName = null, bool includeFileName = false,
             int currentPage = 1, int totalPages = 1)
         {
-            // 紧凑的元数据区域高度
-            int infoAreaHeight = Math.Max(40 * scale, 50);
+            // 计算元数据区域高度（与 DrawInfoArea 保持一致）
+            int qrHeight = 8;
+            int qrWidth = 48;
+            var testInfo = new string('A', 50);
+            var testBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(testInfo, qrHeight, qrWidth, scale, false);
+            int qrActualHeight = testBitmap.Height;
+            testBitmap.Dispose();
+            int infoAreaHeight = qrActualHeight + 8 * scale;
 
             var width = ((matrix.MaxCols * (matrix.CodeSize + 6))) * scale;
             var height = ((matrix.MaxRows * (matrix.CodeSize + 6))) * scale + infoAreaHeight;
@@ -337,7 +354,7 @@ namespace screen_file_transmit
 
             // 计算二维码实际高度
             var testInfo = new string('A', 50);
-            var testBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(testInfo, qrHeight, qrWidth, qrScale, true);
+            var testBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(testInfo, qrHeight, qrWidth, qrScale, false);
             int qrActualHeight = testBitmap.Height;
             testBitmap.Dispose();
 
