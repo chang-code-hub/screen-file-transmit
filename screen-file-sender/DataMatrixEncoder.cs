@@ -125,17 +125,41 @@ namespace screen_file_transmit
 
         private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-        public static Bitmap DrawDataMatrix(FileStream fileStream,int row, int column, int scale, byte[] chuck, DataMatrixResult matrix,
-            int depth,  bool colorful)
+        public static Bitmap DrawDataMatrix(FileStream fileStream, int row, int column, int scale, byte[] chuck, DataMatrixResult matrix,
+            int depth, bool colorful, string fileName = null)
         {
             List<Bitmap> bitmaps = new List<Bitmap>();
-            for (int i = 0; i < depth * (colorful? 3:1); i++)
+            for (int i = 0; i < depth * (colorful ? 3 : 1); i++)
             {
-                var readLength = fileStream.Read(chuck, 0, chuck.Length);
-                if (readLength <= 0) 
-                    break;
-                byte[] buffer = new byte[readLength];
-                Array.Copy(chuck, buffer, buffer.Length);
+                byte[] buffer;
+
+                // 第一个 chunk (0,0) 且是第一个颜色层时，添加文件名
+                if (row == 0 && column == 0 && i == 0 && !string.IsNullOrEmpty(fileName))
+                {
+                    var nameBytes = Encoding.UTF8.GetBytes(fileName);
+                    var separator = new byte[] { 0x00 }; // \0 分隔符
+                    var fileNameChunk = new byte[nameBytes.Length + separator.Length];
+                    Array.Copy(nameBytes, 0, fileNameChunk, 0, nameBytes.Length);
+                    Array.Copy(separator, 0, fileNameChunk, nameBytes.Length, separator.Length);
+
+                    // 读取文件内容
+                    var readLength = fileStream.Read(chuck, 0, chuck.Length - fileNameChunk.Length);
+                    if (readLength <= 0 && fileNameChunk.Length == 0)
+                        break;
+
+                    buffer = new byte[fileNameChunk.Length + readLength];
+                    Array.Copy(fileNameChunk, 0, buffer, 0, fileNameChunk.Length);
+                    Array.Copy(chuck, 0, buffer, fileNameChunk.Length, readLength);
+                }
+                else
+                {
+                    var readLength = fileStream.Read(chuck, 0, chuck.Length);
+                    if (readLength <= 0)
+                        break;
+                    buffer = new byte[readLength];
+                    Array.Copy(chuck, buffer, buffer.Length);
+                }
+
                 var base64 = $"{rcString[row]}{rcString[column]}{Convert.ToBase64String(buffer)}";
                 var chuckBitmap = GenerateDataMatrix(base64, matrix.CodeSize, scale);
                 bitmaps.Add((chuckBitmap));
@@ -149,13 +173,13 @@ namespace screen_file_transmit
                 var greenImages = bitmaps.Skip(depth).Take(depth).ToList();
                 var blueImages = bitmaps.Skip(depth * 2).Take(depth).ToList();
                 for (var x = 0; x < mixedBitmap.Width; x++)
-                { 
+                {
                     for (var y = 0; y < mixedBitmap.Height; y++)
-                    { 
+                    {
                         var red = MixColor(redImages, x, y, depth);
                         var green = MixColor(greenImages, x, y, depth);
                         var blue = MixColor(blueImages, x, y, depth);
-                        mixedBitmap.SetPixel(x,y, Color.FromArgb(red, green, blue));
+                        mixedBitmap.SetPixel(x, y, Color.FromArgb(red, green, blue));
                     }
                 }
             }
@@ -165,7 +189,7 @@ namespace screen_file_transmit
                 {
                     for (var y = 0; y < mixedBitmap.Height; y++)
                     {
-                        var gray = MixColor(bitmaps, x, y, depth); 
+                        var gray = MixColor(bitmaps, x, y, depth);
                         mixedBitmap.SetPixel(x, y, Color.FromArgb(gray, gray, gray));
                     }
                 }
@@ -191,7 +215,7 @@ namespace screen_file_transmit
 
             if (color != 0xff)
             {
-                return color & (0xff << (9 - depth) - 1) & 0xff;
+                return color & (0xff << (8 - depth)) & 0xff;
             }
 
             return color;

@@ -33,18 +33,20 @@ namespace screen_file_transmit
         private readonly int colorDepth;
         private readonly bool colorful;
         private readonly int scale;
+        private readonly string fileName;
 
         public MatrixWindow()
         {
             InitializeComponent();
         }
 
-        public MatrixWindow(FileStream fileStream, int colorDepth, bool colorful, int scale)
+        public MatrixWindow(FileStream fileStream, int colorDepth, bool colorful, int scale, string fileName = null)
         {
             this.fileStream = fileStream;
             this.colorDepth = colorDepth;
             this.colorful = colorful;
             this.scale = scale;
+            this.fileName = fileName;
             InitializeComponent();
             this.Loaded += MatrixWindow_Loaded;
             this.Closed += MatrixWindow_Closed;
@@ -116,7 +118,7 @@ namespace screen_file_transmit
                 for (int column = 0; !end && column < matrix.MaxCols; column++)
                 {
                     var left = (((matrix.CodeSize + 6)) * column) * scale; 
-                    var bitmapPart = DataMatrixEncoder.DrawDataMatrix(fileStream, row, column, scale, chuck, matrix, colorDepth, colorful);
+                    var bitmapPart = DataMatrixEncoder.DrawDataMatrix(fileStream, row, column, scale, chuck, matrix, colorDepth, colorful, fileName);
 
                     if (bitmapPart != null)
                     {

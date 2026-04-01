@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Windows.Input;
 using Microsoft.Win32;
 using MessageBox = System.Windows.MessageBox;
@@ -52,22 +53,47 @@ namespace screen_file_receiver
             {
                 SaveFileDialog saveFileDialog = new SaveFileDialog();
 
+                // 先读取第一个文件获取文件名
+                string suggestedFileName = null;
+                var files = FilePath.Split(';');
+                if (files.Length > 0 && !string.IsNullOrEmpty(files[0]))
+                {
+                    try
+                    {
+                        using (var tempStream = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose))
+                        {
+                            if (DataMatrixReader.ReadToFile(files[0], tempStream, out var extractedName))
+                            {
+                                suggestedFileName = extractedName;
+                            }
+                        }
+                    }
+                    catch { /* 忽略读取错误 */ }
+                }
+
+                // 设置保存对话框的默认文件名
+                if (!string.IsNullOrEmpty(suggestedFileName))
+                {
+                    saveFileDialog.FileName = suggestedFileName;
+                }
+
                 if (saveFileDialog.ShowDialog() ?? false)
                 {
-                    using (var fs = new FileStream(saveFileDialog.FileName, FileMode.OpenOrCreate, FileAccess.Write))
+                    using (var fs = new FileStream(saveFileDialog.FileName, FileMode.Create, FileAccess.Write))
                     {
-                        var files = FilePath.Split(';');
                         foreach (var file in files)
                         {
-                            if (!DataMatrixReader.ReadToFile(file, fs))
+                            if (string.IsNullOrEmpty(file)) continue;
+
+                            if (!DataMatrixReader.ReadToFile(file, fs, out _))
                             {
                                 break;
                             }
                         }
                     }
-                }
 
-                MessageBox.Show("解析成功");
+                    MessageBox.Show("解析成功");
+                }
             }
             catch (Exception e)
             {

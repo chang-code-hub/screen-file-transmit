@@ -20,19 +20,25 @@ namespace screen_file_receiver
     {
         private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-        public static bool ReadToFile(string fileName, FileStream fileStream)
+        /// <summary>
+        /// 从图片读取文件
+        /// </summary>
+        /// <param name="fileName">图片文件路径</param>
+        /// <param name="fileStream">输出文件流</param>
+        /// <param name="outputFileName">解析出的原始文件名（如果存在）</param>
+        /// <returns>是否成功</returns>
+        public static bool ReadToFile(string fileName, FileStream fileStream, out string outputFileName)
         {
+            outputFileName = null;
             // 读取图像
             Mat image = Cv2.ImRead(fileName);
 
             Mat gray = new Mat();
             Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-            //Cv2.ImShow("gray", gray);
 
             // 二值化处理，便于轮廓检测
             Mat thresh = new Mat();
             Cv2.Threshold(gray, thresh, 127, 255, ThresholdTypes.BinaryInv);
-            //Cv2.ImShow("Threshold", thresh);
 
             // 查找轮廓
             Cv2.FindContours(thresh, out Point[][] contours, out HierarchyIndex[] hierarchy, RetrievalModes.External,
@@ -42,20 +48,16 @@ namespace screen_file_receiver
 
             // 在原始图像上绘制所有轮廓
             Mat contoursOutput = image.Clone();
-            Cv2.DrawContours(contoursOutput, lagerContours, -1, new Scalar(0, 0, 255), 2); // 用红色绘制所有轮廓，线宽为2
-
-            // 显示结果图像
-            //Cv2.ImShow("All Contours", contoursOutput);
+            Cv2.DrawContours(contoursOutput, lagerContours, -1, new Scalar(0, 0, 255), 2);
 
             var reader = new BarcodeReader();
             List<string> readResult = new List<string>();
-            // 设置 X 坐标容差值 
+            // 设置 X 坐标容差值
             var list = lagerContours.Select(c => new { Rect = Cv2.BoundingRect(c), Contour = c })
                 .Where(c => c.Rect.Height > 2 & c.Rect.Width > 2 && (c.Rect.Height * 1.0 / c.Rect.Width) < 4 &&
                             (c.Rect.Height * 1.0 / c.Rect.Width) > 1.0 / 4)
                 .OrderBy(c => c.Rect.Width + c.Rect.Height).ThenBy(c => c.Rect.Y).ThenBy(c => c.Rect.X).ToList();
 
-            //MessageBox.Show(string.Join(";", list.Select(c => $"{c.Rect.X},{c.Rect.Y}"))); 
             string info = null;
             int index = 0;
             foreach (var contour in list.ToList())
@@ -63,7 +65,7 @@ namespace screen_file_receiver
                 index++;
                 // 获取外接矩形
                 Rect rect = contour.Rect;
-                Cv2.Rectangle(image, rect, new Scalar(0, 0, 255), 2); // 绘制红色矩形框
+                Cv2.Rectangle(image, rect, new Scalar(0, 0, 255), 2);
 
                 // 从图像中裁剪该矩形区域
                 Mat roi = new Mat(image, rect);
@@ -71,15 +73,11 @@ namespace screen_file_receiver
                 if (!ReadImage(roi, reader, readResult))
                 {
                     list.Remove(contour);
-                    //Cv2.ImShow("Error ", roi);
-                    //MessageBox.Show("找不到信息" + fileName);
-                    //return false;
                 }
                 else
                 {
                     info = readResult.First();
                     readResult.Clear();
-                    //list.Remove(contour);
                     break;
                 }
             }
@@ -91,7 +89,6 @@ namespace screen_file_receiver
             }
 
             var splited = info.TrimStart('$').Split(',');
-            //var info = $"${matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{fileStream.Position - offset},{fileStream.Length}";
             int rowCount = int.Parse(splited[0]);
             int colCount = int.Parse(splited[1]);
             bool isColorful = splited[2] == "1";
@@ -100,16 +97,12 @@ namespace screen_file_receiver
             int length = int.Parse(splited[5]);
             int totalLength = int.Parse(splited[6]);
 
-            //MessageBox.Show(string.Join(";", list.Select(c => $"{c.Rect.X},{c.Rect.Y}"))); 
             int rindex = 0;
             foreach (var contour in list.Skip(index))
             {
                 rindex++;
-                // 获取外接矩形
                 Rect rect = contour.Rect;
-                Cv2.Rectangle(image, rect, new Scalar(0, 0, 255), 2); // 绘制红色矩形框
-
-                // 从图像中裁剪该矩形区域
+                Cv2.Rectangle(image, rect, new Scalar(0, 0, 255), 2);
                 Mat roi = new Mat(image, rect);
 
                 if (!ReadImage(roi, reader, readResult))
@@ -139,13 +132,55 @@ namespace screen_file_receiver
             }
 
             var final = decodes.OrderBy(c => c.row).ThenBy(c => c.column).ToList();
+
+            // 解析第一个 chunk (0,0) 中的文件名
+            bool isFirstChunk = true;
             foreach (var valueTuple in final)
             {
                 var bytes = valueTuple.data;
+
+                // 如果是第一个 chunk，尝试解析文件名
+                if (isFirstChunk)
+                {
+                    isFirstChunk = false;
+                    var fileNameResult = ExtractFileName(bytes);
+                    if (fileNameResult.hasFileName)
+                    {
+                        outputFileName = fileNameResult.fileName;
+                        // 写入剩余的数据（去掉文件名部分）
+                        var remainingData = bytes.Skip(fileNameResult.totalLength).ToArray();
+                        if (remainingData.Length > 0)
+                        {
+                            fileStream.Write(remainingData, 0, remainingData.Length);
+                        }
+                        continue;
+                    }
+                }
+
                 fileStream.Write(bytes, 0, bytes.Length);
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// 从字节数组中提取文件名
+        /// </summary>
+        private static (bool hasFileName, string fileName, int totalLength) ExtractFileName(byte[] data)
+        {
+            // 查找 \0 分隔符
+            int separatorIndex = Array.IndexOf(data, (byte)0x00);
+            if (separatorIndex <= 0)
+            {
+                // 没有找到分隔符或文件名为空
+                return (false, null, 0);
+            }
+
+            // 提取文件名（UTF-8 编码）
+            var fileNameBytes = data.Take(separatorIndex).ToArray();
+            var fileName = Encoding.UTF8.GetString(fileNameBytes);
+
+            return (true, fileName, separatorIndex + 1); // +1 包含分隔符本身
         }
 
         private static bool ReadImage(Mat image, BarcodeReader reader, List<string> readResult, int retryCount = 3,
