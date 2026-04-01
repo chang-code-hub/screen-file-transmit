@@ -11,6 +11,7 @@ namespace screen_file_receiver
     public class MainWindowViewModel : INotifyPropertyChanged
     {
         public string FilePath { get; set; }
+        public string Password { get; set; }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -51,7 +52,6 @@ namespace screen_file_receiver
         {
             try
             {
-                SaveFileDialog saveFileDialog = new SaveFileDialog();
 
                 // 先读取第一个文件获取文件名
                 string suggestedFileName = null;
@@ -66,11 +66,16 @@ namespace screen_file_receiver
                             {
                                 suggestedFileName = extractedName;
                             }
+                            else
+                            {
+                                return;
+                            }
                         }
                     }
                     catch { /* 忽略读取错误 */ }
                 }
 
+                SaveFileDialog saveFileDialog = new SaveFileDialog();
                 // 设置保存对话框的默认文件名
                 if (!string.IsNullOrEmpty(suggestedFileName))
                 {
@@ -79,20 +84,37 @@ namespace screen_file_receiver
 
                 if (saveFileDialog.ShowDialog() ?? false)
                 {
-                    using (var fs = new FileStream(saveFileDialog.FileName, FileMode.Create, FileAccess.Write))
+                    bool anyFailed = false;
+                    using (var encryptedMs = new MemoryStream())
                     {
                         foreach (var file in files)
                         {
                             if (string.IsNullOrEmpty(file)) continue;
 
-                            if (!DataMatrixReader.ReadToFile(file, fs, out _))
+                            if (!DataMatrixReader.ReadToFile(file, encryptedMs, out _))
                             {
-                                break;
+                                anyFailed = true;
+                            }
+                        }
+
+                        encryptedMs.Position = 0;
+                        using (var fs = new FileStream(saveFileDialog.FileName, FileMode.Create, FileAccess.Write))
+                        {
+                            if (!string.IsNullOrEmpty(Password))
+                            {
+                                CryptoHelper.DecryptStream(encryptedMs, fs, Password);
+                            }
+                            else
+                            {
+                                encryptedMs.CopyTo(fs);
                             }
                         }
                     }
 
-                    MessageBox.Show("解析成功");
+                    if (anyFailed)
+                        MessageBox.Show("部分文件解析失败，已完成可解析部分");
+                    else
+                        MessageBox.Show("解析成功");
                 }
             }
             catch (Exception e)

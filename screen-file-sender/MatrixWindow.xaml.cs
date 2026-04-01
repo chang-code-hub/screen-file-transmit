@@ -1,24 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing.Drawing2D;
-using System.Drawing;
+﻿using System; 
 using System.IO;
-using System.IO.Pipes;
-using System.Linq;
-using System.Net.Mime;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
+using System.Windows;  
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using Image = System.Windows.Controls.Image;
-using Point = System.Drawing.Point;
-using Rectangle = System.Drawing.Rectangle;
 using Size = System.Windows.Size;
 
 
@@ -34,23 +19,35 @@ namespace screen_file_transmit
         private readonly bool colorful;
         private readonly int scale;
         private readonly string fileName;
+        private readonly int shrinkWidth;
+        private readonly int shrinkHeight;
+        private int currentPage = 1;
+        private int totalPage = 1;
+        private string sessionGuid;
+        private long fileStreamPos;
+        private int physicalWidth = 1;
+        private int physicalHeight = 1;
 
         public MatrixWindow()
         {
             InitializeComponent();
         }
 
-        public MatrixWindow(FileStream fileStream, int colorDepth, bool colorful, int scale, string fileName = null)
+        public MatrixWindow(FileStream fileStream, int colorDepth, bool colorful, int scale, string fileName = null, int shrinkWidth = 0, int shrinkHeight = 0)
         {
             this.fileStream = fileStream;
             this.colorDepth = colorDepth;
             this.colorful = colorful;
             this.scale = scale;
             this.fileName = fileName;
+            this.shrinkWidth = shrinkWidth;
+            this.shrinkHeight = shrinkHeight;
             InitializeComponent();
             this.Loaded += MatrixWindow_Loaded;
             this.Closed += MatrixWindow_Closed;
+            this.SizeChanged += MatrixWindow_SizeChanged;
         }
+
 
         private void MatrixWindow_Closed(object sender, EventArgs e)
         {
@@ -60,10 +57,39 @@ namespace screen_file_transmit
 
         private void MatrixWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // 获取 DPI
+            var presentationSource = PresentationSource.FromVisual(this);
+            double dpiX = 96, dpiY = 96;
+
+            if (presentationSource?.CompositionTarget != null)
+            {
+                dpiX = presentationSource.CompositionTarget.TransformToDevice.M11 * 96;
+                dpiY = presentationSource.CompositionTarget.TransformToDevice.M22 * 96;
+            }
+
+            // 获取 DIP 尺寸
+            double dipWidth = DisplayGrid.ActualWidth;
+            double dipHeight = DisplayGrid.ActualHeight;
+
+            // 转换为物理像素
+            physicalWidth = (int)(dipWidth * dpiX / 96);
+            physicalHeight = (int)(dipHeight * dpiY / 96);
+
+            //var screenWidth = (int)DisplayGrid.ActualWidth;
+            //var screenHeight = (int)DisplayGrid.ActualHeight;
+            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
+                physicalWidth, physicalHeight, scale);
+
+            // 计算生成多少页
+            long totalBytes = fileStream.Length;
+            long bytesPerPage = matrix.PageByteCount * colorDepth *
+                                (colorful ? 3 : 1);
+              this.totalPage = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
+
             ShowDataMatrix();
         }
 
-        public Size DisplaySize => DisplayGrid.RenderSize;
+        //public Size DisplaySize => DisplayGrid.RenderSize;
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
@@ -77,95 +103,53 @@ namespace screen_file_transmit
 
         private void Button_Click_1(object sender, RoutedEventArgs e)
         {
+            if (currentPage == totalPage)
+                return;
+            
+            currentPage++;
+            // 没有数据可显示
+               
             ShowDataMatrix();
         }
 
         private void Button_Click_2(object sender, RoutedEventArgs e)
         {
         }
+        private void MatrixWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        { 
+            //fileStream.Seek(fileStreamPos, SeekOrigin.Begin);
+            //ShowDataMatrix();
+        }
+
 
         public void ShowDataMatrix()
         {
-            DisplayGrid.Children.Clear();
-            InfoImage.Source = null;
-            var screenWidth = (int)DisplayGrid.ActualWidth;
-            var screenHeight = (int)DisplayGrid.ActualHeight;
-            int infoCodeHeight = 8;
-            int infoCodeWidth = 32;
-            int infoHeight = 0; // scale * (infoCodeHeight + 3);
-            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(screenWidth, screenHeight - infoHeight, scale);
-            //Trace.WriteLine("{ width: canvas.width, height: canvas.height, size: code.codeSize, scale: options.scale })
-            var width = ((matrix.MaxCols * (matrix.CodeSize + 6))) * scale;
-            var height = ((matrix.MaxRows * (matrix.CodeSize + 6))) * scale + infoHeight;
-            Bitmap bitmap = new Bitmap(width, height);
-            using (Graphics g = Graphics.FromImage(bitmap))
-            {
-                g.Clear(Color.White);
-                //g.DrawLine(new Pen(Brushes.Black, scale * 2), new Point(0, height), new Point(width, height));
-                //g.DrawLine(new Pen(Brushes.Black, scale * 2), new Point(width, infoHeight), new Point(width, height));
-            }
+            DisplayGrid.Content = null;
+             
+            fileStreamPos = fileStream.Position;
+            // 使用 MainWindowViewModel 的方法生成预览图片
+            var bitmap = MainWindowViewModel.GeneratePreviewBitmap(
+                fileStream, physicalWidth, physicalHeight, colorDepth, colorful, scale,
+                fileName,   currentPage, totalPage, ref sessionGuid, shrinkWidth, shrinkHeight);
 
-            //
-            var offset = fileStream.Position;
 
-            var chuck = new byte[matrix.CodeByteCount];
-            bool end = false;
-            int count = 0;
-            for (int row = 0; !end && row < matrix.MaxRows; row++)
-            {
-                var top = (((matrix.CodeSize + 6)) * row) * scale + infoHeight;
-
-                for (int column = 0; !end && column < matrix.MaxCols; column++)
-                {
-                    var left = (((matrix.CodeSize + 6)) * column) * scale;
-                    var bitmapPart = DataMatrixEncoder.DrawDataMatrix(fileStream, row, column, scale, chuck, matrix,
-                        colorDepth, colorful, fileName);
-
-                    if (bitmapPart != null)
-                    {
-                        count++;
-                        using (Graphics g = Graphics.FromImage(bitmap))
-                        {
-                            g.CompositingMode = CompositingMode.SourceOver;
-                            g.DrawRectangle(new Pen(Brushes.Black, scale),
-                                new Rectangle(left + scale, top + scale, (matrix.CodeSize + 3) * scale,
-                                    (matrix.CodeSize + 3) * scale));
-                            g.DrawImage(bitmapPart,
-                                new PointF((float)(left + 2.5 * scale), (float)(top + 2.5 * scale)));
-                        }
-                    }
-                }
-            }
+            this.Title = $"{fileName ?? "MatrixWindow"} - 第 {currentPage - 1} 页";
 
             BitmapSource bitmapSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(bitmap);
-            DisplayGrid.Children.Add(new Image()
+            DisplayGrid.Content = (new Image()
             {
                 VerticalAlignment = VerticalAlignment.Stretch,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 SnapsToDevicePixels = true,
                 UseLayoutRounding = true,
-                Width = width,
-                Height = height,
+                Width = bitmap.Width,
+                Stretch = System.Windows.Media.Stretch.None,
+                Height = bitmap.Height,
                 Source = bitmapSource
             });
 
-            var info =
-                $"${matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{fileStream.Position - offset},{fileStream.Length},{count}";
-            var infoBitmap =
-                DataMatrixEncoder.GenerateDataRectangleMatrix(info, infoCodeHeight, infoCodeWidth, scale, false);
-            var infoBitmapSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(infoBitmap);
-            InfoImage.Source = infoBitmapSource;
-
-
-            if (fileStream.Length > fileStream.Position)
-            {
-                //fileStream.Seek(-1, SeekOrigin.Current);
-                NextPage.IsEnabled = true;
-            }
-            else
-            {
-                NextPage.IsEnabled = false;
-            }
+            // 使用 MainWindowViewModel 的方法检查是否还有更多数据
+            NextPage.IsEnabled = MainWindowViewModel.HasMoreData(fileStream);
         }
     }
 }

@@ -24,10 +24,10 @@ namespace screen_file_receiver
         /// 从图片读取文件
         /// </summary>
         /// <param name="fileName">图片文件路径</param>
-        /// <param name="fileStream">输出文件流</param>
+        /// <param name="fileStream">输出流</param>
         /// <param name="outputFileName">解析出的原始文件名（如果存在）</param>
         /// <returns>是否成功</returns>
-        public static bool ReadToFile(string fileName, FileStream fileStream, out string outputFileName)
+        public static bool ReadToFile(string fileName, Stream fileStream, out string outputFileName)
         {
             outputFileName = null;
             // 读取图像
@@ -43,12 +43,15 @@ namespace screen_file_receiver
             // 查找轮廓
             Cv2.FindContours(thresh, out Point[][] contours, out HierarchyIndex[] hierarchy, RetrievalModes.External,
                 ContourApproximationModes.ApproxSimple);
-
-            var lagerContours = contours.Where(c => Cv2.ContourArea(c) > 100).ToList();
+             
+            var lagerContours = contours.Where(c => Cv2.ContourArea(c) > 150).ToList();
 
             // 在原始图像上绘制所有轮廓
             Mat contoursOutput = image.Clone();
             Cv2.DrawContours(contoursOutput, lagerContours, -1, new Scalar(0, 0, 255), 2);
+
+            Cv2.ImShow("Image  ", contoursOutput);
+            Cv2.WaitKey();
 
             var reader = new BarcodeReader();
             List<string> readResult = new List<string>();
@@ -66,6 +69,7 @@ namespace screen_file_receiver
                 // 获取外接矩形
                 Rect rect = contour.Rect;
                 Cv2.Rectangle(image, rect, new Scalar(0, 0, 255), 2);
+
 
                 // 从图像中裁剪该矩形区域
                 Mat roi = new Mat(image, rect);

@@ -30,5 +30,10 @@ namespace screen_file_receiver
             InitializeComponent();
             this.DataContext = viewModel;
         }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            viewModel.Password = PasswordBox.Password;
+        }
     }
 }

@@ -45,9 +45,13 @@ namespace screen_file_transmit
         private void GetScreenResolution()
         {
             // 获取窗口所在的屏幕
-            var screen = Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle); 
-            viewModel.ScreenSize = screen.Bounds; 
-        } 
-         
+            var screen = Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+            viewModel.ScreenSize = screen.Bounds;
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            viewModel.Password = PasswordBox.Password;
+        }
     }
 }

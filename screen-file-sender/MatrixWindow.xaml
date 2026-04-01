@@ -10,7 +10,7 @@
     MinHeight="400"
     BorderThickness="0"
     WindowState="Maximized"
-    WindowStyle="ToolWindow"
+    WindowStyle="SingleBorderWindow"
     mc:Ignorable="d">
 
     <Grid>
@@ -35,10 +35,22 @@
             UseLayoutRounding="True" />
         <!--  操作按钮栏  -->
 
+        <!--  其他内容可以放在这里  -->
+        <Label
+            x:Name="DisplayGrid"
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            Grid.ColumnSpan="3"
+            Margin="0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            VerticalContentAlignment="Center"
+            HorizontalContentAlignment="Center"
+            x:FieldModifier="public" />
         <StackPanel
             Grid.Row="0"
             Grid.Column="1"
-            Margin="10"
+            Margin="5"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
             MouseDown="UIElement_OnMouseDown"
@@ -60,14 +72,5 @@
                 Content="关闭" />
         </StackPanel>
 
-        <!--  其他内容可以放在这里  -->
-        <Grid
-            x:Name="DisplayGrid"
-            Grid.Row="1"
-            Grid.ColumnSpan="3"
-            Margin="4"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"
-            x:FieldModifier="public" />
     </Grid>
 </Window>

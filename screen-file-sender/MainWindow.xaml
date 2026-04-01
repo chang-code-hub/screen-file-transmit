@@ -18,6 +18,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -85,8 +87,61 @@
         </Grid>
 
 
-        <!--  Custom Resolution  -->
+        <!--  Shrink Settings  -->
+        <Grid Grid.Row="2" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Label
+                Grid.Column="0"
+                VerticalAlignment="Center"
+                Content="Width Shrink:" />
+            <TextBox
+                Grid.Column="1"
+                VerticalContentAlignment="Center"
+                Text="{Binding ShrinkWidth}" />
+            <Label
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                Content="Height Shrink:" />
+            <TextBox
+                Grid.Column="3"
+                VerticalContentAlignment="Center"
+                Text="{Binding ShrinkHeight}" />
+        </Grid>
+
         <Grid Grid.Row="3" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <!--Color Mode + Color Depth-->
+            <Label Grid.Column="0" VerticalAlignment="Center" Content="Color Mode:" />
+            <ComboBox x:Name="ColorModeComboBox" Grid.Column="1" VerticalContentAlignment="Center" ItemsSource="{Binding ColorModeList}" SelectedItem="{Binding ColorMode}" />
+            <!--<Label Grid.Column="2" VerticalAlignment="Center" Content="Color Depth:" />
+            <ComboBox Grid.Column="3" VerticalContentAlignment="Center" ItemsSource="{Binding ColorDepthList}" SelectedItem="{Binding ColorDepth}" />-->
+            <!--  Password  -->
+            <Label Grid.Column="2" VerticalAlignment="Center" Content="Password:" />
+            <PasswordBox Grid.Column="3" x:Name="PasswordBox" VerticalContentAlignment="Center" />
+        </Grid>
+
+        <!--<Grid  Grid.Row="3"  Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Label Grid.Column="0" VerticalAlignment="Center" Content="Password:" />
+            <PasswordBox x:Name="PasswordBox" Grid.Column="1" VerticalContentAlignment="Center" />
+        </Grid>-->
+
+        <!--  Custom Resolution  -->
+        <Grid Grid.Row="5" Margin="0,0,0,10">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -123,7 +178,7 @@
                 Text="{Binding CustomHeight}" />
         </Grid>
 
-        <Grid Grid.Row="5" Margin="0,0,0,10">
+        <Grid Grid.Row="6" Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="110" />
                 <ColumnDefinition Width="*" />
@@ -148,7 +203,7 @@
                 Text="{Binding FileOffset}" />-->
         </Grid>
         <!--  Submit Button  -->
-        <Grid Grid.Row="6" Margin="0,0,0,10">
+        <Grid Grid.Row="7" Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -160,14 +215,16 @@
                 Grid.Column="1"
                 Width="110"
                 Height="24"
+                Click="Button_Click"
                 Command="{Binding SaveToFileCommand}"
-                Content="Save As..." />
+                Content="Convert..." />
             <Button
                 Grid.Column="3"
                 Width="110"
                 Height="24"
+                Click="Button_Click"
                 Command="{Binding StartCommand}"
-                Content="Start" />
+                Content="Preview" />
         </Grid>
     </Grid>
 </Window>

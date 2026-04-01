@@ -42,28 +42,14 @@
                 Content="Browse..." />
         </Grid>
 
-        <!--  Color Mode Selection  -->
+        <!--  Password  -->
         <Grid Grid.Row="1" Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="110" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="110" />
-                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-
-        </Grid>
-
-        <Grid Grid.Row="2" Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="110" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="110" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!--  Color Depth Selection  -->
-
-            <!--  Encoding Scale  -->
+            <Label Grid.Column="0" VerticalAlignment="Center" Content="Password:" />
+            <PasswordBox x:Name="PasswordBox" Grid.Column="1" VerticalContentAlignment="Center" />
         </Grid>
 
         <!--  Submit Button  -->
@@ -72,6 +58,7 @@
                 Width="110"
                 Height="24"
                 HorizontalAlignment="Center"
+                Click="Button_Click"
                 Command="{Binding StartCommand}"
                 Content="Start" />
         </Grid>

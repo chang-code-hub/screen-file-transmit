@@ -12,6 +12,7 @@ using Microsoft.Win32;
 using MessageBox = System.Windows.MessageBox;
 using System.IO.Pipes;
 using System.Drawing.Imaging;
+using System.Drawing.Drawing2D;
 
 namespace screen_file_transmit
 {
@@ -42,7 +43,12 @@ namespace screen_file_transmit
 
         public int ColorDepth { get; set; } = 1;
 
+        public string Password { get; set; }
+
         public int Scale { get; set; } = 2;
+
+        public int ShrinkWidth { get; set; } = GetDefaultShrinkWidth();
+        public int ShrinkHeight { get; set; } = GetDefaultShrinkHeight();
 
         // 分辨率选择
         public List<Resolution> ResolutionList { get; } = new List<Resolution>
@@ -71,7 +77,7 @@ namespace screen_file_transmit
         public List<string> ColorModeList => new List<string>() { "Black", "RGB" };
 
         public List<int> ColorDepthList => new List<int>() { 1, 2, 3, 4, 5, 6, 7, 8 };
-        public List<int> ScaleList => new List<int>() { 1, 2, 3, 4, 5 };
+        public List<int> ScaleList => new List<int>() {  2, 3, 4, 5 };
 
         public Rectangle ScreenSize
         {
@@ -93,6 +99,17 @@ namespace screen_file_transmit
             // 获取主屏幕的工作区（去掉任务栏）
             var workingArea = System.Windows.Forms.Screen.PrimaryScreen.WorkingArea;
             return new Rectangle(workingArea.X, workingArea.Y, workingArea.Width, workingArea.Height);
+        }
+
+        public static int GetDefaultShrinkWidth()
+        {
+            return (int)(SystemParameters.WindowResizeBorderThickness.Left + SystemParameters.WindowResizeBorderThickness.Right);
+        }
+
+        public static int GetDefaultShrinkHeight()
+        {
+            var taskBarHeight = SystemParameters.PrimaryScreenHeight - SystemParameters.WorkArea.Height;
+            return (int)(SystemParameters.WindowCaptionHeight + taskBarHeight + SystemParameters.WindowResizeBorderThickness.Top + SystemParameters.WindowResizeBorderThickness.Bottom);
         }
 
         public MainWindowViewModel()
@@ -144,10 +161,22 @@ namespace screen_file_transmit
             {
                 var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read);
 
-                fs.Seek(FileOffset, SeekOrigin.Begin);
+                // 如有密码则加密到临时流
+                if (!string.IsNullOrEmpty(Password))
+                {
+                    var tempFs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+                    CryptoHelper.EncryptStream(fs, tempFs, Password);
+                    fs.Dispose();
+                    tempFs.Position = 0;
 
-                var window = new MatrixWindow(fs, ColorDepth, ColorMode == "RGB", Scale, Path.GetFileName(FilePath));
-                window.Show();
+                    var window = new MatrixWindow(tempFs, ColorDepth, ColorMode == "RGB", Scale, Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight);
+                    window.Show();
+                }
+                else
+                {
+                    var window = new MatrixWindow(fs, ColorDepth, ColorMode == "RGB", Scale, Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight);
+                    window.Show();
+                }
             }
             catch (Exception e)
             {
@@ -175,72 +204,89 @@ namespace screen_file_transmit
             {
                 using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read))
                 {
-                    // 获取选择的分辨率
-                    int targetWidth, targetHeight;
-                    if (SelectedResolution.Width == 0)
+                    Stream workStream = fs;
+                    FileStream encryptedTempStream = null;
+
+                    // 如有密码则加密到临时流
+                    if (!string.IsNullOrEmpty(Password))
                     {
-                        // 使用当前屏幕工作区（去掉任务栏）
-                        var workingArea = GetWorkingArea();
-                        targetWidth = workingArea.Width > 0 ? workingArea.Width : 1920;
-                        targetHeight = workingArea.Height > 0 ? workingArea.Height : 1080;
-                    }
-                    else if (SelectedResolution.Width == -1)
-                    {
-                        // 使用自定义分辨率
-                        targetWidth = CustomWidth;
-                        targetHeight = CustomHeight;
-                    }
-                    else
-                    {
-                        // 使用预设分辨率
-                        targetWidth = SelectedResolution.Width;
-                        targetHeight = SelectedResolution.Height;
+                        encryptedTempStream = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+                        CryptoHelper.EncryptStream(fs, encryptedTempStream, Password);
+                        encryptedTempStream.Position = 0;
+                        workStream = encryptedTempStream;
                     }
 
-                    // 计算元数据区域高度（与 DrawInfoArea 保持一致）
-                    int qrHeight = 8;
-                    int qrWidth = 48;
-                    int qrScale = Scale;
-                    var testInfo = new string('A', 50);
-                    var testBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(testInfo, qrHeight, qrWidth, qrScale, false);
-                    int qrActualHeight = testBitmap.Height;
-                    testBitmap.Dispose();
-                    int infoAreaHeight = qrActualHeight + 8 * Scale;
-
-                    // 计算网格布局（扣除元数据区域高度）
-                    var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
-                        targetWidth, targetHeight - infoAreaHeight, Scale);
-
-                    // 计算生成多少页
-                    long totalBytes = fs.Length;
-                    long bytesPerPage = matrix.MaxRows * matrix.MaxCols * matrix.CodeByteCount * ColorDepth *
-                                        (ColorMode == "RGB" ? 3 : 1);
-                    int totalPages = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
-
-                    var originalFileName = Path.GetFileNameWithoutExtension(FilePath);
-                    var saveDir = dialog.SelectedPath;
-
-                    for (int page = 0; page < totalPages; page++)
+                    try
                     {
-                        fs.Seek(page * bytesPerPage, SeekOrigin.Begin);
+                        // 获取选择的分辨率
+                        int targetWidth, targetHeight;
+                        if (SelectedResolution.Width == 0)
+                        {
+                            // 使用当前屏幕工作区（去掉任务栏）
+                            var workingArea = GetWorkingArea();
+                            targetWidth = workingArea.Width > 0 ? workingArea.Width : 1920;
+                            targetHeight = workingArea.Height > 0 ? workingArea.Height : 1080;
+                        }
+                        else if (SelectedResolution.Width == -1)
+                        {
+                            // 使用自定义分辨率
+                            targetWidth = CustomWidth;
+                            targetHeight = CustomHeight;
+                        }
+                        else
+                        {
+                            // 使用预设分辨率
+                            targetWidth = SelectedResolution.Width;
+                            targetHeight = SelectedResolution.Height;
+                        }
 
-                        // 生成图片
-                        var bitmap = GenerateDataMatrixBitmap(fs, matrix, ColorDepth, ColorMode == "RGB", Scale,
-                            Path.GetFileName(FilePath), page == 0, page + 1, totalPages);
-                        if (bitmap == null)
-                            continue;
+                        // 应用缩小设定
+                        int usableWidth = Math.Max(1, targetWidth - ShrinkWidth);
+                        int usableHeight = Math.Max(1, targetHeight - ShrinkHeight);
 
-                        // 生成文件名：原文件名_yymmddhhmm_4位串号.bmp（下划线分割）
-                        var timestamp = DateTime.Now.ToString("yyMMddHHmm");
-                        var serial = GenerateSerialNumber(page, 4);
-                        var fileName = $"{originalFileName}_{timestamp}_{serial}.bmp";
-                        var fullPath = Path.Combine(saveDir, fileName);
+                        // 计算网格布局（扣除元数据区域高度）
+                        var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
+                            usableWidth, usableHeight, Scale);
+                        var pageInfo = DataMatrixEncoder.CalculatePageInfo(matrix, Scale);
 
-                        bitmap.Save(fullPath, ImageFormat.Bmp);
-                        bitmap.Dispose();
+                        // 计算生成多少页
+                        long totalBytes = workStream.Length;
+                        long bytesPerPage = matrix.PageByteCount * ColorDepth *
+                                            (ColorMode == "RGB" ? 3 : 1);
+                        int totalPages = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
+
+                        var originalFileName = Path.GetFileNameWithoutExtension(FilePath);
+                        var saveDir = dialog.SelectedPath;
+
+                        // 生成会话GUID（去掉横线）
+                        var sessionGuid = Guid.NewGuid().ToString("N");
+
+                        for (int page = 0; page < totalPages; page++)
+                        {
+                            workStream.Seek(page * bytesPerPage, SeekOrigin.Begin);
+
+                            // 生成图片
+                            var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap((FileStream)workStream, matrix, pageInfo, ColorDepth, ColorMode == "RGB", Scale,
+                                Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid);
+                            if (bitmap == null)
+                                continue;
+
+                            // 生成文件名：原文件名_yymmddhhmm_4位串号.bmp（下划线分割）
+                            var timestamp = DateTime.Now.ToString("yyMMddHHmm");
+                            var serial = GenerateSerialNumber(page, 4);
+                            var fileName = $"{originalFileName}_{timestamp}_{serial}.bmp";
+                            var fullPath = Path.Combine(saveDir, fileName);
+
+                            bitmap.Save(fullPath, ImageFormat.Bmp);
+                            bitmap.Dispose();
+                        }
+
+                        MessageBox.Show($"成功生成 {totalPages} 张图片到:\n{saveDir}");
                     }
-
-                    MessageBox.Show($"成功生成 {totalPages} 张图片到:\n{saveDir}");
+                    finally
+                    {
+                        encryptedTempStream?.Dispose();
+                    }
                 }
             }
             catch (Exception e)
@@ -268,167 +314,49 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 生成 DataMatrix 图片
+        /// 生成二维码矩阵图片（用于预览）
         /// </summary>
-        private Bitmap GenerateDataMatrixBitmap(FileStream fileStream, DataMatrixResult matrix,
-            int colorDepth, bool colorful, int scale, string fileName = null, bool includeFileName = false,
-            int currentPage = 1, int totalPages = 1)
+        public static Bitmap GeneratePreviewBitmap(
+            FileStream fileStream, 
+            int screenWidth,
+            int screenHeight,
+            int colorDepth,
+            bool colorful,
+            int scale,
+            string fileName,
+              int currentPage,
+              int totalPage,
+            ref string sessionGuid,
+            int shrinkWidth = 0,
+            int shrinkHeight = 0)
         {
-            // 计算元数据区域高度（与 DrawInfoArea 保持一致）
-            int qrHeight = 8;
-            int qrWidth = 48;
-            var testInfo = new string('A', 50);
-            var testBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(testInfo, qrHeight, qrWidth, scale, false);
-            int qrActualHeight = testBitmap.Height;
-            testBitmap.Dispose();
-            int infoAreaHeight = qrActualHeight + 8 * scale;
-
-            var width = ((matrix.MaxCols * (matrix.CodeSize + 6))) * scale;
-            var height = ((matrix.MaxRows * (matrix.CodeSize + 6))) * scale + infoAreaHeight;
-
-            var bitmap = new Bitmap(width, height);
-            using (Graphics g = Graphics.FromImage(bitmap))
+            // 第一次生成时创建 GUID
+            if (string.IsNullOrEmpty(sessionGuid))
             {
-                g.Clear(System.Drawing.Color.White);
+                sessionGuid = Guid.NewGuid().ToString("N");
             }
 
-            var offset = fileStream.Position;
-            var chuck = new byte[matrix.CodeByteCount];
-            bool end = false;
-            int count = 0;
+            int usableWidth = Math.Max(1, screenWidth - shrinkWidth);
+            int usableHeight = Math.Max(1, screenHeight - shrinkHeight);
+            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(usableWidth, usableHeight , scale);
+            var pageInfo = DataMatrixEncoder.CalculatePageInfo(matrix, scale);
 
-            // 绘制二维码网格（从 infoAreaHeight 开始，避开顶部信息区）
-            for (int row = 0; !end && row < matrix.MaxRows; row++)
-            {
-                var top = (((matrix.CodeSize + 6)) * row) * scale + infoAreaHeight;
+            // 使用 GenerateDataMatrixBitmap 方法生成图片
+            var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(
+                fileStream, matrix, pageInfo, colorDepth, colorful, scale,
+                fileName, currentPage == 1, currentPage, totalPage, sessionGuid);
 
-                for (int column = 0; !end && column < matrix.MaxCols; column++)
-                {
-                    var left = (((matrix.CodeSize + 6)) * column) * scale;
-                    // 只在第一个二维码且需要包含文件名时传递文件名
-                    var currentFileName = (row == 0 && column == 0 && includeFileName) ? fileName : null;
-                    var bitmapPart = DataMatrixEncoder.DrawDataMatrix(fileStream, row, column, scale, chuck, matrix,
-                        colorDepth, colorful, currentFileName);
-
-                    if (bitmapPart != null)
-                    {
-                        count++;
-                        using (Graphics g = Graphics.FromImage(bitmap))
-                        {
-                            g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
-                            g.DrawRectangle(new System.Drawing.Pen(System.Drawing.Brushes.Black, scale),
-                                new System.Drawing.Rectangle(left + scale, top + scale, (matrix.CodeSize + 3) * scale,
-                                    (matrix.CodeSize + 3) * scale));
-                            g.DrawImage(bitmapPart,
-                                new System.Drawing.PointF((float)(left + 2.5 * scale), (float)(top + 2.5 * scale)));
-                        }
-                    }
-                    else
-                    {
-                        end = true;
-                    }
-                }
-            }
-
-            if (count == 0)
-                return null;
-
-            // 在顶部绘制元数据信息
-            DrawInfoArea(bitmap, matrix, colorful, colorDepth, offset, fileStream.Position - offset, fileStream.Length,
-                count, fileName, currentPage, totalPages, scale);
 
             return bitmap;
         }
 
         /// <summary>
-        /// 绘制顶部信息区域（文件名、页码、元数据二维码）
+        /// 检查是否还有更多数据需要显示
         /// </summary>
-        private void DrawInfoArea(Bitmap bitmap, DataMatrixResult matrix, bool colorful, int colorDepth,
-            long offset, long length, long totalLength, int count, string fileName, int currentPage, int totalPages,
-            int scale)
+        public static bool HasMoreData(FileStream fileStream)
         {
-            // 使用长方形二维码节省高度
-            int qrHeight = 8; // 行数（较小）
-            int qrWidth = 48; // 列数（较长）
-            int qrScale = scale; // 与正文保持一致
-
-            // 计算二维码实际高度
-            var testInfo = new string('A', 50);
-            var testBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(testInfo, qrHeight, qrWidth, qrScale, false);
-            int qrActualHeight = testBitmap.Height;
-            testBitmap.Dispose();
-
-            // 紧凑的信息区高度（根据二维码高度自适应）
-            int infoAreaHeight = qrActualHeight + 8 * scale;
-            int margin = 4 * scale;
-
-            using (Graphics g = Graphics.FromImage(bitmap))
-            {
-                g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
-                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-
-                // 绘制白色背景
-                g.FillRectangle(System.Drawing.Brushes.White,
-                    new System.Drawing.Rectangle(0, 0, bitmap.Width, infoAreaHeight));
-
-                // 左上角：元数据二维码（长方形，节省高度）
-                var info =
-                    $"{matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{length},{totalLength},{count}";
-                var infoBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(info, qrHeight, qrWidth, qrScale, false);
-
-                int qrX = margin;
-                int qrY = (infoAreaHeight - infoBitmap.Height) / 2;
-                qrY = Math.Max(margin / 2, qrY);
-
-                g.DrawImage(infoBitmap, new System.Drawing.Point(qrX, qrY));
-                int qrRightEdge = qrX + infoBitmap.Width;
-                infoBitmap.Dispose();
-
-                // 右上角：页码
-                var pageInfo = $"{currentPage} / {totalPages}";
-                using (var pageFont = new System.Drawing.Font("Arial", 9 * scale, System.Drawing.FontStyle.Bold))
-                {
-                    var pageSize = g.MeasureString(pageInfo, pageFont);
-                    int pageX = bitmap.Width - (int)pageSize.Width - margin;
-                    int pageY = (infoAreaHeight - (int)pageSize.Height) / 2;
-                    g.DrawString(pageInfo, pageFont, System.Drawing.Brushes.DarkBlue, pageX, pageY);
-                }
-
-                // 中间：文件名（自动截断以适应可用空间）
-                var displayName = string.IsNullOrEmpty(fileName) ? "Unknown" : fileName;
-                using (var nameFont =
-                       new System.Drawing.Font("Microsoft YaHei", 10 * scale, System.Drawing.FontStyle.Regular))
-                {
-                    var nameSize = g.MeasureString(displayName, nameFont);
-                    int availableWidth = bitmap.Width - qrRightEdge - margin * 3 - 100; // 预留页码空间
-
-                    // 截断文件名
-                    if (nameSize.Width > availableWidth && displayName.Length > 5)
-                    {
-                        while (displayName.Length > 5)
-                        {
-                            var testName = displayName.Substring(0, displayName.Length - 1) + "...";
-                            if (g.MeasureString(testName, nameFont).Width <= availableWidth)
-                            {
-                                displayName = testName;
-                                break;
-                            }
-
-                            displayName = displayName.Substring(0, displayName.Length - 1);
-                        }
-
-                        if (!displayName.EndsWith("..."))
-                            displayName += "...";
-                    }
-
-                    // 重新测量并居中绘制
-                    nameSize = g.MeasureString(displayName, nameFont);
-                    int nameX = qrRightEdge + margin + (availableWidth - (int)nameSize.Width) / 2;
-                    int nameY = (infoAreaHeight - (int)nameSize.Height) / 2;
-
-                    g.DrawString(displayName, nameFont, System.Drawing.Brushes.Black, nameX, nameY);
-                }
-            }
+            return fileStream.Length > fileStream.Position;
         }
+         
     }
 }
