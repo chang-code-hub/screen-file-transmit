@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents; 
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
@@ -71,7 +71,7 @@ namespace screen_file_transmit
         }
 
         private void UIElement_OnMouseDown(object sender, MouseButtonEventArgs e)
-        { 
+        {
             this.DragMove();
         }
 
@@ -82,7 +82,6 @@ namespace screen_file_transmit
 
         private void Button_Click_2(object sender, RoutedEventArgs e)
         {
-
         }
 
         public void ShowDataMatrix()
@@ -93,7 +92,7 @@ namespace screen_file_transmit
             var screenHeight = (int)DisplayGrid.ActualHeight;
             int infoCodeHeight = 8;
             int infoCodeWidth = 32;
-            int infoHeight = 0;// scale * (infoCodeHeight + 3);
+            int infoHeight = 0; // scale * (infoCodeHeight + 3);
             var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(screenWidth, screenHeight - infoHeight, scale);
             //Trace.WriteLine("{ width: canvas.width, height: canvas.height, size: code.codeSize, scale: options.scale })
             var width = ((matrix.MaxCols * (matrix.CodeSize + 6))) * scale;
@@ -105,6 +104,7 @@ namespace screen_file_transmit
                 //g.DrawLine(new Pen(Brushes.Black, scale * 2), new Point(0, height), new Point(width, height));
                 //g.DrawLine(new Pen(Brushes.Black, scale * 2), new Point(width, infoHeight), new Point(width, height));
             }
+
             //
             var offset = fileStream.Position;
 
@@ -113,12 +113,13 @@ namespace screen_file_transmit
             int count = 0;
             for (int row = 0; !end && row < matrix.MaxRows; row++)
             {
-                var top = (((matrix.CodeSize + 6 )) * row) * scale + infoHeight; 
+                var top = (((matrix.CodeSize + 6)) * row) * scale + infoHeight;
 
                 for (int column = 0; !end && column < matrix.MaxCols; column++)
                 {
-                    var left = (((matrix.CodeSize + 6)) * column) * scale; 
-                    var bitmapPart = DataMatrixEncoder.DrawDataMatrix(fileStream, row, column, scale, chuck, matrix, colorDepth, colorful, fileName);
+                    var left = (((matrix.CodeSize + 6)) * column) * scale;
+                    var bitmapPart = DataMatrixEncoder.DrawDataMatrix(fileStream, row, column, scale, chuck, matrix,
+                        colorDepth, colorful, fileName);
 
                     if (bitmapPart != null)
                     {
@@ -126,8 +127,11 @@ namespace screen_file_transmit
                         using (Graphics g = Graphics.FromImage(bitmap))
                         {
                             g.CompositingMode = CompositingMode.SourceOver;
-                            g.DrawRectangle(new Pen(Brushes.Black, scale), new Rectangle(left + scale, top + scale, (matrix.CodeSize + 3) * scale, (matrix.CodeSize + 3) * scale));
-                            g.DrawImage(bitmapPart, new PointF( (float)(left + 2.5 * scale), (float)(top + 2.5 * scale)));
+                            g.DrawRectangle(new Pen(Brushes.Black, scale),
+                                new Rectangle(left + scale, top + scale, (matrix.CodeSize + 3) * scale,
+                                    (matrix.CodeSize + 3) * scale));
+                            g.DrawImage(bitmapPart,
+                                new PointF((float)(left + 2.5 * scale), (float)(top + 2.5 * scale)));
                         }
                     }
                 }
@@ -145,8 +149,10 @@ namespace screen_file_transmit
                 Source = bitmapSource
             });
 
-            var info = $"${matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{fileStream.Position - offset},{fileStream.Length},{count}";
-            var infoBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(info, infoCodeHeight, infoCodeWidth, 1, true);
+            var info =
+                $"${matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{fileStream.Position - offset},{fileStream.Length},{count}";
+            var infoBitmap =
+                DataMatrixEncoder.GenerateDataRectangleMatrix(info, infoCodeHeight, infoCodeWidth, scale, false);
             var infoBitmapSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(infoBitmap);
             InfoImage.Source = infoBitmapSource;
 

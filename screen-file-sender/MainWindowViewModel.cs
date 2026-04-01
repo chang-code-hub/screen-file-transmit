@@ -219,13 +219,13 @@ namespace screen_file_transmit
                         if (bitmap == null)
                             continue;
 
-                        // 生成文件名：原文件名_yymmddhhmm_4位串号.png（下划线分割）
+                        // 生成文件名：原文件名_yymmddhhmm_4位串号.bmp（下划线分割）
                         var timestamp = DateTime.Now.ToString("yyMMddHHmm");
                         var serial = GenerateSerialNumber(page, 4);
-                        var fileName = $"{originalFileName}_{timestamp}_{serial}.png";
+                        var fileName = $"{originalFileName}_{timestamp}_{serial}.bmp";
                         var fullPath = Path.Combine(saveDir, fileName);
 
-                        bitmap.Save(fullPath, ImageFormat.Png);
+                        bitmap.Save(fullPath, ImageFormat.Bmp);
                         bitmap.Dispose();
                     }
 
@@ -330,8 +330,19 @@ namespace screen_file_transmit
             long offset, long length, long totalLength, int count, string fileName, int currentPage, int totalPages,
             int scale)
         {
-            // 紧凑的信息区高度
-            int infoAreaHeight = Math.Max(40 * scale, 50);
+            // 使用长方形二维码节省高度
+            int qrHeight = 8; // 行数（较小）
+            int qrWidth = 48; // 列数（较长）
+            int qrScale = scale; // 与正文保持一致
+
+            // 计算二维码实际高度
+            var testInfo = new string('A', 50);
+            var testBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(testInfo, qrHeight, qrWidth, qrScale, true);
+            int qrActualHeight = testBitmap.Height;
+            testBitmap.Dispose();
+
+            // 紧凑的信息区高度（根据二维码高度自适应）
+            int infoAreaHeight = qrActualHeight + 8 * scale;
             int margin = 4 * scale;
 
             using (Graphics g = Graphics.FromImage(bitmap))
@@ -339,57 +350,66 @@ namespace screen_file_transmit
                 g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
                 g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-                // 绘制背景（浅灰色）
-                g.FillRectangle(System.Drawing.Brushes.WhiteSmoke,
+                // 绘制白色背景
+                g.FillRectangle(System.Drawing.Brushes.White,
                     new System.Drawing.Rectangle(0, 0, bitmap.Width, infoAreaHeight));
 
-                // 绘制底部分隔线
-                g.DrawLine(new System.Drawing.Pen(System.Drawing.Brushes.Gray, Math.Max(1, scale)),
-                    0, infoAreaHeight - 1, bitmap.Width, infoAreaHeight - 1);
+                // 左上角：元数据二维码（长方形，节省高度）
+                var info =
+                    $"{matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{length},{totalLength},{count}";
+                var infoBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(info, qrHeight, qrWidth, qrScale, false);
 
-                // 计算二维码尺寸（确保分辨率足够）
-                int qrScale = Math.Max(2, scale); // 最小 scale=2 保证分辨率
-                var info = $"{matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{length},{totalLength},{count}";
-                var infoBitmap = DataMatrixEncoder.GenerateDataRectangleMatrix(info, 8, 32, qrScale, true);
-
-                // 二维码放在右侧，垂直居中
-                int qrX = bitmap.Width - infoBitmap.Width - margin;
+                int qrX = margin;
                 int qrY = (infoAreaHeight - infoBitmap.Height) / 2;
                 qrY = Math.Max(margin / 2, qrY);
 
-                // 绘制二维码
                 g.DrawImage(infoBitmap, new System.Drawing.Point(qrX, qrY));
+                int qrRightEdge = qrX + infoBitmap.Width;
                 infoBitmap.Dispose();
 
-                // 左侧文本区域（紧凑布局）
-                int textX = margin;
-                int textWidth = qrX - margin * 2;
-
-                // 文件名（单行，过长截断）
-                var displayName = string.IsNullOrEmpty(fileName) ? "Unknown" : fileName;
-                using (var nameFont = new System.Drawing.Font("Microsoft YaHei", 9 * scale, System.Drawing.FontStyle.Regular))
+                // 右上角：页码
+                var pageInfo = $"{currentPage} / {totalPages}";
+                using (var pageFont = new System.Drawing.Font("Arial", 9 * scale, System.Drawing.FontStyle.Bold))
                 {
-                    // 测量并截断文件名
-                    var nameSize = g.MeasureString(displayName, nameFont);
-                    if (nameSize.Width > textWidth)
-                    {
-                        while (displayName.Length > 5 && g.MeasureString(displayName + "...", nameFont).Width > textWidth)
-                        {
-                            displayName = displayName.Substring(0, displayName.Length - 1);
-                        }
-                        displayName += "...";
-                    }
-
-                    // 文件名紧贴顶部
-                    g.DrawString(displayName, nameFont, System.Drawing.Brushes.Black, textX, margin);
+                    var pageSize = g.MeasureString(pageInfo, pageFont);
+                    int pageX = bitmap.Width - (int)pageSize.Width - margin;
+                    int pageY = (infoAreaHeight - (int)pageSize.Height) / 2;
+                    g.DrawString(pageInfo, pageFont, System.Drawing.Brushes.DarkBlue, pageX, pageY);
                 }
 
-                // 页码（紧贴文件名下方）
-                var pageInfo = $"Page {currentPage} / {totalPages}";
-                using (var pageFont = new System.Drawing.Font("Arial", 8 * scale, System.Drawing.FontStyle.Bold))
+                // 中间：文件名（自动截断以适应可用空间）
+                var displayName = string.IsNullOrEmpty(fileName) ? "Unknown" : fileName;
+                using (var nameFont =
+                       new System.Drawing.Font("Microsoft YaHei", 10 * scale, System.Drawing.FontStyle.Regular))
                 {
-                    var pageY = margin + 12 * scale;
-                    g.DrawString(pageInfo, pageFont, System.Drawing.Brushes.DarkBlue, textX, pageY);
+                    var nameSize = g.MeasureString(displayName, nameFont);
+                    int availableWidth = bitmap.Width - qrRightEdge - margin * 3 - 100; // 预留页码空间
+
+                    // 截断文件名
+                    if (nameSize.Width > availableWidth && displayName.Length > 5)
+                    {
+                        while (displayName.Length > 5)
+                        {
+                            var testName = displayName.Substring(0, displayName.Length - 1) + "...";
+                            if (g.MeasureString(testName, nameFont).Width <= availableWidth)
+                            {
+                                displayName = testName;
+                                break;
+                            }
+
+                            displayName = displayName.Substring(0, displayName.Length - 1);
+                        }
+
+                        if (!displayName.EndsWith("..."))
+                            displayName += "...";
+                    }
+
+                    // 重新测量并居中绘制
+                    nameSize = g.MeasureString(displayName, nameFont);
+                    int nameX = qrRightEdge + margin + (availableWidth - (int)nameSize.Width) / 2;
+                    int nameY = (infoAreaHeight - (int)nameSize.Height) / 2;
+
+                    g.DrawString(displayName, nameFont, System.Drawing.Brushes.Black, nameX, nameY);
                 }
             }
         }
