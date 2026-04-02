@@ -27,11 +27,83 @@ namespace screen_file_receiver
         /// <param name="fileStream">输出流</param>
         /// <param name="outputFileName">解析出的原始文件名（如果存在）</param>
         /// <returns>是否成功</returns>
-        public static bool ReadToFile(string fileName, Stream fileStream, out string outputFileName)
+        public static bool ReadToFile(string fileName, Stream fileStream, out string outputFileName, out int currentPage, out int totalPages, bool showDebugImages = false)
         {
             outputFileName = null;
+            currentPage = 0;
+            totalPages = 0;
             // 读取图像
             Mat image = Cv2.ImRead(fileName);
+
+            // 尝试读取元数据条码（可能在左侧，旋转90度）
+            var reader = new BarcodeReader();
+            string info = null;
+
+            // 首先尝试从左侧区域读取旋转的条码
+            info = TryReadRotatedBarcode(image, reader);
+
+            // 如果找不到，尝试原来的方式（兼容旧格式）
+            if (info == null)
+            {
+                info = TryReadHorizontalBarcode(image, reader);
+            }
+
+            if (info == null)
+            {
+                MessageBox.Show("找不到信息" + fileName);
+                return false;
+            }
+
+            string infoText = info.TrimStart('$');
+            int rowCount, colCount, colorDepth;
+            bool isColorful;
+            long offset = 0, length = 0, totalLength = 0;
+
+            if (infoText.Contains("-"))
+            {
+                // 新格式: $XX-XX-XX-XX
+                var hexParts = infoText.Split('-');
+                if (hexParts.Length < 4)
+                {
+                    MessageBox.Show("元数据格式错误: " + info);
+                    return false;
+                }
+
+                byte b0 = Convert.ToByte(hexParts[0], 16);
+                byte b1 = Convert.ToByte(hexParts[1], 16);
+                byte b2 = Convert.ToByte(hexParts[2], 16);
+                byte b3 = Convert.ToByte(hexParts[3], 16);
+
+                rowCount = b0 >> 4;
+                colCount = b0 & 0x0F;
+                isColorful = (b1 & 0x80) != 0;
+                colorDepth = b1 & 0x7F;
+                currentPage = b2;
+                totalPages = b3;
+
+                // 新格式不含文件偏移，使用当前流位置追加
+                offset = fileStream.Position;
+            }
+            else
+            {
+                // 旧格式: rowCount,colCount,isColorful,colorDepth,offset,length,totalLength
+                var splited = infoText.Split(',');
+                if (splited.Length < 7)
+                {
+                    MessageBox.Show("元数据格式错误: " + info);
+                    return false;
+                }
+
+                rowCount = int.Parse(splited[0]);
+                colCount = int.Parse(splited[1]);
+                isColorful = splited[2] == "1";
+                colorDepth = int.Parse(splited[3]);
+                offset = long.Parse(splited[4]);
+                length = long.Parse(splited[5]);
+                totalLength = long.Parse(splited[6]);
+                currentPage = 0;
+                totalPages = 0;
+            }
 
             Mat gray = new Mat();
             Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
@@ -43,17 +115,19 @@ namespace screen_file_receiver
             // 查找轮廓
             Cv2.FindContours(thresh, out Point[][] contours, out HierarchyIndex[] hierarchy, RetrievalModes.External,
                 ContourApproximationModes.ApproxSimple);
-             
+
             var lagerContours = contours.Where(c => Cv2.ContourArea(c) > 150).ToList();
 
             // 在原始图像上绘制所有轮廓
             Mat contoursOutput = image.Clone();
             Cv2.DrawContours(contoursOutput, lagerContours, -1, new Scalar(0, 0, 255), 2);
 
-            Cv2.ImShow("Image  ", contoursOutput);
-            Cv2.WaitKey();
+            if (showDebugImages)
+            {
+                Cv2.ImShow("Image  ", contoursOutput);
+                Cv2.WaitKey();
+            }
 
-            var reader = new BarcodeReader();
             List<string> readResult = new List<string>();
             // 设置 X 坐标容差值
             var list = lagerContours.Select(c => new { Rect = Cv2.BoundingRect(c), Contour = c })
@@ -61,48 +135,11 @@ namespace screen_file_receiver
                             (c.Rect.Height * 1.0 / c.Rect.Width) > 1.0 / 4)
                 .OrderBy(c => c.Rect.Width + c.Rect.Height).ThenBy(c => c.Rect.Y).ThenBy(c => c.Rect.X).ToList();
 
-            string info = null;
-            int index = 0;
-            foreach (var contour in list.ToList())
-            {
-                index++;
-                // 获取外接矩形
-                Rect rect = contour.Rect;
-                Cv2.Rectangle(image, rect, new Scalar(0, 0, 255), 2);
-
-
-                // 从图像中裁剪该矩形区域
-                Mat roi = new Mat(image, rect);
-
-                if (!ReadImage(roi, reader, readResult))
-                {
-                    list.Remove(contour);
-                }
-                else
-                {
-                    info = readResult.First();
-                    readResult.Clear();
-                    break;
-                }
-            }
-
-            if (info == null)
-            {
-                MessageBox.Show("找不到信息" + fileName);
-                return false;
-            }
-
-            var splited = info.TrimStart('$').Split(',');
-            int rowCount = int.Parse(splited[0]);
-            int colCount = int.Parse(splited[1]);
-            bool isColorful = splited[2] == "1";
-            int colorDepth = int.Parse(splited[3]);
-            int offset = int.Parse(splited[4]);
-            int length = int.Parse(splited[5]);
-            int totalLength = int.Parse(splited[6]);
+            // 找到元数据条码后，移除它（通常是最小的）
+            list = list.Skip(1).ToList();
 
             int rindex = 0;
-            foreach (var contour in list.Skip(index))
+            foreach (var contour in list)
             {
                 rindex++;
                 Rect rect = contour.Rect;
@@ -115,8 +152,11 @@ namespace screen_file_receiver
                     Cv2.Threshold(roi, roiBin, 127, 255, ThresholdTypes.Binary);
                     if (!ReadImage(roiBin, reader, readResult))
                     {
-                        Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength}", roi);
-                        Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength} Bin", roiBin);
+                        if (showDebugImages)
+                        {
+                            Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength}", roi);
+                            Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength} Bin", roiBin);
+                        }
                         return false;
                     }
                 }
@@ -165,6 +205,59 @@ namespace screen_file_receiver
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// 尝试从左侧区域读取旋转90度的条码
+        /// </summary>
+        private static string TryReadRotatedBarcode(Mat image, BarcodeReader reader)
+        {
+            int leftRegionWidth = Math.Min(100, image.Width / 4);  // 左侧区域宽度
+
+            // 提取左侧区域
+            Rect leftRegion = new Rect(0, 0, leftRegionWidth, image.Height);
+            if (leftRegion.Width > image.Width || leftRegion.Height > image.Height)
+                return null;
+
+            Mat leftRoi = new Mat(image, leftRegion);
+
+            // 逆时针旋转90度（使条码变为水平）
+            Mat rotated = new Mat();
+            Cv2.Transpose(leftRoi, rotated);
+            Cv2.Flip(rotated, rotated, FlipMode.Y);
+
+            using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(rotated))
+            {
+                var result = reader.Decode(bitmap);
+                if (result != null)
+                {
+                    return result.Text;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 尝试从顶部区域读取水平条码（兼容旧格式）
+        /// </summary>
+        private static string TryReadHorizontalBarcode(Mat image, BarcodeReader reader)
+        {
+            int topRegionHeight = Math.Min(60, image.Height / 8);
+
+            Rect topRegion = new Rect(0, 0, image.Width, topRegionHeight);
+            Mat topRoi = new Mat(image, topRegion);
+
+            using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(topRoi))
+            {
+                var result = reader.Decode(bitmap);
+                if (result != null)
+                {
+                    return result.Text;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

@@ -7,6 +7,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "screen-file-receiver", "scr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "screen-file-sender", "screen-file-sender\screen-file-sender.csproj", "{6B549F01-737B-4FAD-A36D-967227856BDC}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "qr-codec-test", "qr-codec-test\qr-codec-test.csproj", "{A1B2C3D4-E5F6-7890-1234-567890ABCDEF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决方案项", "{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}"
+	ProjectSection(SolutionItems) = preProject
+		data\sample.txt = data\sample.txt
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +28,10 @@ Global
 		{6B549F01-737B-4FAD-A36D-967227856BDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6B549F01-737B-4FAD-A36D-967227856BDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6B549F01-737B-4FAD-A36D-967227856BDC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-1234-567890ABCDEF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-1234-567890ABCDEF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-1234-567890ABCDEF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-1234-567890ABCDEF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

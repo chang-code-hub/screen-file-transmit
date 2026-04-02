@@ -77,7 +77,7 @@ namespace screen_file_transmit
         public List<string> ColorModeList => new List<string>() { "Black", "RGB" };
 
         public List<int> ColorDepthList => new List<int>() { 1, 2, 3, 4, 5, 6, 7, 8 };
-        public List<int> ScaleList => new List<int>() {  2, 3, 4, 5 };
+        public List<int> ScaleList => new List<int>() { 2, 3, 4, 5 };
 
         public Rectangle ScreenSize
         {
@@ -103,13 +103,16 @@ namespace screen_file_transmit
 
         public static int GetDefaultShrinkWidth()
         {
-            return (int)(SystemParameters.WindowResizeBorderThickness.Left + SystemParameters.WindowResizeBorderThickness.Right);
+            return (int)(SystemParameters.WindowResizeBorderThickness.Left +
+                         SystemParameters.WindowResizeBorderThickness.Right) + 10;
         }
 
         public static int GetDefaultShrinkHeight()
         {
             var taskBarHeight = SystemParameters.PrimaryScreenHeight - SystemParameters.WorkArea.Height;
-            return (int)(SystemParameters.WindowCaptionHeight + taskBarHeight + SystemParameters.WindowResizeBorderThickness.Top + SystemParameters.WindowResizeBorderThickness.Bottom);
+            return (int)(SystemParameters.WindowCaptionHeight + taskBarHeight +
+                         SystemParameters.WindowResizeBorderThickness.Top +
+                         SystemParameters.WindowResizeBorderThickness.Bottom) + 10;
         }
 
         public MainWindowViewModel()
@@ -164,17 +167,20 @@ namespace screen_file_transmit
                 // 如有密码则加密到临时流
                 if (!string.IsNullOrEmpty(Password))
                 {
-                    var tempFs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+                    var tempFs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite,
+                        FileShare.None, 4096, FileOptions.DeleteOnClose);
                     CryptoHelper.EncryptStream(fs, tempFs, Password);
                     fs.Dispose();
                     tempFs.Position = 0;
 
-                    var window = new MatrixWindow(tempFs, ColorDepth, ColorMode == "RGB", Scale, Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight);
+                    var window = new MatrixWindow(tempFs, ColorDepth, ColorMode == "RGB", Scale,
+                        Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight);
                     window.Show();
                 }
                 else
                 {
-                    var window = new MatrixWindow(fs, ColorDepth, ColorMode == "RGB", Scale, Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight);
+                    var window = new MatrixWindow(fs, ColorDepth, ColorMode == "RGB", Scale, Path.GetFileName(FilePath),
+                        ShrinkWidth, ShrinkHeight);
                     window.Show();
                 }
             }
@@ -210,7 +216,8 @@ namespace screen_file_transmit
                     // 如有密码则加密到临时流
                     if (!string.IsNullOrEmpty(Password))
                     {
-                        encryptedTempStream = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+                        encryptedTempStream = new FileStream(Path.GetTempFileName(), FileMode.Create,
+                            FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
                         CryptoHelper.EncryptStream(fs, encryptedTempStream, Password);
                         encryptedTempStream.Position = 0;
                         workStream = encryptedTempStream;
@@ -259,25 +266,26 @@ namespace screen_file_transmit
                         var saveDir = dialog.SelectedPath;
 
                         // 生成会话GUID（去掉横线）
-                        var sessionGuid = Guid.NewGuid().ToString("N");
+                        var sessionGuid = Guid.NewGuid().ToString("N").Substring(0, 10);
 
                         for (int page = 0; page < totalPages; page++)
                         {
                             workStream.Seek(page * bytesPerPage, SeekOrigin.Begin);
 
                             // 生成图片
-                            var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap((FileStream)workStream, matrix, pageInfo, ColorDepth, ColorMode == "RGB", Scale,
+                            var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap((FileStream)workStream, matrix,
+                                pageInfo, ColorDepth, ColorMode == "RGB", Scale,
                                 Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid);
                             if (bitmap == null)
                                 continue;
 
-                            // 生成文件名：原文件名_yymmddhhmm_4位串号.bmp（下划线分割）
+                            // 生成文件名：原文件名_yymmddhhmm_4位串号.png（下划线分割）
                             var timestamp = DateTime.Now.ToString("yyMMddHHmm");
                             var serial = GenerateSerialNumber(page, 4);
-                            var fileName = $"{originalFileName}_{timestamp}_{serial}.bmp";
+                            var fileName = $"{originalFileName}_{timestamp}_{serial}.png";
                             var fullPath = Path.Combine(saveDir, fileName);
 
-                            bitmap.Save(fullPath, ImageFormat.Bmp);
+                            bitmap.Save(fullPath, ImageFormat.Png);
                             bitmap.Dispose();
                         }
 
@@ -317,15 +325,15 @@ namespace screen_file_transmit
         /// 生成二维码矩阵图片（用于预览）
         /// </summary>
         public static Bitmap GeneratePreviewBitmap(
-            FileStream fileStream, 
+            FileStream fileStream,
             int screenWidth,
             int screenHeight,
             int colorDepth,
             bool colorful,
             int scale,
             string fileName,
-              int currentPage,
-              int totalPage,
+            int currentPage,
+            int totalPage,
             ref string sessionGuid,
             int shrinkWidth = 0,
             int shrinkHeight = 0)
@@ -333,12 +341,12 @@ namespace screen_file_transmit
             // 第一次生成时创建 GUID
             if (string.IsNullOrEmpty(sessionGuid))
             {
-                sessionGuid = Guid.NewGuid().ToString("N");
+                sessionGuid = Guid.NewGuid().ToString("N").Substring(0, 10);
             }
 
             int usableWidth = Math.Max(1, screenWidth - shrinkWidth);
             int usableHeight = Math.Max(1, screenHeight - shrinkHeight);
-            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(usableWidth, usableHeight , scale);
+            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(usableWidth, usableHeight, scale);
             var pageInfo = DataMatrixEncoder.CalculatePageInfo(matrix, scale);
 
             // 使用 GenerateDataMatrixBitmap 方法生成图片
@@ -357,6 +365,5 @@ namespace screen_file_transmit
         {
             return fileStream.Length > fileStream.Position;
         }
-         
     }
 }

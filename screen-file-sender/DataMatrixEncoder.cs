@@ -25,6 +25,18 @@ namespace screen_file_transmit
 {
     public class DataMatrixEncoder
     {
+        private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        private static readonly int META_BARCODE_HEIGHT = 25;
+        private static readonly int MARGIN = 5;
+        private static readonly int FONT_SIZE = 15;
+
+        private static readonly int META_INFO_WIDTH =
+            MARGIN + META_BARCODE_HEIGHT + MARGIN + META_BARCODE_HEIGHT + MARGIN + MARGIN +
+            META_BARCODE_HEIGHT + MARGIN + META_BARCODE_HEIGHT + MARGIN;
+
+        private static readonly int META_INFO_WIDTH_LEFT = MARGIN +
+                                                           META_BARCODE_HEIGHT + MARGIN + META_BARCODE_HEIGHT + MARGIN;
+
         private static readonly Dictionary<string, DataMatrixVersion> dataMatrixVersions =
             new Dictionary<string, DataMatrixVersion>
             {
@@ -77,9 +89,6 @@ namespace screen_file_transmit
             int scale = codeScale;
 
 
-            int qrHeight = 20;
-            int infoAreaHeight = qrHeight + 12;
-
             string bestVersion = null;
             int maxRows = 0;
             int maxCols = 0;
@@ -94,10 +103,10 @@ namespace screen_file_transmit
                 var versionData = kvp.Value;
 
                 int cellStep = (versionData.Size + 7) * scale;
-                 
 
-                int cols = screenWidth / cellStep;
-                int rows = (screenHeight - infoAreaHeight) / cellStep;
+                // 扣除左右信息区后计算行列
+                int cols = (screenWidth - META_INFO_WIDTH) / cellStep;
+                int rows = screenHeight / cellStep;
 
                 if (cols <= 0 || rows <= 0) continue;
 
@@ -124,27 +133,22 @@ namespace screen_file_transmit
                 CodeSize = codeSize,
                 CodeByteCount = codeByteCount,
                 CodeCapacity = codeCapacity,
-                PageByteCount  = codeByteCount * maxRows * maxCols
+                PageByteCount = codeByteCount * maxRows * maxCols,
             };
         }
 
         public static PageInfo CalculatePageInfo(DataMatrixResult matrix, int scale)
         {
-            int qrHeight = 20;
-            int infoAreaHeight = qrHeight + 12;
             int cellStep = (matrix.CodeSize + 7) * scale;
 
             return new PageInfo
             {
-                QrHeight = qrHeight,
-                InfoAreaHeight = infoAreaHeight,
                 CellStep = cellStep,
-                BitmapWidth = matrix.MaxCols * cellStep,
-                BitmapHeight = matrix.MaxRows * cellStep + infoAreaHeight
+                BitmapWidth = matrix.MaxCols * cellStep + META_INFO_WIDTH,
+                BitmapHeight = matrix.MaxRows * cellStep
             };
         }
 
-        private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
         public static Bitmap DrawDataMatrix(FileStream fileStream, int row, int column, int scale, byte[] chuck,
             DataMatrixResult matrix,
@@ -309,7 +313,7 @@ namespace screen_file_transmit
 
             // 按 scale 缩放，使最小条宽为 scale 像素
             int targetWidth = original.Width * scale;
-            int targetHeight = height ;
+            int targetHeight = height;
             var scaled = new Bitmap(targetWidth, targetHeight);
 
             using (var g = Graphics.FromImage(scaled))
@@ -341,14 +345,13 @@ namespace screen_file_transmit
             bool end = false;
             int count = 0;
 
-            // 绘制二维码网格（从 infoAreaHeight 开始，避开顶部信息区）
             for (int row = 0; !end && row < matrix.MaxRows; row++)
             {
-                var top = pageInfo.CellStep * row + pageInfo.InfoAreaHeight;
+                var top = pageInfo.CellStep * row;
 
                 for (int column = 0; !end && column < matrix.MaxCols; column++)
                 {
-                    var left = pageInfo.CellStep * column;
+                    var left = pageInfo.CellStep * column + META_INFO_WIDTH_LEFT;
                     var bitmapPart = DrawDataMatrix(fileStream, row, column, scale, chuck, matrix,
                         colorDepth, colorful);
 
@@ -364,6 +367,7 @@ namespace screen_file_transmit
                             g.DrawImage(bitmapPart,
                                 new PointF((float)(left + 3 * scale), (float)(top + 3 * scale)));
                         }
+
                         bitmapPart.Dispose();
                     }
                     else
@@ -376,77 +380,48 @@ namespace screen_file_transmit
             if (count == 0)
                 return null;
 
-            // 在顶部绘制元数据信息
-            DrawInfoArea(bitmap, matrix, pageInfo, colorful, colorDepth, offset, fileStream.Position - offset, fileStream.Length,
+            // 在左右两侧绘制元数据信息
+            DrawInfoArea(bitmap, matrix, pageInfo, colorful, colorDepth, offset, fileStream.Position - offset,
+                fileStream.Length,
                 count, fileName, currentPage, totalPages, scale, sessionGuid);
 
             return bitmap;
         }
 
         /// <summary>
-        /// 绘制顶部信息区域（文件名带页码、元数据二维码、GUID条码）
+        /// 绘制左右侧边信息区域（元数据条码在左旋转90度，文件名在左旋转90度，GUID条码在右旋转90度）
         /// </summary>
-        public static void DrawInfoArea(Bitmap bitmap, DataMatrixResult matrix, PageInfo pageInfo, bool colorful, int colorDepth,
+        public static void DrawInfoArea(Bitmap bitmap, DataMatrixResult matrix, PageInfo pageInfo, bool colorful,
+            int colorDepth,
             long offset, long length, long totalLength, int count, string fileName, int currentPage, int totalPages,
             int scale, string sessionGuid)
         {
-            // 元数据条码使用 Code 128，高度固定 20
-            int qrHeight = pageInfo.QrHeight;
-
-            // 紧凑的信息区高度
-            int infoAreaHeight = pageInfo.InfoAreaHeight;
-            int margin = 8;
+            int qrHeight = META_BARCODE_HEIGHT; // 条码原始高度
+            int margin = MARGIN;
+            int maxBarcodeHeight = bitmap.Height - margin * 2; // 条码最大高度（旋转后）
 
             using (Graphics g = Graphics.FromImage(bitmap))
             {
                 g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
                 g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-                // 绘制白色背景
-                g.FillRectangle(System.Drawing.Brushes.White,
-                    new System.Drawing.Rectangle(0, 0, bitmap.Width, infoAreaHeight));
 
-                // 左上角：元数据条码（Code 128）
-                var info =
-                    $"{matrix.MaxRows},{matrix.MaxCols},{(colorful ? "1" : "0")},{colorDepth},{offset},{length},{totalLength},{count}";
-                var infoBitmap = GenerateCode128(info, qrHeight, scale);
-
-                int qrX = margin;
-                int qrY = (infoAreaHeight - infoBitmap.Height) / 2;
-                qrY = Math.Max(margin / 2, qrY);
-
-                g.DrawImage(infoBitmap, new System.Drawing.Point(qrX, qrY));
-                int qrRightEdge = qrX + infoBitmap.Width;
-                infoBitmap.Dispose();
-
-                // 右上角：GUID 的 Code 128 条码
-                int guidRightEdge = bitmap.Width - margin;
-                if (!string.IsNullOrEmpty(sessionGuid))
-                {
-                    var guidBitmap = GenerateCode128(sessionGuid, qrHeight, scale);
-                    int guidX = bitmap.Width - margin - guidBitmap.Width;
-                    int guidY = (infoAreaHeight - guidBitmap.Height) / 2;
-                    guidY = Math.Max(margin / 2, guidY);
-                    g.DrawImage(guidBitmap, new System.Drawing.Point(guidX, guidY));
-                    guidRightEdge = guidX - margin;
-                    guidBitmap.Dispose();
-                }
-
-                // 中间：文件名 + 页码（自动截断以适应可用空间）
-                var displayName = string.IsNullOrEmpty(fileName) ? "Unknown" : $"{fileName} ({currentPage}/{totalPages})";
-                using (var nameFont =
-                       new Font("Microsoft YaHei", 12, System.Drawing.FontStyle.Regular))
+                // ===== 左侧：文件名（旋转90度）=====
+                var displayName = string.IsNullOrEmpty(fileName)
+                    ? "Unknown"
+                    : $"{fileName} ({currentPage}/{totalPages})";
+                using (var nameFont = new Font("Microsoft YaHei", FONT_SIZE, System.Drawing.FontStyle.Regular))
                 {
                     var nameSize = g.MeasureString(displayName, nameFont);
-                    int availableWidth = guidRightEdge - qrRightEdge - margin * 2;
+                    int availableHeight = bitmap.Height - margin * 2;
 
-                    // 截断文件名
-                    if (nameSize.Width > availableWidth && displayName.Length > 5)
+                    // 截断文件名以适应可用高度
+                    if (nameSize.Width > availableHeight && displayName.Length > 5)
                     {
                         while (displayName.Length > 5)
                         {
                             var testName = displayName.Substring(0, displayName.Length - 1) + "...";
-                            if (g.MeasureString(testName, nameFont).Width <= availableWidth)
+                            if (g.MeasureString(testName, nameFont).Width <= availableHeight)
                             {
                                 displayName = testName;
                                 break;
@@ -459,14 +434,226 @@ namespace screen_file_transmit
                             displayName += "...";
                     }
 
-                    // 重新测量并居中绘制
+                    // 创建文字位图并旋转
                     nameSize = g.MeasureString(displayName, nameFont);
-                    int nameX = qrRightEdge + margin + (availableWidth - (int)nameSize.Width) / 2;
-                    int nameY = (infoAreaHeight - (int)nameSize.Height) / 2;
+                    int textBitmapWidth = (int)Math.Ceiling(nameSize.Width);
+                    int textBitmapHeight = (int)Math.Ceiling(nameSize.Height);
 
-                    g.DrawString(displayName, nameFont, System.Drawing.Brushes.Black, nameX, nameY);
+                    using (var textBitmap = new Bitmap(textBitmapWidth, textBitmapHeight))
+                    using (var textG = Graphics.FromImage(textBitmap))
+                    {
+                        textG.Clear(System.Drawing.Color.White);
+                        textG.DrawString(displayName, nameFont, System.Drawing.Brushes.Black, 0, 0);
+
+                        // 旋转文字90度
+                        var rotatedTextBitmap = RotateBitmap90Clockwise(textBitmap);
+
+                        int textX = MARGIN; // 放在条码右侧
+                        int textY = margin;
+                        g.DrawImage(rotatedTextBitmap, new Point(textX, textY));
+                        rotatedTextBitmap.Dispose();
+                    }
+                }
+
+                // ===== 左侧：元数据条码（旋转90度）=====
+                List<byte> meta = new List<byte>();
+                meta.Add((byte)(matrix.MaxRows << 4 | matrix.MaxCols));
+                meta.Add((byte)((colorful ? 0x80 : 0x00) | colorDepth));
+                meta.Add((byte)(currentPage));
+                meta.Add((byte)(totalPages));
+                var info = "$" + BitConverter.ToString(meta.ToArray());
+
+                var infoBitmap = GenerateCode128(info, META_BARCODE_HEIGHT, scale); // 高度20，然后旋转
+
+                // 缩放条码以适应边界（旋转后的高度 = 原始宽度）
+                infoBitmap = ScaleBarcodeToFit(infoBitmap, maxBarcodeHeight);
+
+                // 旋转条码90度（顺时针）
+                var rotatedInfoBitmap = RotateBitmap90Clockwise(infoBitmap);
+                infoBitmap.Dispose();
+
+                int infoX = margin + META_BARCODE_HEIGHT + margin;
+                int infoY = margin;
+                g.DrawImage(rotatedInfoBitmap, new Point(infoX, infoY));
+                rotatedInfoBitmap.Dispose();
+
+
+                // ===== 右侧：文件名条码（旋转90度，中文转拼音首字母）=====
+                if (!string.IsNullOrEmpty(fileName))
+                {
+                    // 提取文件名（不含扩展名）并转换为拼音首字母
+                    var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                    var pinyinInitials = ChineseToPinyinInitials(nameWithoutExt);
+
+                    // 如果转换后为空，使用原始文件名中的字母数字
+                    if (string.IsNullOrEmpty(pinyinInitials))
+                    {
+                        foreach (char c in nameWithoutExt)
+                        {
+                            if (char.IsLetterOrDigit(c))
+                                pinyinInitials += char.ToUpper(c);
+                        }
+                    }
+
+                    // 限制长度，避免条码过长
+                    if (pinyinInitials.Length > 20)
+                        pinyinInitials = pinyinInitials.Substring(0, 20);
+
+                    if (!string.IsNullOrEmpty(pinyinInitials))
+                    {
+                        var fileNameBarcode = GenerateCode128(pinyinInitials, qrHeight, scale);
+                        int remainingHeight = bitmap.Height - margin;
+
+
+                        fileNameBarcode = ScaleBarcodeToFit(fileNameBarcode, remainingHeight);
+                        var rotatedFileNameBarcode = RotateBitmap90Clockwise(fileNameBarcode, 90);
+                        fileNameBarcode.Dispose();
+
+                        int fileNameX = bitmap.Width - MARGIN - META_BARCODE_HEIGHT - MARGIN - META_BARCODE_HEIGHT;
+                        int fileNameY = margin;
+                        g.DrawImage(rotatedFileNameBarcode, new Point(fileNameX, fileNameY));
+                        rotatedFileNameBarcode.Dispose();
+
+                        fileNameBarcode.Dispose();
+                    }
+                }
+
+                // ===== 右侧：GUID条码（旋转90度）===== 
+                if (!string.IsNullOrEmpty(sessionGuid))
+                {
+                    var guidBitmap = GenerateCode128(sessionGuid, qrHeight, scale);
+
+                    // 缩放条码以适应边界（旋转后的高度 = 原始宽度）
+                    guidBitmap = ScaleBarcodeToFit(guidBitmap, maxBarcodeHeight);
+
+                    var rotatedGuidBitmap = RotateBitmap90Clockwise(guidBitmap, 90);
+                    guidBitmap.Dispose();
+
+                    int guidX = bitmap.Width - MARGIN - META_BARCODE_HEIGHT;
+                    int guidY = margin;
+                    g.DrawImage(rotatedGuidBitmap, new System.Drawing.Point(guidX, guidY));
+                    rotatedGuidBitmap.Dispose();
                 }
             }
+        }
+
+        /// <summary>
+        /// 缩放权图以适应最大高度（保持宽高比）
+        /// </summary>
+        private static Bitmap ScaleBarcodeToFit(Bitmap barcode, int maxHeight)
+        {
+            if (barcode.Width <= maxHeight)
+                return barcode;
+
+            // 需要缩放，旋转后的高度是原始宽度
+            double scale = (double)maxHeight / barcode.Width;
+            int newWidth = maxHeight;
+            int newHeight = (int)(barcode.Height * scale);
+
+            var scaled = new Bitmap(newWidth, newHeight);
+            using (var g = Graphics.FromImage(scaled))
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.DrawImage(barcode, 0, 0, newWidth, newHeight);
+            }
+
+            barcode.Dispose();
+            return scaled;
+        }
+
+        /// <summary>
+        /// 将中文字符串转换为拼音首字母大写
+        /// </summary>
+        public static string ChineseToPinyinInitials(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            var result = new StringBuilder();
+            foreach (char c in input)
+            {
+                if (c >= 0x4E00 && c <= 0x9FA5) // 中文字符范围
+                {
+                    result.Append(GetPinyinInitial(c));
+                }
+                else if (char.IsLetter(c))
+                {
+                    result.Append(char.ToUpper(c));
+                }
+                else if (char.IsDigit(c))
+                {
+                    result.Append(c);
+                }
+                else
+                {
+                    result.Append("_");
+                }
+                // 其他字符（如符号、空格）跳过
+            }
+
+            return result.ToString();
+        }
+
+        /// <summary>
+        /// 获取单个中文汉字的拼音首字母
+        /// </summary>
+        private static char GetPinyinInitial(char chineseChar)
+        {
+            // 使用GB2312编码获取区码和位码
+            byte[] bytes = Encoding.Default.GetBytes(chineseChar.ToString());
+            if (bytes.Length < 2)
+                return chineseChar;
+
+            int area = bytes[0] - 160;
+            int pos = bytes[1] - 160;
+            int code = area * 100 + pos;
+
+            // 根据GB2312编码的拼音排序表判断首字母
+            if (code >= 1601 && code < 1637) return 'A';
+            if (code >= 1637 && code < 1833) return 'B';
+            if (code >= 1833 && code < 2078) return 'C';
+            if (code >= 2078 && code < 2274) return 'D';
+            if (code >= 2274 && code < 2302) return 'E';
+            if (code >= 2302 && code < 2433) return 'F';
+            if (code >= 2433 && code < 2594) return 'G';
+            if (code >= 2594 && code < 2787) return 'H';
+            if (code >= 2787 && code < 3106) return 'J';
+            if (code >= 3106 && code < 3212) return 'K';
+            if (code >= 3212 && code < 3472) return 'L';
+            if (code >= 3472 && code < 3635) return 'M';
+            if (code >= 3635 && code < 3722) return 'N';
+            if (code >= 3722 && code < 3730) return 'O';
+            if (code >= 3730 && code < 3858) return 'P';
+            if (code >= 3858 && code < 4027) return 'Q';
+            if (code >= 4027 && code < 4086) return 'R';
+            if (code >= 4086 && code < 4390) return 'S';
+            if (code >= 4390 && code < 4558) return 'T';
+            if (code >= 4558 && code < 4684) return 'W';
+            if (code >= 4684 && code < 4925) return 'X';
+            if (code >= 4925 && code < 5249) return 'Y';
+            if (code >= 5249 && code < 5590) return 'Z';
+
+            return '?'; // 未知字符
+        }
+
+        /// <summary>
+        /// 将位图顺时针旋转90度
+        /// </summary>
+        private static Bitmap RotateBitmap90Clockwise(Bitmap original, float angle = 90)
+        {
+            int newWidth = original.Height;
+            int newHeight = original.Width;
+            var rotated = new Bitmap(newWidth, newHeight);
+
+            using (Graphics g = Graphics.FromImage(rotated))
+            {
+                g.TranslateTransform(newWidth, 0);
+                g.RotateTransform(angle);
+                g.DrawImage(original, 0, 0);
+            }
+
+            return rotated;
         }
 
         public static BitmapSource ConvertBitmapToBitmapSource(Bitmap bitmap)
@@ -474,7 +661,7 @@ namespace screen_file_transmit
             using (MemoryStream memoryStream = new MemoryStream())
             {
                 // Save the Bitmap to a memory stream in BMP format
-                bitmap.Save(memoryStream, ImageFormat.Bmp);
+                bitmap.Save(memoryStream, ImageFormat.Png);
                 memoryStream.Position = 0;
 
                 // Create a BitmapImage from the memory stream
@@ -509,8 +696,6 @@ namespace screen_file_transmit
 
     public class PageInfo
     {
-        public int QrHeight { get; set; }
-        public int InfoAreaHeight { get; set; }
         public int CellStep { get; set; }
         public int BitmapWidth { get; set; }
         public int BitmapHeight { get; set; }

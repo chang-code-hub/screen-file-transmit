@@ -41,7 +41,6 @@ dotnet run --project screen-file-receiver
 
 关键编码类：
 - `screen-file-sender/DataMatrixEncoder.cs` - 核心编码逻辑、颜色混合、网格计算
-- `qr-file-transfer-sender/src/DataMatrix.jsx` - 基于浏览器的编码，使用 bwip-js 库
 
 ### 解码流程（接收端）
 
@@ -49,6 +48,17 @@ dotnet run --project screen-file-receiver
 2. **排序** - 轮廓按大小排序，然后按 Y 坐标、X 坐标排序以确定网格顺序
 3. **解码** - ZXing 库解码每个 DataMatrix。解码失败时触发重试，使用缩放和锐化处理
 4. **重建** - 数据块按行/列前缀排序后写入输出文件
+
+#### 交互界面
+
+1. 主界面又文件名和添加按钮，添加后会增加到软件下方的表格中
+2. 允许进行批量添加
+3. 表格中的文件最后一列提供操作按钮：删除，重试
+4. 表格有：复选框，图片文件名，文件guid，保存文件名，元数据中的页码信息，状态，解析进度，操作按钮
+5. 根据元数据判断页码齐全后，底色变黄，复选框选中
+6. 保存文件名要用户输入，其他列只读
+7. 相同 guid 的复选框一起联动
+8. 增加转换按钮，转换时更新表格中的进度和状态
 
 关键解码类：
 - `screen-file-receiver/DataMatrixReader.cs` - OpenCV 轮廓检测、ZXing 解码、重试逻辑
@@ -65,10 +75,8 @@ dotnet run --project screen-file-receiver
   - `PropertyChanged.Fody` - 自动实现 INotifyPropertyChanged
   - `Costura.Fody` - IL 合并，实现单文件部署
 
-- **Node**: 使用 pnpm，锁文件位于 `qr-file-transfer-sender/pnpm-lock.yaml`
-
 ## 平台说明
 
-- **screen-file-sender**: 目标框架 .NET Framework 4.6.1，使用 WPF + Windows Forms 混合
+- **screen-file-sender**: 目标框架 .NET Framework 4.6.1，使用 WPF
 - **screen-file-receiver**: 目标框架 .NET Framework 4.8，x64 平台，需要 OpenCV 原生运行时
 - 解决方案文件格式为 Visual Studio 2017+（格式版本 12.00）

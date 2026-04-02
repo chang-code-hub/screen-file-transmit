@@ -1,20 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
+using System.IO;
 using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using OpenCvSharp;
-using Window = System.Windows.Window;
 
 namespace screen_file_receiver
 {
@@ -29,11 +16,42 @@ namespace screen_file_receiver
         {
             InitializeComponent();
             this.DataContext = viewModel;
+
+            this.DragOver += MainWindow_DragOver;
+            this.Drop += MainWindow_Drop;
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             viewModel.Password = PasswordBox.Password;
+        }
+
+        private void MainWindow_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effects = DragDropEffects.Copy;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        private void MainWindow_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                var imageFiles = files.Where(f =>
+                {
+                    var ext = Path.GetExtension(f).ToLower();
+                    return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp";
+                });
+                viewModel.AddFiles(imageFiles);
+            }
+            e.Handled = true;
         }
     }
 }
