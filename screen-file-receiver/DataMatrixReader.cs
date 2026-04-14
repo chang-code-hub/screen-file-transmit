@@ -59,51 +59,30 @@ namespace screen_file_receiver
             bool isColorful;
             long offset = 0, length = 0, totalLength = 0;
 
-            if (infoText.Contains("-"))
+             
+            var base64Part = infoText.TrimStart('-');
+            var hexParts = Convert.FromBase64String(base64Part);
+            if (hexParts.Length < 4)
             {
-                // 新格式: $XX-XX-XX-XX
-                var hexParts = infoText.Split('-');
-                if (hexParts.Length < 4)
-                {
-                    MessageBox.Show("元数据格式错误: " + info);
-                    return false;
-                }
-
-                byte b0 = Convert.ToByte(hexParts[0], 16);
-                byte b1 = Convert.ToByte(hexParts[1], 16);
-                byte b2 = Convert.ToByte(hexParts[2], 16);
-                byte b3 = Convert.ToByte(hexParts[3], 16);
-
-                rowCount = b0 >> 4;
-                colCount = b0 & 0x0F;
-                isColorful = (b1 & 0x80) != 0;
-                colorDepth = b1 & 0x7F;
-                currentPage = b2;
-                totalPages = b3;
-
-                // 新格式不含文件偏移，使用当前流位置追加
-                offset = fileStream.Position;
+                MessageBox.Show("元数据格式错误: " + info);
+                return false;
             }
-            else
-            {
-                // 旧格式: rowCount,colCount,isColorful,colorDepth,offset,length,totalLength
-                var splited = infoText.Split(',');
-                if (splited.Length < 7)
-                {
-                    MessageBox.Show("元数据格式错误: " + info);
-                    return false;
-                }
 
-                rowCount = int.Parse(splited[0]);
-                colCount = int.Parse(splited[1]);
-                isColorful = splited[2] == "1";
-                colorDepth = int.Parse(splited[3]);
-                offset = long.Parse(splited[4]);
-                length = long.Parse(splited[5]);
-                totalLength = long.Parse(splited[6]);
-                currentPage = 0;
-                totalPages = 0;
-            }
+            byte b0 = hexParts[0];
+            byte b1 = hexParts[1];
+            byte b2 = hexParts[2];
+            byte b3 = hexParts[3];
+
+            rowCount = b0 >> 4;
+            colCount = b0 & 0x0F;
+            isColorful = (b1 & 0x80) != 0;
+            colorDepth = b1 & 0x7F;
+            currentPage = b2;
+            totalPages = b3;
+
+            // 新格式不含文件偏移，使用当前流位置追加
+            offset = fileStream.Position;
+            
 
             Mat gray = new Mat();
             Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
@@ -124,7 +103,7 @@ namespace screen_file_receiver
 
             if (showDebugImages)
             {
-                Cv2.ImShow("Image  ", contoursOutput);
+                //Cv2.ImShow("Image  ", contoursOutput);
                 Cv2.WaitKey();
             }
 
@@ -154,8 +133,8 @@ namespace screen_file_receiver
                     {
                         if (showDebugImages)
                         {
-                            Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength}", roi);
-                            Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength} Bin", roiBin);
+                            //Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength}", roi);
+                            //Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength} Bin", roiBin);
                         }
                         return false;
                     }
@@ -329,6 +308,318 @@ namespace screen_file_receiver
                     return ReadImage(sharpenedImage, reader, readResult, retryCount, retryIndex + 1);
                 }
             }
+        }
+
+        /// <summary>
+        /// 截取图像左侧或右侧 1/10 区域，水平拉宽 5 倍
+        /// </summary>
+        public static Mat StretchSideRegion(Mat image, bool takeLeft)
+        {
+            if (image == null || image.Empty())
+                return null;
+
+            int cropWidth = image.Width / 10;
+            if (cropWidth < 1)
+                cropWidth = 1;
+
+            Rect cropRect;
+            if (takeLeft)
+            {
+                cropRect = new Rect(0, 0, cropWidth, image.Height);
+            }
+            else
+            {
+                cropRect = new Rect(image.Width - cropWidth, 0, cropWidth, image.Height);
+            }
+
+            Mat cropped = new Mat(image, cropRect);
+            Mat stretched = new Mat();
+            Cv2.Resize(cropped, stretched, new Size(cropWidth * 5, image.Height), 0, 0, InterpolationFlags.Linear);
+
+            return stretched;
+        }
+
+        public static List<string> DetectBarcodes(string imageFile, bool isLeft = true)
+        {
+            var results = new List<string>();
+            using (Mat rawImg = Cv2.ImRead(imageFile))
+            {
+                if (rawImg.Empty())
+                {
+                    Console.WriteLine("  Failed to load image.");
+                    return results;
+                }
+
+                var img = StretchSideRegion(rawImg, isLeft);
+                Cv2.Rotate(img, img, RotateFlags.Rotate90Counterclockwise);
+
+                double imgWidth = img.Width;
+                double imgHeight = img.Height;
+                int edgeWidth = (int)imgWidth;
+
+                Mat debug = img.Clone();
+                var allRects = new List<Rect>();
+
+                Console.WriteLine($"  Image size: {imgWidth}x{imgHeight}");
+
+                int x0 = isLeft ? 0 : (int)imgWidth - edgeWidth;
+                var roiRect = new Rect(x0, 0, edgeWidth, (int)imgHeight);
+                using (Mat roi = new Mat(img, roiRect))
+                {
+                    var found = DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect);
+                    allRects = found;
+
+                    var reader = new BarcodeReader();
+                    reader.Options.TryHarder = true;
+                    reader.Options.PossibleFormats = new[] { BarcodeFormat.CODE_128 };
+
+                    foreach (var r in found)
+                    {
+                        var absRect = new Rect(r.X + x0, r.Y, r.Width, r.Height);
+                        var color = isLeft ? new Scalar(0, 0, 255) : new Scalar(0, 255, 255);
+                        Cv2.Rectangle(debug, absRect, color, 3);
+
+                        using (Mat barcodeRoi = new Mat(img, absRect))
+                        using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(barcodeRoi))
+                        {
+                            var decodeResult = reader.Decode(bitmap);
+                            if (decodeResult != null)
+                            {
+                                results.Add(decodeResult.Text);
+                                Console.WriteLine($"    DECODED: {decodeResult.Text}");
+                            }
+                        }
+                    }
+                }
+
+                Cv2.PutText(debug, $"Detected: {allRects.Count}", new Point(10, 30),
+                    HersheyFonts.HersheySimplex, 1, new Scalar(0, 0, 255), 2);
+                Cv2.PutText(debug, $"Decoded: {results.Count}", new Point((int)imgWidth - 250, 30),
+                    HersheyFonts.HersheySimplex, 1, new Scalar(0, 255, 255), 2);
+
+                //Cv2.ImShow($"{(isLeft ? "Left" : "Right")} Detection Result", debug);
+
+                Console.WriteLine($"  {(isLeft?"Left":"Right")} Barcodes : {allRects.Count}");
+                foreach (var r in allRects)
+                    Console.WriteLine($"    -> [{r.X},{r.Y}] {r.Width}x{r.Height}");
+
+                debug.Dispose();
+            }
+            return results;
+        }
+
+        /// <summary>
+        /// 元数据读取结果
+        /// </summary>
+        public class MetadataResult
+        {
+            public byte[] Metadata { get; set; }
+            public string FileName { get; set; }
+            public string Timestamp { get; set; }
+
+            // 解析后的元数据含义
+            public int MaxRows { get; set; }
+            public int MaxCols { get; set; }
+            public bool Colorful { get; set; }
+            public int ColorDepth { get; set; }
+            public int CurrentPage { get; set; }
+            public int TotalPages { get; set; }
+        }
+
+        private static bool IsBase64String(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.Length % 4 != 0)
+                return false;
+            return s.All(c => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=');
+        }
+
+        private static string ParseTimestamp(string base64Timestamp)
+        {
+            try
+            {
+                var bytes = Convert.FromBase64String(base64Timestamp);
+                long unixSeconds;
+                if (bytes.Length == 8)
+                {
+                    unixSeconds = BitConverter.ToInt64(bytes, 0);
+                }
+                else
+                {
+                    // 尝试直接解析为数字（兼容旧格式）
+                    unixSeconds = long.Parse(Encoding.UTF8.GetString(bytes));
+                }
+                var dt = DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime;
+                return dt.ToString("yyyy-MM-dd HH:mm:ss");
+            }
+            catch
+            {
+                return base64Timestamp;
+            }
+        }
+
+        /// <summary>
+        /// 使用 DetectBarcodes 读取图像左右两侧条码，返回文件名文本、元数据、文件名、时间戳
+        /// </summary>
+        public static MetadataResult ReadMetadata(string imageFile)
+        {
+            var result = new MetadataResult();
+
+            // 左侧：元数据条码（$ 开头，Base64 编码）
+            var leftCodes = DetectBarcodes(imageFile, isLeft: true);
+            foreach (var code in leftCodes)
+            {
+                if (code.StartsWith("$"))
+                {
+                    try
+                    {
+                        var base64Part = code.TrimStart('$').TrimStart('-');
+                        result.Metadata = Convert.FromBase64String(base64Part);
+
+                        if (result.Metadata != null && result.Metadata.Length >= 4)
+                        {
+                            result.MaxRows = (result.Metadata[0] >> 4) & 0x0F;
+                            result.MaxCols = result.Metadata[0] & 0x0F;
+                            result.Colorful = (result.Metadata[1] & 0x80) != 0;
+                            result.ColorDepth = result.Metadata[1] & 0x7F;
+                            result.CurrentPage = result.Metadata[2];
+                            result.TotalPages = result.Metadata[3];
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            // 右侧：文件名条码、时间戳条码（Base64）
+            var rightCodes = DetectBarcodes(imageFile, isLeft: false);
+            if (rightCodes.Count >= 2)
+            {
+                var ordered = rightCodes.OrderByDescending(c => c.Length).ToList();
+                var candidateTimestamp = ordered.FirstOrDefault(IsBase64String);
+                if (candidateTimestamp != null)
+                {
+                    result.Timestamp = ParseTimestamp(candidateTimestamp);
+                    result.FileName = ordered.First(c => c != candidateTimestamp);
+                }
+                else
+                {
+                    result.Timestamp = ParseTimestamp(ordered[0]);
+                    result.FileName = ordered[1];
+                }
+            }
+            else if (rightCodes.Count == 1)
+            {
+                result.FileName = rightCodes[0];
+            }
+
+            return result;
+        }
+
+        public static List<Rect> MergeVerticallyAlignedRects(List<Rect> rects, int yGapThreshold)
+        {
+            if (rects.Count == 0) return rects;
+
+            var sorted = rects.OrderBy(r => r.Y).ToList();
+            var merged = new List<Rect>();
+            var current = sorted[0];
+
+            for (int i = 1; i < sorted.Count; i++)
+            {
+                var next = sorted[i];
+                int xOverlap = Math.Min(current.X + current.Width, next.X + next.Width) - Math.Max(current.X, next.X);
+                int minWidth = Math.Min(current.Width, next.Width);
+                int yGap = next.Y - (current.Y + current.Height);
+
+                if (xOverlap > minWidth * 0.4 && yGap <= yGapThreshold)
+                {
+                    int newX = Math.Min(current.X, next.X);
+                    int newY = Math.Min(current.Y, next.Y);
+                    int newRight = Math.Max(current.X + current.Width, next.X + next.Width);
+                    int newBottom = Math.Max(current.Y + current.Height, next.Y + next.Height);
+                    current = new Rect(newX, newY, newRight - newX, newBottom - newY);
+                }
+                else
+                {
+                    merged.Add(current);
+                    current = next;
+                }
+            }
+            merged.Add(current);
+            return merged;
+        }
+
+        public static List<Rect> DetectBarcodesInRoi(Mat roi, string label, Rect roiOffset)
+        {
+            var result = new List<Rect>();
+
+            using (Mat gray = new Mat())
+            {
+                Cv2.CvtColor(roi, gray, ColorConversionCodes.BGR2GRAY);
+                //Cv2.ImShow($"{label} - 1 Gray", gray);
+
+                using (Mat gradX = new Mat())
+                {
+                    Cv2.Sobel(gray, gradX, MatType.CV_32F, 1, 0, ksize: 3);
+                    Cv2.ConvertScaleAbs(gradX, gradX);
+                    //Cv2.ImShow($"{label} - 2 Sobel X", gradX);
+
+                    using (Mat binary = new Mat())
+                    {
+                        Cv2.Threshold(gradX, binary, 25, 255, ThresholdTypes.Binary);
+                        //Cv2.ImShow($"{label} - 3 Binary", binary);
+
+                        using (Mat closed = new Mat())
+                        using (Mat kernelClose = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(35, 1)))
+                        {
+                            Cv2.MorphologyEx(binary, closed, MorphTypes.Close, kernelClose);
+                            //Cv2.ImShow($"{label} - 4 Close", closed);
+
+                            using (Mat dilated = new Mat())
+                            using (Mat eroded = new Mat())
+                            using (Mat kernelSmall = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3)))
+                            {
+                                Cv2.Dilate(closed, dilated, kernelSmall, null, 1);
+                                Cv2.Erode(dilated, eroded, kernelSmall, null, 1);
+                                //Cv2.ImShow($"{label} - 5 OpenClose", eroded);
+
+                                Cv2.FindContours(eroded, out Point[][] contours, out HierarchyIndex[] hierarchy,
+                                    RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+                                Console.WriteLine($"    {label} contours: {contours.Length}");
+
+                                using (Mat debugRoi = roi.Clone())
+                                {
+                                    var rawRects = new List<Rect>();
+                                    foreach (var c in contours)
+                                    {
+                                        Rect r = Cv2.BoundingRect(c);
+                                        double ratio = r.Height / (double)r.Width;
+                                        double area = r.Width * r.Height;
+
+                                        Cv2.Rectangle(debugRoi, r, new Scalar(0, 255, 0), 1);
+
+                                        if (area > 100)
+                                        {
+                                            Console.WriteLine($"      rect [{r.X},{r.Y}] {r.Width}x{r.Height} ratio={ratio:F2} area={area}");
+                                        }
+
+                                        if (ratio < 0.4 && r.Height > 25 && area > 300)
+                                        {
+                                            rawRects.Add(r);
+                                        }
+                                    }
+
+                                    //Cv2.ImShow($"{label} - 6 All Rects", debugRoi);
+                                    Console.WriteLine($"    {label} rawRects after filter: {rawRects.Count}");
+                                    var merged = MergeVerticallyAlignedRects(rawRects, yGapThreshold: 5);
+                                    Console.WriteLine($"    {label} merged count: {merged.Count}");
+                                    result.AddRange(merged);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
         }
     }
 }

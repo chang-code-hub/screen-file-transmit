@@ -6,8 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using OpenCvSharp;
+using screen_file_receiver;
 using screen_file_transmit; 
-using ZXing.Datamatrix;
 
 namespace qr_codec_test
 {
@@ -22,6 +22,7 @@ namespace qr_codec_test
 
         static void Main(string[] args)
         {
+            //Test();
             // 运行条码区域检测测试
             TestBarcodeDetection();
         }
@@ -44,11 +45,20 @@ namespace qr_codec_test
                 }
 
                 Console.WriteLine($"Processing: {Path.GetFileName(imageFile)}");
-                DetectBarcodes(imageFile);
+                var meta = DataMatrixReader.ReadMetadata(imageFile); 
+                Console.WriteLine($"  Metadata:     {(meta.Metadata != null ? BitConverter.ToString(meta.Metadata) : "null")}");
+                Console.WriteLine($"  MaxRows:      {meta.MaxRows}");
+                Console.WriteLine($"  MaxCols:      {meta.MaxCols}");
+                Console.WriteLine($"  Colorful:     {meta.Colorful}");
+                Console.WriteLine($"  ColorDepth:   {meta.ColorDepth}");
+                Console.WriteLine($"  CurrentPage:  {meta.CurrentPage}");
+                Console.WriteLine($"  TotalPages:   {meta.TotalPages}");
+                Console.WriteLine($"  FileName:     {meta.FileName}");
+                Console.WriteLine($"  Timestamp:    {meta.Timestamp}");
             }
 
             Console.WriteLine("\nDetection completed. Press any key to exit...");
-            Console.ReadKey();
+            Cv2.WaitKey();
             Cv2.DestroyAllWindows();
         }
 
@@ -120,174 +130,6 @@ namespace qr_codec_test
             Console.WriteLine("\nTest completed.");
         }
 
-        static void DetectBarcodes(string imageFile)
-        {
-            using (Mat rawImg = Cv2.ImRead(imageFile))
-            {
-                if (rawImg.Empty())
-                {
-                    Console.WriteLine("  Failed to load image.");
-                    return;
-                }
-
-                var img = DataMatrixDecoder.StretchSideRegion(rawImg, true);
-                double imgWidth = img.Width;
-                double imgHeight = img.Height;
-                int edgeWidth = 120; // 只取最边缘窄条带，避免包含 DataMatrix
-
-                Mat debug = img.Clone();
-                var allLeft = new List<OpenCvSharp.Rect>();
-                var allRight = new List<OpenCvSharp.Rect>();
-
-                Console.WriteLine($"  Image size: {imgWidth}x{imgHeight}");
-
-                // 分别检测左边缘和右边缘
-                for (int side = 0; side < 2; side++)
-                {
-                    bool isLeft = side == 0;
-                    int x0 = isLeft ? 0 : (int)imgWidth - edgeWidth;
-                    var roiRect = new OpenCvSharp.Rect(x0, 0, edgeWidth, (int)imgHeight);
-                    using (Mat roi = new Mat(img, roiRect))
-                    {
-                        var found = DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect);
-                        if (isLeft) allLeft = found;
-                        else allRight = found;
-
-                        foreach (var r in found)
-                        {
-                            var absRect = new OpenCvSharp.Rect(r.X + x0, r.Y, r.Width, r.Height);
-                            var color = isLeft ? new Scalar(0, 0, 255) : new Scalar(0, 255, 255);
-                            Cv2.Rectangle(debug, absRect, color, 3);
-                        }
-                    }
-                }
-
-                Cv2.PutText(debug, $"Left: {allLeft.Count}", new OpenCvSharp.Point(10, 30),
-                    HersheyFonts.HersheySimplex, 1, new Scalar(0, 0, 255), 2);
-                Cv2.PutText(debug, $"Right: {allRight.Count}", new OpenCvSharp.Point((int)imgWidth - 250, 30),
-                    HersheyFonts.HersheySimplex, 1, new Scalar(0, 255, 255), 2);
-
-                Cv2.ImShow("Detection Result", debug);
-
-                Console.WriteLine($"  Left barcodes : {allLeft.Count}");
-                foreach (var r in allLeft)
-                    Console.WriteLine($"    -> [{r.X},{r.Y}] {r.Width}x{r.Height}");
-                Console.WriteLine($"  Right barcodes: {allRight.Count}");
-                foreach (var r in allRight)
-                    Console.WriteLine($"    -> [{r.X},{r.Y}] {r.Width}x{r.Height}");
-
-                Console.WriteLine("  Press any key in image window to continue...");
-                Cv2.WaitKey(0);
-                debug.Dispose();
-            }
-        }
-
-        static List<OpenCvSharp.Rect> MergeVerticallyAlignedRects(List<OpenCvSharp.Rect> rects, int yGapThreshold)
-        {
-            if (rects.Count == 0) return rects;
-
-            // 按 Y 坐标排序
-            var sorted = rects.OrderBy(r => r.Y).ToList();
-            var merged = new List<OpenCvSharp.Rect>();
-            var current = sorted[0];
-
-            for (int i = 1; i < sorted.Count; i++)
-            {
-                var next = sorted[i];
-                int xOverlap = Math.Min(current.X + current.Width, next.X + next.Width) - Math.Max(current.X, next.X);
-                int minWidth = Math.Min(current.Width, next.Width);
-                int yGap = next.Y - (current.Y + current.Height);
-
-                // X 方向重叠超过较小宽度的 40%，且 Y 间隙在阈值内
-                if (xOverlap > minWidth * 0.4 && yGap <= yGapThreshold)
-                {
-                    int newX = Math.Min(current.X, next.X);
-                    int newY = Math.Min(current.Y, next.Y);
-                    int newRight = Math.Max(current.X + current.Width, next.X + next.Width);
-                    int newBottom = Math.Max(current.Y + current.Height, next.Y + next.Height);
-                    current = new OpenCvSharp.Rect(newX, newY, newRight - newX, newBottom - newY);
-                }
-                else
-                {
-                    merged.Add(current);
-                    current = next;
-                }
-            }
-            merged.Add(current);
-            return merged;
-        }
-
-        static List<OpenCvSharp.Rect> DetectBarcodesInRoi(Mat roi, string label, OpenCvSharp.Rect roiOffset)
-        {
-            var result = new List<OpenCvSharp.Rect>();
-
-            using (Mat gray = new Mat())
-            {
-                Cv2.CvtColor(roi, gray, ColorConversionCodes.BGR2GRAY);
-                Cv2.ImShow($"{label} - 1 Gray", gray);
-
-                using (Mat gradX = new Mat())
-                {
-                    Cv2.Sobel(gray, gradX, MatType.CV_32F, 1, 0, ksize: 3);
-                    Cv2.ConvertScaleAbs(gradX, gradX);
-                    Cv2.ImShow($"{label} - 2 Sobel X", gradX);
-
-                    using (Mat binary = new Mat())
-                    {
-                        Cv2.Threshold(gradX, binary, 25, 255, ThresholdTypes.Binary);
-                        Cv2.ImShow($"{label} - 3 Binary", binary);
-
-                        using (Mat closed = new Mat())
-                        using (Mat kernelClose = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(35, 1)))
-                        {
-                            Cv2.MorphologyEx(binary, closed, MorphTypes.Close, kernelClose);
-                            Cv2.ImShow($"{label} - 4 Close", closed);
-
-                            using (Mat dilated = new Mat())
-                            using (Mat eroded = new Mat())
-                            using (Mat kernelSmall = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(3, 3)))
-                            {
-                                Cv2.Dilate(closed, dilated, kernelSmall, null, 1);
-                                Cv2.Erode(dilated, eroded, kernelSmall, null, 1);
-                                Cv2.ImShow($"{label} - 5 OpenClose", eroded);
-
-                                Cv2.FindContours(eroded, out OpenCvSharp.Point[][] contours, out HierarchyIndex[] hierarchy,
-                                    RetrievalModes.External, ContourApproximationModes.ApproxSimple);
-
-                                Console.WriteLine($"    {label} contours: {contours.Length}");
-
-                                var rawRects = new List<OpenCvSharp.Rect>();
-                                foreach (var c in contours)
-                                {
-                                    OpenCvSharp.Rect r = Cv2.BoundingRect(c);
-                                    double ratio = r.Height / (double)r.Width;
-                                    double area = r.Width * r.Height;
-
-                                    if (area > 100)
-                                    {
-                                        Console.WriteLine($"      rect [{r.X},{r.Y}] {r.Width}x{r.Height} ratio={ratio:F2} area={area}");
-                                    }
-
-                                    // 保留高瘦型候选（条码竖直放置）
-                                    if (ratio > 1.2 && r.Height > 25 && area > 300)
-                                    {
-                                        rawRects.Add(r);
-                                    }
-                                }
-
-                                Console.WriteLine($"    {label} rawRects after filter: {rawRects.Count}");
-                                var merged = MergeVerticallyAlignedRects(rawRects, yGapThreshold: 60);
-                                Console.WriteLine($"    {label} merged count: {merged.Count}");
-                                result.AddRange(merged);
-                            }
-                        }
-                    }
-                }
-            }
-
-            return result;
-        }
-
         /// <summary>
         /// 将文件编码为 DataMatrix 图片序列
         /// </summary>
@@ -318,7 +160,7 @@ namespace qr_codec_test
             using (var fileStream = new FileStream(inputFile, FileMode.Open, FileAccess.Read))
             {
                 string fileName = "测试文件_Sample.txt";
-                int totalPages = (int)Math.Ceiling((double)fileStream.Length / matrix.PageByteCount /(Colorful?3:1));
+                int totalPages = (int)Math.Ceiling((double)fileStream.Length / matrix.PageByteCount / (Colorful ? 3 : 1));
                 if (totalPages == 0) totalPages = 1;
 
                 int pageNumber = 0;
@@ -326,6 +168,7 @@ namespace qr_codec_test
                 {
                     pageNumber++;
                     long pageOffset = fileStream.Position;
+
 
                     var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(
                         fileStream,
@@ -338,7 +181,7 @@ namespace qr_codec_test
                         true, // includeFileName
                         pageNumber,
                         totalPages,
-                        Guid.NewGuid().ToString("N").Substring(0, 10) // sessionGuid
+                       DataMatrixEncoder.GenerateTimestamp()
                     );
 
                     if (bitmap != null)

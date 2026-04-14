@@ -266,7 +266,7 @@ namespace screen_file_transmit
                         var saveDir = dialog.SelectedPath;
 
                         // 生成会话GUID（去掉横线）
-                        var sessionGuid = Guid.NewGuid().ToString("N").Substring(0, 10);
+                        var sessionGuid = DataMatrixEncoder.GenerateTimestamp();
 
                         for (int page = 0; page < totalPages; page++)
                         {
@@ -341,7 +341,7 @@ namespace screen_file_transmit
             // 第一次生成时创建 GUID
             if (string.IsNullOrEmpty(sessionGuid))
             {
-                sessionGuid = Guid.NewGuid().ToString("N").Substring(0, 10);
+                sessionGuid =DataMatrixEncoder.GenerateTimestamp();
             }
 
             int usableWidth = Math.Max(1, screenWidth - shrinkWidth);

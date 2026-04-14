@@ -327,6 +327,14 @@ namespace screen_file_transmit
             return scaled;
         }
 
+        public static String GenerateTimestamp( )
+        {
+            
+            long date =  DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            Byte[] bytes = BitConverter.GetBytes(date);
+            return Convert.ToBase64String(bytes);
+        }
+
         /// <summary>
         /// 生成完整的 DataMatrix 图片（包含网格和元数据区域）
         /// </summary>
@@ -461,7 +469,7 @@ namespace screen_file_transmit
                 meta.Add((byte)((colorful ? 0x80 : 0x00) | colorDepth));
                 meta.Add((byte)(currentPage));
                 meta.Add((byte)(totalPages));
-                var info = "$" + BitConverter.ToString(meta.ToArray());
+                var info = "$" + Convert.ToBase64String(meta.ToArray());
 
                 var infoBitmap = GenerateCode128(info, META_BARCODE_HEIGHT, scale); // 高度20，然后旋转
 
