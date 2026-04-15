@@ -83,7 +83,7 @@ namespace screen_file_receiver
 
             Mat cropped = new Mat(image, cropRect);
             Mat stretched = new Mat();
-            Cv2.Resize(cropped, stretched, new Size(cropWidth * 5, image.Height), 0, 0, InterpolationFlags.Linear);
+            Cv2.Resize(cropped, stretched, new Size(cropWidth * 3, image.Height), 0, 0, InterpolationFlags.Linear);
 
             return stretched;
         }
