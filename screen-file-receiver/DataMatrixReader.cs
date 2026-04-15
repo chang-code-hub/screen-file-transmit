@@ -19,6 +19,7 @@ namespace screen_file_receiver
     public static class DataMatrixReader
     {
         private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        private static readonly Encoding Iso88591 = Encoding.GetEncoding("ISO-8859-1");
 
         /// <summary>
         /// 从图片读取文件
@@ -27,289 +28,45 @@ namespace screen_file_receiver
         /// <param name="fileStream">输出流</param>
         /// <param name="outputFileName">解析出的原始文件名（如果存在）</param>
         /// <returns>是否成功</returns>
-        public static bool ReadToFile(string fileName, Stream fileStream, out string outputFileName, out int currentPage, out int totalPages, bool showDebugImages = false)
+        public static bool ReadToFile(string fileName, Stream fileStream, out string outputFileName, out int currentPage, out int totalPages)
         {
             outputFileName = null;
             currentPage = 0;
             totalPages = 0;
-            // 读取图像
-            Mat image = Cv2.ImRead(fileName);
 
-            // 尝试读取元数据条码（可能在左侧，旋转90度）
-            var reader = new BarcodeReader();
-            string info = null;
+            var decodeResult = DecodeImageWithMetadata(fileName);
+            var meta = decodeResult.Metadata;
+            var dataBlocks = decodeResult.DataBlocks;
 
-            // 首先尝试从左侧区域读取旋转的条码
-            info = TryReadRotatedBarcode(image, reader);
-
-            // 如果找不到，尝试原来的方式（兼容旧格式）
-            if (info == null)
+            if (meta?.Metadata == null || meta.Metadata.Length < 4)
             {
-                info = TryReadHorizontalBarcode(image, reader);
-            }
-
-            if (info == null)
-            {
-                MessageBox.Show("找不到信息" + fileName);
+                MessageBox.Show("找不到信息或元数据格式错误: " + fileName);
                 return false;
             }
 
-            string infoText = info.TrimStart('$');
-            int rowCount, colCount, colorDepth;
-            bool isColorful;
-            long offset = 0, length = 0, totalLength = 0;
-
-             
-            var base64Part = infoText.TrimStart('-');
-            var hexParts = Convert.FromBase64String(base64Part);
-            if (hexParts.Length < 4)
+            if (dataBlocks == null || dataBlocks.Count == 0)
             {
-                MessageBox.Show("元数据格式错误: " + info);
+                MessageBox.Show("未解析到任何数据块: " + fileName);
                 return false;
             }
 
-            byte b0 = hexParts[0];
-            byte b1 = hexParts[1];
-            byte b2 = hexParts[2];
-            byte b3 = hexParts[3];
+            currentPage = meta.CurrentPage;
+            totalPages = meta.TotalPages;
+            outputFileName = meta.FileName;
+            long offset = fileStream.Position;
 
-            rowCount = b0 >> 4;
-            colCount = b0 & 0x0F;
-            isColorful = (b1 & 0x80) != 0;
-            colorDepth = b1 & 0x7F;
-            currentPage = b2;
-            totalPages = b3;
-
-            // 新格式不含文件偏移，使用当前流位置追加
-            offset = fileStream.Position;
-            
-
-            Mat gray = new Mat();
-            Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-
-            // 二值化处理，便于轮廓检测
-            Mat thresh = new Mat();
-            Cv2.Threshold(gray, thresh, 127, 255, ThresholdTypes.BinaryInv);
-
-            // 查找轮廓
-            Cv2.FindContours(thresh, out Point[][] contours, out HierarchyIndex[] hierarchy, RetrievalModes.External,
-                ContourApproximationModes.ApproxSimple);
-
-            var lagerContours = contours.Where(c => Cv2.ContourArea(c) > 150).ToList();
-
-            // 在原始图像上绘制所有轮廓
-            Mat contoursOutput = image.Clone();
-            Cv2.DrawContours(contoursOutput, lagerContours, -1, new Scalar(0, 0, 255), 2);
-
-            if (showDebugImages)
-            {
-                //Cv2.ImShow("Image  ", contoursOutput);
-                Cv2.WaitKey();
-            }
-
-            List<string> readResult = new List<string>();
-            // 设置 X 坐标容差值
-            var list = lagerContours.Select(c => new { Rect = Cv2.BoundingRect(c), Contour = c })
-                .Where(c => c.Rect.Height > 2 & c.Rect.Width > 2 && (c.Rect.Height * 1.0 / c.Rect.Width) < 4 &&
-                            (c.Rect.Height * 1.0 / c.Rect.Width) > 1.0 / 4)
-                .OrderBy(c => c.Rect.Width + c.Rect.Height).ThenBy(c => c.Rect.Y).ThenBy(c => c.Rect.X).ToList();
-
-            // 找到元数据条码后，移除它（通常是最小的）
-            list = list.Skip(1).ToList();
-
-            int rindex = 0;
-            foreach (var contour in list)
-            {
-                rindex++;
-                Rect rect = contour.Rect;
-                Cv2.Rectangle(image, rect, new Scalar(0, 0, 255), 2);
-                Mat roi = new Mat(image, rect);
-
-                if (!ReadImage(roi, reader, readResult))
-                {
-                    Mat roiBin = new Mat();
-                    Cv2.Threshold(roi, roiBin, 127, 255, ThresholdTypes.Binary);
-                    if (!ReadImage(roiBin, reader, readResult))
-                    {
-                        if (showDebugImages)
-                        {
-                            //Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength}", roi);
-                            //Cv2.ImShow($"找不到信息 {fileName}/{rindex}/{offset}/{totalLength} Bin", roiBin);
-                        }
-                        return false;
-                    }
-                }
-            }
-
-            List<(int row, int column, byte[] data)> decodes = new List<(int row, int column, byte[] data)>();
-
+            var final = dataBlocks.OrderBy(c => c.row).ThenBy(c => c.col).ToList();
+              
             fileStream.Position = offset;
-            foreach (var code in readResult)
+            foreach (var block in final)
             {
-                int row = rcString.IndexOf(code[0]);
-                int column = rcString.IndexOf(code[1]);
-                var base64 = code.Substring(2);
-
-                var bytes = Convert.FromBase64String(base64);
-                decodes.Add((row, column, bytes));
-            }
-
-            var final = decodes.OrderBy(c => c.row).ThenBy(c => c.column).ToList();
-
-            // 解析第一个 chunk (0,0) 中的文件名
-            bool isFirstChunk = true;
-            foreach (var valueTuple in final)
-            {
-                var bytes = valueTuple.data;
-
-                // 如果是第一个 chunk，尝试解析文件名
-                if (isFirstChunk)
-                {
-                    isFirstChunk = false;
-                    var fileNameResult = ExtractFileName(bytes);
-                    if (fileNameResult.hasFileName)
-                    {
-                        outputFileName = fileNameResult.fileName;
-                        // 写入剩余的数据（去掉文件名部分）
-                        var remainingData = bytes.Skip(fileNameResult.totalLength).ToArray();
-                        if (remainingData.Length > 0)
-                        {
-                            fileStream.Write(remainingData, 0, remainingData.Length);
-                        }
-                        continue;
-                    }
-                }
-
+                var bytes = block.data; 
                 fileStream.Write(bytes, 0, bytes.Length);
             }
 
             return true;
         }
-
-        /// <summary>
-        /// 尝试从左侧区域读取旋转90度的条码
-        /// </summary>
-        private static string TryReadRotatedBarcode(Mat image, BarcodeReader reader)
-        {
-            int leftRegionWidth = Math.Min(100, image.Width / 4);  // 左侧区域宽度
-
-            // 提取左侧区域
-            Rect leftRegion = new Rect(0, 0, leftRegionWidth, image.Height);
-            if (leftRegion.Width > image.Width || leftRegion.Height > image.Height)
-                return null;
-
-            Mat leftRoi = new Mat(image, leftRegion);
-
-            // 逆时针旋转90度（使条码变为水平）
-            Mat rotated = new Mat();
-            Cv2.Transpose(leftRoi, rotated);
-            Cv2.Flip(rotated, rotated, FlipMode.Y);
-
-            using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(rotated))
-            {
-                var result = reader.Decode(bitmap);
-                if (result != null)
-                {
-                    return result.Text;
-                }
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// 尝试从顶部区域读取水平条码（兼容旧格式）
-        /// </summary>
-        private static string TryReadHorizontalBarcode(Mat image, BarcodeReader reader)
-        {
-            int topRegionHeight = Math.Min(60, image.Height / 8);
-
-            Rect topRegion = new Rect(0, 0, image.Width, topRegionHeight);
-            Mat topRoi = new Mat(image, topRegion);
-
-            using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(topRoi))
-            {
-                var result = reader.Decode(bitmap);
-                if (result != null)
-                {
-                    return result.Text;
-                }
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// 从字节数组中提取文件名
-        /// </summary>
-        private static (bool hasFileName, string fileName, int totalLength) ExtractFileName(byte[] data)
-        {
-            // 查找 \0 分隔符
-            int separatorIndex = Array.IndexOf(data, (byte)0x00);
-            if (separatorIndex <= 0)
-            {
-                // 没有找到分隔符或文件名为空
-                return (false, null, 0);
-            }
-
-            // 提取文件名（UTF-8 编码）
-            var fileNameBytes = data.Take(separatorIndex).ToArray();
-            var fileName = Encoding.UTF8.GetString(fileNameBytes);
-
-            return (true, fileName, separatorIndex + 1); // +1 包含分隔符本身
-        }
-
-        private static bool ReadImage(Mat image, BarcodeReader reader, List<string> readResult, int retryCount = 3,
-            int retryIndex = 0)
-        {
-            // 转换为 Bitmap 格式，因为 ZXing 读取 Bitmap 格式
-            using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(image))
-            {
-                // 尝试解码 DataMatrix 编码
-                var result = reader.Decode(bitmap);
-
-                if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
-                {
-                    readResult.Add(result.Text);
-                    // 在图像上绘制矩形框并显示
-                    //Cv2.Rectangle(image, rect, new Scalar(0, 255, 0), 2);
-                    return true;
-                }
-                else
-                {
-                    if (retryIndex >= retryCount)
-                    {
-                        return false;
-                    }
-                    //Cv2.ImShow("Error " + retryIndex, image);
-
-                    // 放大图像 (双线性插值)
-                    double scaleFactor = 2.0; // 放大倍数
-                    Mat resizedImage = new Mat();
-                    Cv2.Resize(image, resizedImage, new Size(), scaleFactor, scaleFactor, InterpolationFlags.Linear);
-
-                    // 创建锐化滤波器内核 
-                    Mat sharpenKernel = Mat.FromArray(new float[,]
-                    {
-                        { -1, -1, -1 },
-                        { -1, 9, -1 },
-                        { -1, -1, -1 }
-                    });
-
-                    // 应用锐化滤波器
-                    Mat sharpenedImage = new Mat();
-                    Cv2.Filter2D(resizedImage, sharpenedImage, -1, sharpenKernel);
-
-                    // 显示结果
-                    //Cv2.ImShow("Resized Image " + retryIndex, resizedImage);
-                    //Cv2.ImShow("Sharpened Image " + retryIndex, sharpenedImage);
-                    //Cv2.WaitKey(0);
-
-                    return ReadImage(sharpenedImage, reader, readResult, retryCount, retryIndex + 1);
-                }
-            }
-        }
-
+         
         /// <summary>
         /// 截取图像左侧或右侧 1/10 区域，水平拉宽 5 倍
         /// </summary>
@@ -409,13 +166,22 @@ namespace screen_file_receiver
         }
 
         /// <summary>
+        /// 图像解码结果
+        /// </summary>
+        public class DecodeResult
+        {
+            public List<(int row, int col, byte[] data)> DataBlocks { get; set; } = new List<(int row, int col, byte[] data)>();
+            public MetadataResult Metadata { get; set; }
+        }
+
+        /// <summary>
         /// 元数据读取结果
         /// </summary>
         public class MetadataResult
         {
             public byte[] Metadata { get; set; }
             public string FileName { get; set; }
-            public string Timestamp { get; set; }
+            public string FileId { get; set; }
 
             // 解析后的元数据含义
             public int MaxRows { get; set; }
@@ -424,6 +190,344 @@ namespace screen_file_receiver
             public int ColorDepth { get; set; }
             public int CurrentPage { get; set; }
             public int TotalPages { get; set; }
+        }
+
+        /// <summary>
+        /// 从图片解码所有数据块（包含元数据）
+        /// </summary>
+        public static DecodeResult DecodeImageWithMetadata(string imageFile)
+        {
+            var result = new DecodeResult();
+
+            using (Mat image = Cv2.ImRead(imageFile))
+            {
+                if (image.Empty())
+                {
+                    throw new Exception($"Failed to load image: {imageFile}");
+                }
+
+                result.Metadata = ReadMetadata(imageFile);
+
+                var dataMatrixContours = FindDataMatrixContours(image);
+
+                bool isColorful = result.Metadata?.Colorful ?? false;
+                if (isColorful)
+                {
+                    result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours);
+                }
+                else
+                {
+                    result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 从图片解码所有数据块（向后兼容的简化版本）
+        /// </summary>
+        public static List<(int row, int col, byte[] data)> DecodeImage(string imageFile)
+        {
+            var result = DecodeImageWithMetadata(imageFile);
+            return result.DataBlocks;
+        }
+
+        /// <summary>
+        /// 查找所有 DataMatrix 二维码轮廓
+        /// </summary>
+        private static List<Rect> FindDataMatrixContours(Mat image)
+        {
+            using (Mat gray = new Mat())
+            using (Mat thresh = new Mat())
+            {
+                Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
+                Cv2.Threshold(gray, thresh, 127, 255, ThresholdTypes.BinaryInv);
+
+                Cv2.FindContours(thresh, out Point[][] contours, out HierarchyIndex[] hierarchy,
+                    RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+                var validContours = contours
+                    .Where(c => Cv2.ContourArea(c) > 100)
+                    .Select(c => Cv2.BoundingRect(c))
+                    .Where(r => r.Height > 15 && r.Width > 15 &&
+                               Math.Abs(r.Height - r.Width) < Math.Max(r.Height, r.Width) * 0.3)
+                    .ToList();
+
+                if (validContours.Count == 0) return new List<Rect>();
+
+                var avgArea = validContours.Average(r => r.Width * r.Height);
+                return validContours
+                    .Where(r => r.Width * r.Height > avgArea * 0.2)
+                    .OrderBy(r => r.Y)
+                    .ThenBy(r => r.X)
+                    .ToList();
+            }
+        }
+
+        /// <summary>
+        /// 灰度模式解码
+        /// </summary>
+        private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours)
+        {
+            var results = new List<(int row, int col, byte[] data)>();
+            var reader = new BarcodeReader();
+            reader.Options.TryHarder = true;
+            reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
+
+            foreach (var rect in contours)
+            {
+                var decoded = DecodeDataMatrixAt(image, rect, reader);
+                if (decoded != null)
+                {
+                    results.Add(decoded.Value);
+                }
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// 彩色模式解码 - 分离 R/G/B 通道分别解码
+        /// </summary>
+        private static List<(int row, int col, byte[] data)> DecodeColorfulMode(Mat image, List<Rect> contours)
+        {
+            var results = new List<(int row, int col, byte[] data)>();
+            var reader = new BarcodeReader();
+            reader.Options.TryHarder = true;
+            reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
+
+            Mat[] channels = new Mat[3];
+            Cv2.Split(image, out channels);
+
+            // OpenCV 分割顺序为 BGR，需重排为 RGB 以匹配发送端 (red, green, blue)
+            var rgbChannels = new[] { channels[2], channels[1], channels[0] };
+
+            foreach (var rect in contours)
+            {
+                var blockResults = new List<(int layer, int row, int col, byte[] data)>();
+
+                for (int layer = 0; layer < 3; layer++)
+                {
+                    var decoded = DecodeDataMatrixFromChannel(rgbChannels[layer], rect, reader, layer);
+                    if (decoded != null)
+                    {
+                        blockResults.Add((layer, decoded.Value.row, decoded.Value.col, decoded.Value.data));
+                    }
+                }
+
+                if (blockResults.Count > 0)
+                {
+                    var merged = MergeLayerData(blockResults);
+                    results.Add(merged);
+                }
+            }
+
+            foreach (var ch in channels) ch.Dispose();
+
+            return results;
+        }
+
+        /// <summary>
+        /// 从单通道解码 DataMatrix
+        /// </summary>
+        private static (int row, int col, byte[] data)? DecodeDataMatrixFromChannel(
+            Mat channel, Rect rect, BarcodeReader reader, int layer)
+        {
+            int padding = 5;
+            int x = Math.Max(0, rect.X - padding);
+            int y = Math.Max(0, rect.Y - padding);
+            int w = Math.Min(channel.Width - x, rect.Width + 2 * padding);
+            int h = Math.Min(channel.Height - y, rect.Height + 2 * padding);
+
+            using (Mat roi = new Mat(channel, new Rect(x, y, w, h)))
+            {
+                using (Mat binary = new Mat())
+                {
+                    int threshold = 127;
+                    Cv2.Threshold(roi, binary, threshold, 255, ThresholdTypes.Binary);
+
+                    using (Mat bgr = new Mat())
+                    {
+                        Cv2.CvtColor(binary, bgr, ColorConversionCodes.GRAY2BGR);
+                        string decoded = TryDecodeDataMatrix(bgr, reader);
+
+                        if (!string.IsNullOrEmpty(decoded) && decoded.Length >= 2)
+                        {
+                            int row = rcString.IndexOf(decoded[0]);
+                            int col = rcString.IndexOf(decoded[1]);
+
+                            if (row >= 0 && col >= 0)
+                            {
+                                string payload = decoded.Substring(2);
+                                byte[] bytes = Iso88591.GetBytes(payload);
+                                return (row, col, bytes);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 在指定位置解码 DataMatrix（用于灰度模式）
+        /// </summary>
+        private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect, BarcodeReader reader)
+        {
+            int padding = 5;
+            int x = Math.Max(0, rect.X - padding);
+            int y = Math.Max(0, rect.Y - padding);
+            int w = Math.Min(image.Width - x, rect.Width + 2 * padding);
+            int h = Math.Min(image.Height - y, rect.Height + 2 * padding);
+
+            using (Mat roi = new Mat(image, new Rect(x, y, w, h)))
+            {
+                string decoded = TryDecodeDataMatrix(roi, reader);
+
+                if (!string.IsNullOrEmpty(decoded) && decoded.Length >= 2)
+                {
+                    int row = rcString.IndexOf(decoded[0]);
+                    int col = rcString.IndexOf(decoded[1]);
+
+                    if (row >= 0 && col >= 0)
+                    {
+                        string payload = decoded.Substring(2);
+                        byte[] bytes = Iso88591.GetBytes(payload);
+                        return (row, col, bytes);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 合并多层数据
+        /// </summary>
+        private static (int row, int col, byte[] data) MergeLayerData(List<(int layer, int row, int col, byte[] data)> layerResults)
+        {
+            if (layerResults.Count == 1)
+            {
+                var r = layerResults[0];
+                return (r.row, r.col, r.data);
+            }
+
+            var sorted = layerResults.OrderBy(l => l.layer).ToList();
+            var first = sorted[0];
+
+            using (var ms = new MemoryStream())
+            {
+                foreach (var layer in sorted)
+                {
+                    ms.Write(layer.data, 0, layer.data.Length);
+                }
+                return (first.row, first.col, ms.ToArray());
+            }
+        }
+
+        /// <summary>
+        /// 尝试解码 DataMatrix
+        /// </summary>
+        private static string TryDecodeDataMatrix(Mat image, BarcodeReader reader, int retryCount = 3)
+        {
+            for (int attempt = 0; attempt <= retryCount; attempt++)
+            {
+                using (Mat processed = PreprocessForDecode(image, attempt))
+                using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(processed))
+                {
+                    var result = reader.Decode(bitmap);
+
+                    if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
+                    {
+                        return result.Text;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 解码预处理
+        /// </summary>
+        private static Mat PreprocessForDecode(Mat image, int attempt)
+        {
+            if (attempt == 0)
+            {
+                return image.Clone();
+            }
+
+            Mat result = new Mat();
+
+            if (attempt == 1)
+            {
+                Cv2.Resize(image, result, new Size(), 2.0, 2.0, InterpolationFlags.Linear);
+            }
+            else if (attempt == 2)
+            {
+                using (Mat gray = new Mat())
+                {
+                    if (image.Channels() == 3)
+                        Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
+                    else
+                        image.CopyTo(gray);
+
+                    Cv2.AdaptiveThreshold(gray, result, 255, AdaptiveThresholdTypes.GaussianC,
+                        ThresholdTypes.Binary, 11, 2);
+                }
+            }
+            else
+            {
+                Mat kernel = Mat.FromArray(new float[,]
+                {
+                    { -1, -1, -1 },
+                    { -1, 9, -1 },
+                    { -1, -1, -1 }
+                });
+                Cv2.Filter2D(image, result, -1, kernel);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 从解码数据列表中提取文件名
+        /// </summary>
+        public static string ExtractFileName(List<(int row, int col, byte[] data)> decodedData)
+        {
+            var firstChunk = decodedData.FirstOrDefault(d => d.row == 0 && d.col == 0);
+            if (firstChunk.data == null || firstChunk.data.Length == 0)
+            {
+                return null;
+            }
+
+            int separatorIndex = Array.IndexOf(firstChunk.data, (byte)0x00);
+            if (separatorIndex <= 0)
+            {
+                return null;
+            }
+
+            var fileNameBytes = firstChunk.data.Take(separatorIndex).ToArray();
+            return Encoding.UTF8.GetString(fileNameBytes);
+        }
+
+        public static byte[] ExtractDataWithoutFileName(byte[] data)
+        {
+            int separatorIndex = Array.IndexOf(data, (byte)0x00);
+            if (separatorIndex < 0)
+            {
+                return data;
+            }
+
+            int startIndex = separatorIndex + 1;
+            if (startIndex >= data.Length)
+            {
+                return new byte[0];
+            }
+
+            return data.Skip(startIndex).ToArray();
         }
 
         private static bool IsBase64String(string s)
@@ -494,15 +598,15 @@ namespace screen_file_receiver
             if (rightCodes.Count >= 2)
             {
                 var ordered = rightCodes.OrderByDescending(c => c.Length).ToList();
-                var candidateTimestamp = ordered.FirstOrDefault(IsBase64String);
-                if (candidateTimestamp != null)
+                var candidateFileId = ordered.FirstOrDefault(c => c.StartsWith("#"));// ordered.FirstOrDefault(IsBase64String);
+                if (candidateFileId != null)
                 {
-                    result.Timestamp = ParseTimestamp(candidateTimestamp);
-                    result.FileName = ordered.First(c => c != candidateTimestamp);
+                    result.FileId = candidateFileId.TrimStart('#');// ParseTimestamp(candidateTimestamp);
+                    result.FileName = ordered.First(c => c != candidateFileId);
                 }
                 else
                 {
-                    result.Timestamp = ParseTimestamp(ordered[0]);
+                    result.FileId = ordered[0].TrimStart('#');// ParseTimestamp(ordered[0]);
                     result.FileName = ordered[1];
                 }
             }

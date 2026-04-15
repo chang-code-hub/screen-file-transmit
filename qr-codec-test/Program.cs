@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using OpenCvSharp;
 using screen_file_receiver;
-using screen_file_transmit; 
+using screen_file_transmit;
 
 namespace qr_codec_test
 {
@@ -22,7 +22,7 @@ namespace qr_codec_test
 
         static void Main(string[] args)
         {
-            //Test();
+            TestEncodeAndDecode();
             // 运行条码区域检测测试
             TestBarcodeDetection();
         }
@@ -45,7 +45,7 @@ namespace qr_codec_test
                 }
 
                 Console.WriteLine($"Processing: {Path.GetFileName(imageFile)}");
-                var meta = DataMatrixReader.ReadMetadata(imageFile); 
+                var meta = DataMatrixReader.ReadMetadata(imageFile);
                 Console.WriteLine($"  Metadata:     {(meta.Metadata != null ? BitConverter.ToString(meta.Metadata) : "null")}");
                 Console.WriteLine($"  MaxRows:      {meta.MaxRows}");
                 Console.WriteLine($"  MaxCols:      {meta.MaxCols}");
@@ -54,7 +54,7 @@ namespace qr_codec_test
                 Console.WriteLine($"  CurrentPage:  {meta.CurrentPage}");
                 Console.WriteLine($"  TotalPages:   {meta.TotalPages}");
                 Console.WriteLine($"  FileName:     {meta.FileName}");
-                Console.WriteLine($"  Timestamp:    {meta.Timestamp}");
+                Console.WriteLine($"  Timestamp:    {meta.FileId}");
             }
 
             Console.WriteLine("\nDetection completed. Press any key to exit...");
@@ -62,7 +62,7 @@ namespace qr_codec_test
             Cv2.DestroyAllWindows();
         }
 
-        static void Test()
+        static void TestEncodeAndDecode()
         {
 
             Console.WriteLine("=== QR File Transfer Codec Test ===\n");
@@ -70,9 +70,9 @@ namespace qr_codec_test
             // 路径配置
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             string projectRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
-            string inputFile = Path.Combine(projectRoot, "data", "sample.txt");
+            string inputFile = Path.Combine(projectRoot, "data", "sample.zip");
             string outputDir = Path.Combine(projectRoot, "data", "out");
-            string decodedFile = Path.Combine(outputDir, "decoded.txt");
+            string decodedFile = Path.Combine(outputDir, "decoded.zip");
 
             // 确保输出目录存在
             Directory.CreateDirectory(outputDir);
@@ -156,10 +156,11 @@ namespace qr_codec_test
             Console.WriteLine($"  Screen size: {ScreenWidth}x{ScreenHeight}");
             Console.WriteLine($"  Image size: {pageInfo.BitmapWidth}x{pageInfo.BitmapHeight}");
             Console.WriteLine();
+            var ts = DataMatrixEncoder.GenerateFileId();
 
             using (var fileStream = new FileStream(inputFile, FileMode.Open, FileAccess.Read))
             {
-                string fileName = "测试文件_Sample.txt";
+                string fileName = "测试文件_Sample.zip";
                 int totalPages = (int)Math.Ceiling((double)fileStream.Length / matrix.PageByteCount / (Colorful ? 3 : 1));
                 if (totalPages == 0) totalPages = 1;
 
@@ -181,7 +182,7 @@ namespace qr_codec_test
                         true, // includeFileName
                         pageNumber,
                         totalPages,
-                       DataMatrixEncoder.GenerateTimestamp()
+                        ts
                     );
 
                     if (bitmap != null)
@@ -221,7 +222,7 @@ namespace qr_codec_test
                         Console.WriteLine($"  Processing: {Path.GetFileName(imageFile)}");
 
                         // 解码当前页（带元数据）
-                        var decodeResult = DataMatrixDecoder.DecodeImageWithMetadata(imageFile);
+                        var decodeResult = DataMatrixReader.DecodeImageWithMetadata(imageFile);
 
                         if (decodeResult.DataBlocks.Count == 0)
                         {
@@ -229,40 +230,21 @@ namespace qr_codec_test
                             continue;
                         }
 
-                        Console.WriteLine($"    Metadata: Grid={decodeResult.MaxRows}x{decodeResult.MaxCols}, " +
-                            $"Colorful={decodeResult.Colorful}, Depth={decodeResult.ColorDepth}, " +
-                            $"Page={decodeResult.CurrentPage}/{decodeResult.TotalPages}");
+                        var meta = decodeResult.Metadata;
+                        Console.WriteLine($"    Metadata: Grid={meta?.MaxRows}x{meta?.MaxCols}, " +
+                            $"Colorful={meta?.Colorful}, Depth={meta?.ColorDepth}, " +
+                            $"Page={meta?.CurrentPage}/{meta?.TotalPages}");
 
                         // 按行列排序
                         var sortedData = decodeResult.DataBlocks.OrderBy(d => d.row).ThenBy(d => d.col).ToList();
                         Console.WriteLine($"    Decoded {sortedData.Count} blocks");
-
-                        // 处理第一页
-                        if (isFirstPage)
-                        {
-                            detectedFileName = DataMatrixDecoder.ExtractFileName(sortedData);
-                            if (!string.IsNullOrEmpty(detectedFileName))
-                            {
-                                Console.WriteLine($"    Original filename: {detectedFileName}");
-                            }
-
-                            isFirstPage = false;
-                        }
 
                         // 写入数据
                         foreach (var block in sortedData)
                         {
                             byte[] dataToWrite;
 
-                            if (block.row == 0 && block.col == 0)
-                            {
-                                // 第一个块需要去掉文件名部分
-                                dataToWrite = DataMatrixDecoder.ExtractDataWithoutFileName(block.data);
-                            }
-                            else
-                            {
-                                dataToWrite = block.data;
-                            }
+                            dataToWrite = block.data;
 
                             if (dataToWrite.Length > 0)
                             {

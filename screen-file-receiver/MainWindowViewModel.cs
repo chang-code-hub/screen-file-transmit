@@ -7,28 +7,30 @@ using System.Linq;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
-using MessageBox = System.Windows.MessageBox;
+using System.Windows;
 
 namespace screen_file_receiver
 {
     public class MainWindowViewModel : INotifyPropertyChanged
     {
-        private ObservableCollection<string> _selectedFiles = new ObservableCollection<string>();
+        private ObservableCollection<FileItem> _fileItems = new ObservableCollection<FileItem>();
         private string _password;
         private string _statusText = "就绪";
         private double _progressValue;
         private double _progressMaximum = 100;
         private bool _isBusy;
         private BitmapImage _previewImage;
-        private int _selectedFileIndex = -1;
+        private FileItem _selectedFileItem;
+        private bool _isSyncingProperty;
+        private string _outputFilePath;
 
-        public ObservableCollection<string> SelectedFiles
+        public ObservableCollection<FileItem> FileItems
         {
-            get => _selectedFiles;
+            get => _fileItems;
             set
             {
-                _selectedFiles = value;
-                OnPropertyChanged(nameof(SelectedFiles));
+                _fileItems = value;
+                OnPropertyChanged(nameof(FileItems));
                 CommandManager.InvalidateRequerySuggested();
             }
         }
@@ -94,14 +96,25 @@ namespace screen_file_receiver
             }
         }
 
-        public int SelectedFileIndex
+        public FileItem SelectedFileItem
         {
-            get => _selectedFileIndex;
+            get => _selectedFileItem;
             set
             {
-                _selectedFileIndex = value;
-                OnPropertyChanged(nameof(SelectedFileIndex));
+                _selectedFileItem = value;
+                OnPropertyChanged(nameof(SelectedFileItem));
                 LoadPreview();
+            }
+        }
+
+        public string OutputFilePath
+        {
+            get => _outputFilePath;
+            set
+            {
+                _outputFilePath = value;
+                OnPropertyChanged(nameof(OutputFilePath));
+                CommandManager.InvalidateRequerySuggested();
             }
         }
 
@@ -127,9 +140,10 @@ namespace screen_file_receiver
         }
 
         public ICommand AddFileCommand => new RelayCommand(_ => AddFiles(), _ => !IsBusy);
-        public ICommand RemoveFileCommand => new RelayCommand(_ => RemoveFile(), _ => !IsBusy && SelectedFileIndex >= 0 && SelectedFiles.Count > 0);
-        public ICommand ClearFilesCommand => new RelayCommand(_ => ClearFiles(), _ => !IsBusy && SelectedFiles.Count > 0);
-        public ICommand StartCommand => new RelayCommand(_ => StartEncoding(), _ => !IsBusy && SelectedFiles.Count > 0);
+        public ICommand RemoveFileCommand => new RelayCommand(_ => RemoveFile(), _ => !IsBusy && SelectedFileItem != null && FileItems.Count > 0);
+        public ICommand ClearFilesCommand => new RelayCommand(_ => ClearFiles(), _ => !IsBusy && FileItems.Count > 0);
+        public ICommand BrowseOutputPathCommand => new RelayCommand(_ => BrowseOutputPath(), _ => !IsBusy);
+        public ICommand ConvertCommand => new RelayCommand(_ => StartConvert(), _ => !IsBusy && FileItems.Count > 0 && !string.IsNullOrWhiteSpace(OutputFilePath));
 
         private void AddFiles()
         {
@@ -138,13 +152,7 @@ namespace screen_file_receiver
             openFileDialog.Filter = "Image Files|*.png;*.jpg;*.jpeg;*.bmp|All Files|*.*";
             if (openFileDialog.ShowDialog() ?? false)
             {
-                foreach (var file in openFileDialog.FileNames)
-                {
-                    if (!SelectedFiles.Contains(file))
-                        SelectedFiles.Add(file);
-                }
-                if (SelectedFileIndex < 0 && SelectedFiles.Count > 0)
-                    SelectedFileIndex = 0;
+                AddFiles(openFileDialog.FileNames);
             }
         }
 
@@ -152,42 +160,193 @@ namespace screen_file_receiver
         {
             foreach (var file in files)
             {
-                if (!SelectedFiles.Contains(file))
-                    SelectedFiles.Add(file);
+                if (FileItems.Any(f => f.FullPath == file))
+                    continue;
+
+                var item = CreateFileItem(file);
+                if (item != null)
+                {
+                    item.PropertyChanged += FileItem_PropertyChanged;
+                    FileItems.Add(item);
+                }
             }
-            if (SelectedFileIndex < 0 && SelectedFiles.Count > 0)
-                SelectedFileIndex = 0;
+            if (SelectedFileItem == null && FileItems.Count > 0)
+                SelectedFileItem = FileItems[0];
+            CheckFileComplete();
+        }
+
+        private void CheckFileComplete()
+        {
+            foreach (var group in FileItems.GroupBy(c => new { c.FileId, c.SaveFileName }))
+            {
+                HashSet<int> pages = new HashSet<int>();
+                foreach (var item in group)
+                {
+                    pages.Add(item.CurrentPage);
+                }
+                if (pages.Count == group.First().TotalPages)
+                {
+                    foreach (var item in group)
+                    {
+                        item.IsComplete = true;
+                    }
+                }
+                else
+                {
+                    foreach (var item in group)
+                    {
+                        item.IsComplete = false;
+                    }
+
+                }
+
+
+            }
+        }
+
+        private FileItem CreateFileItem(string filePath)
+        {
+            try
+            {
+                var meta = DataMatrixReader.ReadMetadata(filePath);
+                var item = new FileItem
+                {
+                    FullPath = filePath,
+                    ImageFileName = Path.GetFileName(filePath),
+                    FileId = meta?.FileId ?? "",
+                    SaveFileName = meta?.FileName ?? Path.GetFileNameWithoutExtension(filePath),
+                    RawMetadata = meta?.Metadata,
+                    MaxRows = meta?.MaxRows ?? 0,
+                    MaxCols = meta?.MaxCols ?? 0,
+                    Colorful = meta?.Colorful ?? false,
+                    ColorDepth = meta?.ColorDepth ?? 0,
+                    CurrentPage = meta?.CurrentPage ?? 0,
+                    TotalPages = meta?.TotalPages ?? 0
+                };
+                item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
+                item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
+                item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "Colorful" : "Gray")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}";
+
+
+                return item;
+            }
+            catch (Exception ex)
+            {
+                var errorItem = new FileItem
+                {
+                    FullPath = filePath,
+                    ImageFileName = Path.GetFileName(filePath),
+                    SaveFileName = Path.GetFileNameWithoutExtension(filePath),
+                    Status = $"读取失败: {ex.Message}"
+                };
+                errorItem.DeleteCommand = new RelayCommand(_ => DeleteItem(errorItem), _ => !IsBusy);
+                errorItem.RetryCommand = new RelayCommand(_ => RetryItem(errorItem), _ => !IsBusy);
+                return errorItem;
+            }
+        }
+
+        private void FileItem_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(FileItem.SaveFileName) && !_isSyncingProperty)
+            {
+                var changedItem = sender as FileItem;
+                if (changedItem == null || string.IsNullOrEmpty(changedItem.FileId))
+                    return;
+
+                _isSyncingProperty = true;
+                foreach (var item in FileItems)
+                {
+                    if (item != changedItem && item.FileId == changedItem.FileId)
+                    {
+                        item.SaveFileName = changedItem.SaveFileName;
+                    }
+                }
+                _isSyncingProperty = false;
+                CheckFileComplete();
+            }
         }
 
         private void RemoveFile()
         {
-            if (SelectedFileIndex >= 0 && SelectedFileIndex < SelectedFiles.Count)
+            if (SelectedFileItem != null && FileItems.Contains(SelectedFileItem))
             {
-                SelectedFiles.RemoveAt(SelectedFileIndex);
-                if (SelectedFiles.Count > 0)
-                    SelectedFileIndex = Math.Min(SelectedFileIndex, SelectedFiles.Count - 1);
+                var index = FileItems.IndexOf(SelectedFileItem);
+                SelectedFileItem.PropertyChanged -= FileItem_PropertyChanged;
+                FileItems.Remove(SelectedFileItem);
+                if (FileItems.Count > 0)
+                    SelectedFileItem = FileItems[Math.Min(index, FileItems.Count - 1)];
                 else
-                    SelectedFileIndex = -1;
+                    SelectedFileItem = null;
+                CheckFileComplete();
             }
         }
 
         private void ClearFiles()
         {
-            SelectedFiles.Clear();
-            SelectedFileIndex = -1;
+            foreach (var item in FileItems)
+                item.PropertyChanged -= FileItem_PropertyChanged;
+            FileItems.Clear();
+            SelectedFileItem = null;
             PreviewImage = null;
+        }
+
+        private void DeleteItem(FileItem item)
+        {
+            if (item == null) return;
+            if (SelectedFileItem == item)
+            {
+                var index = FileItems.IndexOf(item);
+                FileItems.Remove(item);
+                if (FileItems.Count > 0)
+                    SelectedFileItem = FileItems[Math.Min(index, FileItems.Count - 1)];
+                else
+                    SelectedFileItem = null;
+            }
+            else
+            {
+                FileItems.Remove(item);
+            }
+            item.PropertyChanged -= FileItem_PropertyChanged;
+        }
+
+        private void RetryItem(FileItem item)
+        {
+            if (item == null || string.IsNullOrEmpty(item.FullPath))
+                return;
+
+            item.Status = "重试中...";
+            item.ProgressValue = 0;
+            try
+            {
+                using (var tempStream = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose))
+                {
+                    if (DataMatrixReader.ReadToFile(item.FullPath, tempStream, out var extractedName, out _, out _))
+                    {
+                        item.Status = "就绪";
+                        if (!string.IsNullOrEmpty(extractedName) && string.IsNullOrEmpty(item.SaveFileName))
+                            item.SaveFileName = extractedName;
+                    }
+                    else
+                    {
+                        item.Status = "解析失败";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                item.Status = $"错误: {ex.Message}";
+            }
         }
 
         private void LoadPreview()
         {
-            if (SelectedFileIndex >= 0 && SelectedFileIndex < SelectedFiles.Count)
+            if (SelectedFileItem != null && !string.IsNullOrEmpty(SelectedFileItem.FullPath))
             {
                 try
                 {
-                    var path = SelectedFiles[SelectedFileIndex];
                     var bitmap = new BitmapImage();
                     bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(path, UriKind.Absolute);
+                    bitmap.UriSource = new Uri(SelectedFileItem.FullPath, UriKind.Absolute);
                     bitmap.CacheOption = BitmapCacheOption.OnLoad;
                     bitmap.DecodePixelWidth = 128;
                     bitmap.EndInit();
@@ -205,74 +364,120 @@ namespace screen_file_receiver
             }
         }
 
-        private void StartEncoding()
+        private void BrowseOutputPath()
         {
-            if (SelectedFiles.Count == 0)
+            using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+            {
+                dialog.Description = "选择保存文件夹";
+                if (!string.IsNullOrWhiteSpace(OutputFilePath))
+                {
+                    dialog.SelectedPath = OutputFilePath;
+                }
+                if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    OutputFilePath = dialog.SelectedPath;
+                }
+            }
+        }
+
+        private string GetUniqueFilePath(string basePath)
+        {
+            if (!File.Exists(basePath))
+                return basePath;
+
+            string directory = Path.GetDirectoryName(basePath);
+            string fileNameWithoutExt = Path.GetFileNameWithoutExtension(basePath);
+            string extension = Path.GetExtension(basePath);
+            int index = 1;
+            string newPath;
+            do
+            {
+                newPath = Path.Combine(directory, $"{fileNameWithoutExt}({index}){extension}");
+                index++;
+            } while (File.Exists(newPath));
+            return newPath;
+        }
+
+        private void StartConvert()
+        {
+            if (string.IsNullOrWhiteSpace(OutputFilePath))
+            {
+                MessageBox.Show("请先选择保存路径");
                 return;
+            }
+
+            if (!Directory.Exists(OutputFilePath))
+            {
+                MessageBox.Show("保存路径不存在");
+                return;
+            }
+            var completeItems = FileItems.Where(f => f.IsComplete).ToList();
+            if (completeItems.Count == 0)
+            {
+                MessageBox.Show("没有可转换的完整文件");
+                return;
+            }
+
+            var incompleteItems = FileItems.Where(f => !f.IsComplete).ToList();
+            if (incompleteItems.Count > 0)
+            {
+                var result = MessageBox.Show("存在未解析完成的文件，是否跳过这些文件继续转换？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (result == MessageBoxResult.No)
+                    return;
+            }
+
+
+            var groups = completeItems.GroupBy(f => new { f.FileId, f.SaveFileName }).ToList();
 
             IsBusy = true;
-            ProgressMaximum = SelectedFiles.Count;
+            ProgressMaximum = completeItems.Count;
             ProgressValue = 0;
 
             try
             {
-                // 先读取第一个文件获取文件名
-                string suggestedFileName = null;
-                var files = SelectedFiles.ToArray();
-                if (files.Length > 0)
+                bool anyFailed = false;
+                int processedCount = 0;
+
+                foreach (var group in groups)
                 {
-                    try
+                    string outputFileName = group.Key.SaveFileName;
+                    if (string.IsNullOrWhiteSpace(outputFileName))
+                        outputFileName = "decoded.bin";
+
+                    string outputPath = Path.Combine(OutputFilePath, outputFileName);
+                    outputPath = GetUniqueFilePath(outputPath);
+
+                    using (var encryptedMs = new MemoryStream())
                     {
-                        StatusText = "正在提取文件名...";
-                        using (var tempStream = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose))
+                        var sortedItems = group.OrderBy(f => f.CurrentPage).ToList();
+                        foreach (var item in sortedItems)
                         {
-                            if (DataMatrixReader.ReadToFile(files[0], tempStream, out var extractedName, out _, out _))
+                            processedCount++;
+                            item.Status = $"正在解析 {processedCount}/{completeItems.Count}";
+                            item.ProgressValue = 0;
+                            ProgressValue = processedCount;
+
+                            if (string.IsNullOrEmpty(item.FullPath))
                             {
-                                suggestedFileName = extractedName;
+                                item.Status = "路径为空";
+                                anyFailed = true;
+                                continue;
+                            }
+
+                            if (!DataMatrixReader.ReadToFile(item.FullPath, encryptedMs, out _, out _, out _))
+                            {
+                                item.Status = "解析失败";
+                                anyFailed = true;
                             }
                             else
                             {
-                                StatusText = "解析失败";
-                                IsBusy = false;
-                                return;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        StatusText = $"读取错误: {ex.Message}";
-                        IsBusy = false;
-                        return;
-                    }
-                }
-
-                SaveFileDialog saveFileDialog = new SaveFileDialog();
-                if (!string.IsNullOrEmpty(suggestedFileName))
-                {
-                    saveFileDialog.FileName = suggestedFileName;
-                }
-
-                if (saveFileDialog.ShowDialog() ?? false)
-                {
-                    bool anyFailed = false;
-                    using (var encryptedMs = new MemoryStream())
-                    {
-                        for (int i = 0; i < files.Length; i++)
-                        {
-                            var file = files[i];
-                            StatusText = $"正在解析 {i + 1}/{files.Length}: {Path.GetFileName(file)}";
-                            ProgressValue = i + 1;
-
-                            if (string.IsNullOrEmpty(file)) continue;
-
-                            if (!DataMatrixReader.ReadToFile(file, encryptedMs, out _, out _, out _))
-                            {
-                                anyFailed = true;
+                                item.Status = "完成";
+                                item.ProgressValue = 100;
                             }
                         }
 
                         encryptedMs.Position = 0;
-                        using (var fs = new FileStream(saveFileDialog.FileName, FileMode.Create, FileAccess.Write))
+                        using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
                         {
                             if (!string.IsNullOrEmpty(Password))
                             {
@@ -284,21 +489,17 @@ namespace screen_file_receiver
                             }
                         }
                     }
+                }
 
-                    if (anyFailed)
-                    {
-                        MessageBox.Show("部分文件解析失败，已完成可解析部分");
-                        StatusText = "部分完成";
-                    }
-                    else
-                    {
-                        MessageBox.Show("解析成功");
-                        StatusText = "解析成功";
-                    }
+                if (anyFailed)
+                {
+                    MessageBox.Show("部分文件解析失败，已完成可解析部分");
+                    StatusText = "部分完成";
                 }
                 else
                 {
-                    StatusText = "已取消";
+                    MessageBox.Show("解析成功");
+                    StatusText = "解析成功";
                 }
             }
             catch (Exception e)

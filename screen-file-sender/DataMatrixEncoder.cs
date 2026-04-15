@@ -13,7 +13,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Media3D;
 using ZXing;
+using ZXing.Aztec.Internal;
+using ZXing.Datamatrix;
 using ZXing.QrCode.Internal;
 using Brushes = System.Drawing.Brushes;
 using Color = System.Drawing.Color;
@@ -77,11 +80,10 @@ namespace screen_file_transmit
             }
         }
 
-        private static int CalcBase64ByteLength(int capacity)
+        private static int CalcBase256ByteLength(int capacity)
         {
-            int originalBytes = (capacity * 3) / 4; // Calculate the original byte count
-            int byteCount = originalBytes / 1; // Assume each byte[] is 1 byte
-            return byteCount;
+            // Base256 模式下每个字节占 1 个码字，直接返回容量
+            return capacity;
         }
 
         public static DataMatrixResult CalculateScreenDataMatrix(int screenWidth, int screenHeight, int codeScale)
@@ -110,7 +112,7 @@ namespace screen_file_transmit
 
                 if (cols <= 0 || rows <= 0) continue;
 
-                int byteCount = CalcBase64ByteLength(versionData.Capacity - 2);
+                int byteCount = CalcBase256ByteLength(versionData.Capacity - 5);
                 int totalCapacity = rows * cols * byteCount;
 
                 if (totalCapacity > maxByteCount)
@@ -164,10 +166,16 @@ namespace screen_file_transmit
                     break;
                 buffer = new byte[readLength];
                 Array.Copy(chuck, buffer, buffer.Length);
-
-                var base64 = $"{rcString[row]}{rcString[column]}{Convert.ToBase64String(buffer)}";
-                var chuckBitmap = GenerateDataMatrix(base64, matrix.CodeSize, scale);
-                bitmaps.Add((chuckBitmap));
+                using (var ms = new MemoryStream())
+                {
+                    byte[] bytes = Encoding.ASCII.GetBytes($"{rcString[row]}{rcString[column]}");
+                    ms.Write(bytes, 0, bytes.Length);
+                    ms.Write(buffer, 0, buffer.Length);
+                    var chuckBitmap = GenerateDataMatrix(ms.ToArray(), matrix.CodeSize, scale);
+                    //var base64 = $"{rcString[row]}{rcString[column]}{Convert.ToBase64String(buffer)}";
+                    //var chuckBitmap = GenerateDataMatrix(base64, matrix.CodeSize, scale);
+                    bitmaps.Add((chuckBitmap));
+                }
             }
 
             if (bitmaps.Count == 0) return null;
@@ -242,6 +250,24 @@ namespace screen_file_transmit
 
             // Encode the content into a DataMatrixEncoder Bitmap
             return writer.Write(content);
+        }
+
+        public static Bitmap GenerateDataMatrix(byte[] content, int size, int scale)
+        {
+            var writer = new BarcodeWriter
+            {
+                Format = BarcodeFormat.DATA_MATRIX,
+                Options = new ZXing.Common.EncodingOptions
+                {
+                    Width = size * scale,
+                    Height = size * scale,
+                    PureBarcode = true,
+                    Margin = 0
+                }
+            };
+            var iso88591 = Encoding.GetEncoding("ISO-8859-1");
+            string text = iso88591.GetString(content);
+            return writer.Write(text);
         }
 
         public static Bitmap GenerateDataRectangleMatrix(string content, int height, int width, int scale,
@@ -327,12 +353,12 @@ namespace screen_file_transmit
             return scaled;
         }
 
-        public static String GenerateTimestamp( )
+        public static String GenerateFileId( )
         {
-            
-            long date =  DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            Byte[] bytes = BitConverter.GetBytes(date);
-            return Convert.ToBase64String(bytes);
+            return "#"+ Guid.NewGuid().ToString().Split('-').Last();
+            //long date =  DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            //Byte[] bytes = BitConverter.GetBytes(date);
+            //return Convert.ToBase64String(bytes);
         }
 
         /// <summary>
@@ -486,11 +512,12 @@ namespace screen_file_transmit
                 rotatedInfoBitmap.Dispose();
 
 
-                // ===== 右侧：文件名条码（旋转90度，中文转拼音首字母）=====
+                // ===== 右侧：文件名条码（旋转90度，中文转拼音首字母，保留扩展名）=====
                 if (!string.IsNullOrEmpty(fileName))
                 {
-                    // 提取文件名（不含扩展名）并转换为拼音首字母
-                    var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                    var displayFileName = Path.GetFileName(fileName);
+                    var nameWithoutExt = Path.GetFileNameWithoutExtension(displayFileName);
+                    var ext = Path.GetExtension(displayFileName);
                     var pinyinInitials = ChineseToPinyinInitials(nameWithoutExt);
 
                     // 如果转换后为空，使用原始文件名中的字母数字
@@ -503,9 +530,15 @@ namespace screen_file_transmit
                         }
                     }
 
+                    // 保留扩展名
+                    if (!string.IsNullOrEmpty(ext))
+                    {
+                        pinyinInitials += ext;
+                    }
+
                     // 限制长度，避免条码过长
-                    if (pinyinInitials.Length > 20)
-                        pinyinInitials = pinyinInitials.Substring(0, 20);
+                    if (pinyinInitials.Length > 25)
+                        pinyinInitials = pinyinInitials.Substring(0, 25);
 
                     if (!string.IsNullOrEmpty(pinyinInitials))
                     {
