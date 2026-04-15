@@ -273,7 +273,8 @@ namespace screen_file_transmit
                             // 生成图片
                             var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap((FileStream)workStream, matrix,
                                 pageInfo, ColorDepth, ColorMode != "黑白", Scale,
-                                Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid);
+                                Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid,
+                                !string.IsNullOrEmpty(Password));
                             if (bitmap == null)
                                 continue;
 
@@ -350,7 +351,8 @@ namespace screen_file_transmit
             // 使用 GenerateDataMatrixBitmap 方法生成图片
             var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(
                 fileStream, matrix, pageInfo, colorDepth, colorful, scale,
-                fileName, currentPage == 1, currentPage, totalPage, sessionGuid);
+                fileName, currentPage == 1, currentPage, totalPage, sessionGuid,
+                false);
 
             return bitmap;
         }

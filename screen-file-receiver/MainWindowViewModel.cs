@@ -216,13 +216,14 @@ namespace screen_file_receiver
                     MaxRows = meta?.MaxRows ?? 0,
                     MaxCols = meta?.MaxCols ?? 0,
                     Colorful = meta?.Colorful ?? false,
+                    HasPassword = meta?.HasPassword ?? false,
                     ColorDepth = meta?.ColorDepth ?? 0,
                     CurrentPage = meta?.CurrentPage ?? 0,
                     TotalPages = meta?.TotalPages ?? 0
                 };
                 //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
                 //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
-                item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}";
+                item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " 有密码" : "")}";
 
                 return item;
             }
@@ -411,6 +412,12 @@ namespace screen_file_receiver
             if (completeItems.Count == 0)
             {
                 MessageBox.Show("没有可转换的完整文件");
+                return;
+            }
+
+            if (completeItems.Any(f => f.HasPassword && string.IsNullOrEmpty(Password)))
+            {
+                MessageBox.Show("存在需要密码的文件，请先输入密码");
                 return;
             }
 

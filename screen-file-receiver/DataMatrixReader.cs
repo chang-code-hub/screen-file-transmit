@@ -183,6 +183,7 @@ namespace screen_file_receiver
 
             public int MaxCols { get; set; }
             public bool Colorful { get; set; }
+            public bool HasPassword { get; set; }
             public int ColorDepth { get; set; }
             public int CurrentPage { get; set; }
             public int TotalPages { get; set; }
@@ -542,7 +543,8 @@ namespace screen_file_receiver
                             result.MaxRows = (result.Metadata[0] >> 4) & 0x0F;
                             result.MaxCols = result.Metadata[0] & 0x0F;
                             result.Colorful = (result.Metadata[1] & 0x80) != 0;
-                            result.ColorDepth = result.Metadata[1] & 0x7F;
+                            result.HasPassword = (result.Metadata[1] & 0x40) != 0;
+                            result.ColorDepth = result.Metadata[1] & 0x3F;
                             result.CurrentPage = result.Metadata[2];
                             result.TotalPages = result.Metadata[3];
                         }

@@ -353,7 +353,7 @@ namespace screen_file_transmit
         /// </summary>
         public static Bitmap GenerateDataMatrixBitmap(FileStream fileStream, DataMatrixResult matrix, PageInfo pageInfo,
             int colorDepth, bool colorful, int scale, string fileName = null, bool includeFileName = false,
-            int currentPage = 1, int totalPages = 1, string sessionGuid = null)
+            int currentPage = 1, int totalPages = 1, string sessionGuid = null, bool hasPassword = false)
         {
             var bitmap = new Bitmap(pageInfo.BitmapWidth, pageInfo.BitmapHeight);
             using (Graphics g = Graphics.FromImage(bitmap))
@@ -404,7 +404,7 @@ namespace screen_file_transmit
             // 在左右两侧绘制元数据信息
             DrawInfoArea(bitmap, matrix, pageInfo, colorful, colorDepth, offset, fileStream.Position - offset,
                 fileStream.Length,
-                count, fileName, currentPage, totalPages, scale, sessionGuid);
+                count, fileName, currentPage, totalPages, scale, sessionGuid, hasPassword);
 
             return bitmap;
         }
@@ -415,7 +415,7 @@ namespace screen_file_transmit
         public static void DrawInfoArea(Bitmap bitmap, DataMatrixResult matrix, PageInfo pageInfo, bool colorful,
             int colorDepth,
             long offset, long length, long totalLength, int count, string fileName, int currentPage, int totalPages,
-            int scale, string sessionGuid)
+            int scale, string sessionGuid, bool hasPassword = false)
         {
             // 条码原始高度
             int maxBarcodeHeight = bitmap.Height - MARGIN * 2; // 条码最大高度（旋转后）
@@ -477,7 +477,7 @@ namespace screen_file_transmit
                 // ===== 左侧：元数据条码（旋转90度）=====
                 List<byte> meta = new List<byte>();
                 meta.Add((byte)(matrix.MaxRows << 4 | matrix.MaxCols));
-                meta.Add((byte)((colorful ? 0x80 : 0x00) | colorDepth));
+                meta.Add((byte)((colorful ? 0x80 : 0x00) | (hasPassword ? 0x40 : 0x00) | colorDepth));
                 meta.Add((byte)(currentPage));
                 meta.Add((byte)(totalPages));
                 var info = "$" + Convert.ToBase64String(meta.ToArray());
