@@ -1,7 +1,4 @@
-using System;
 using System.ComponentModel;
-using System.IO;
-using System.Windows.Input;
 
 namespace screen_file_receiver
 {
@@ -133,8 +130,8 @@ namespace screen_file_receiver
         public int CurrentPage { get; set; }
         public int TotalPages { get; set; }
 
-        public ICommand DeleteCommand { get; set; }
-        public ICommand RetryCommand { get; set; }
+        //public ICommand DeleteCommand { get; set; }
+        //public ICommand RetryCommand { get; set; }
 
         public event PropertyChangedEventHandler PropertyChanged;
 

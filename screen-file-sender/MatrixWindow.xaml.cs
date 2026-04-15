@@ -1,11 +1,9 @@
-﻿using System; 
+﻿using System;
 using System.IO;
-using System.Windows;  
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Image = System.Windows.Controls.Image;
-using Size = System.Windows.Size;
-
 
 namespace screen_file_transmit
 {
@@ -48,7 +46,6 @@ namespace screen_file_transmit
             this.SizeChanged += MatrixWindow_SizeChanged;
         }
 
-
         private void MatrixWindow_Closed(object sender, EventArgs e)
         {
             fileStream.Close();
@@ -84,7 +81,7 @@ namespace screen_file_transmit
             long totalBytes = fileStream.Length;
             long bytesPerPage = matrix.PageByteCount * colorDepth *
                                 (colorful ? 3 : 1);
-              this.totalPage = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
+            this.totalPage = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
 
             ShowDataMatrix();
         }
@@ -105,35 +102,34 @@ namespace screen_file_transmit
         {
             if (currentPage == totalPage)
                 return;
-            
+
             currentPage++;
             // 没有数据可显示
-               
+
             ShowDataMatrix();
         }
 
         private void Button_Click_2(object sender, RoutedEventArgs e)
         {
         }
+
         private void MatrixWindow_SizeChanged(object sender, SizeChangedEventArgs e)
-        { 
+        {
             //fileStream.Seek(fileStreamPos, SeekOrigin.Begin);
             //ShowDataMatrix();
         }
 
-
         public void ShowDataMatrix()
         {
             DisplayGrid.Content = null;
-             
+
             fileStreamPos = fileStream.Position;
             // 使用 MainWindowViewModel 的方法生成预览图片
             var bitmap = MainWindowViewModel.GeneratePreviewBitmap(
                 fileStream, physicalWidth, physicalHeight, colorDepth, colorful, scale,
-                fileName,   currentPage, totalPage, ref sessionGuid, shrinkWidth, shrinkHeight);
+                fileName, currentPage, totalPage, ref sessionGuid, shrinkWidth, shrinkHeight);
 
-
-            this.Title = $"{fileName ?? "MatrixWindow"} - 第 {currentPage - 1} 页";
+            this.Title = $"{fileName ?? "二维码矩阵"} - 第 {currentPage - 1} 页";
 
             BitmapSource bitmapSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(bitmap);
             DisplayGrid.Content = (new Image()

@@ -1,15 +1,11 @@
 ﻿using OpenCvSharp;
-using OpenCvSharp.Flann;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using ZXing;
-using ZXing.Common;
 using Point = OpenCvSharp.Point;
 using Rect = OpenCvSharp.Rect;
 using Size = OpenCvSharp.Size;
@@ -28,13 +24,9 @@ namespace screen_file_receiver
         /// <param name="fileStream">输出流</param>
         /// <param name="outputFileName">解析出的原始文件名（如果存在）</param>
         /// <returns>是否成功</returns>
-        public static bool ReadToFile(string fileName, Stream fileStream, out string outputFileName, out int currentPage, out int totalPages)
+        public static bool ReadToFile(string fileName, Stream fileStream, bool debug)
         {
-            outputFileName = null;
-            currentPage = 0;
-            totalPages = 0;
-
-            var decodeResult = DecodeImageWithMetadata(fileName);
+            var decodeResult = DecodeImageWithMetadata(fileName, debug);
             var meta = decodeResult.Metadata;
             var dataBlocks = decodeResult.DataBlocks;
 
@@ -50,23 +42,23 @@ namespace screen_file_receiver
                 return false;
             }
 
-            currentPage = meta.CurrentPage;
-            totalPages = meta.TotalPages;
-            outputFileName = meta.FileName;
+            var currentPage = meta.CurrentPage;
+            var totalPages = meta.TotalPages;
+            var outputFileName = meta.FileName;
             long offset = fileStream.Position;
 
             var final = dataBlocks.OrderBy(c => c.row).ThenBy(c => c.col).ToList();
-              
+
             fileStream.Position = offset;
             foreach (var block in final)
             {
-                var bytes = block.data; 
+                var bytes = block.data;
                 fileStream.Write(bytes, 0, bytes.Length);
             }
 
             return true;
         }
-         
+
         /// <summary>
         /// 截取图像左侧或右侧 1/10 区域，水平拉宽 5 倍
         /// </summary>
@@ -96,7 +88,7 @@ namespace screen_file_receiver
             return stretched;
         }
 
-        public static List<string> DetectBarcodes(string imageFile, bool isLeft = true)
+        public static List<string> DetectBarcodes(string imageFile, bool isLeft = true, bool debug = false)
         {
             var results = new List<string>();
             using (Mat rawImg = Cv2.ImRead(imageFile))
@@ -114,7 +106,7 @@ namespace screen_file_receiver
                 double imgHeight = img.Height;
                 int edgeWidth = (int)imgWidth;
 
-                Mat debug = img.Clone();
+                Mat debugImg = img.Clone();
                 var allRects = new List<Rect>();
 
                 Console.WriteLine($"  Image size: {imgWidth}x{imgHeight}");
@@ -123,7 +115,7 @@ namespace screen_file_receiver
                 var roiRect = new Rect(x0, 0, edgeWidth, (int)imgHeight);
                 using (Mat roi = new Mat(img, roiRect))
                 {
-                    var found = DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect);
+                    var found = DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, debug);
                     allRects = found;
 
                     var reader = new BarcodeReader();
@@ -134,7 +126,7 @@ namespace screen_file_receiver
                     {
                         var absRect = new Rect(r.X + x0, r.Y, r.Width, r.Height);
                         var color = isLeft ? new Scalar(0, 0, 255) : new Scalar(0, 255, 255);
-                        Cv2.Rectangle(debug, absRect, color, 3);
+                        Cv2.Rectangle(debugImg, absRect, color, 3);
 
                         using (Mat barcodeRoi = new Mat(img, absRect))
                         using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(barcodeRoi))
@@ -149,18 +141,21 @@ namespace screen_file_receiver
                     }
                 }
 
-                Cv2.PutText(debug, $"Detected: {allRects.Count}", new Point(10, 30),
+                Cv2.PutText(debugImg, $"Detected: {allRects.Count}", new Point(10, 30),
                     HersheyFonts.HersheySimplex, 1, new Scalar(0, 0, 255), 2);
-                Cv2.PutText(debug, $"Decoded: {results.Count}", new Point((int)imgWidth - 250, 30),
+                Cv2.PutText(debugImg, $"Decoded: {results.Count}", new Point((int)imgWidth - 250, 30),
                     HersheyFonts.HersheySimplex, 1, new Scalar(0, 255, 255), 2);
 
-                //Cv2.ImShow($"{(isLeft ? "Left" : "Right")} Detection Result", debug);
-
-                Console.WriteLine($"  {(isLeft?"Left":"Right")} Barcodes : {allRects.Count}");
+                Console.WriteLine($"  {(isLeft ? "Left" : "Right")} Barcodes : {allRects.Count}");
                 foreach (var r in allRects)
                     Console.WriteLine($"    -> [{r.X},{r.Y}] {r.Width}x{r.Height}");
+                if (debug)
+                {
+                    Cv2.ImShow($"{(isLeft ? "Left" : "Right")} Detection Result", debugImg);
+                    Cv2.WaitKey();
+                }
 
-                debug.Dispose();
+                debugImg.Dispose();
             }
             return results;
         }
@@ -185,6 +180,7 @@ namespace screen_file_receiver
 
             // 解析后的元数据含义
             public int MaxRows { get; set; }
+
             public int MaxCols { get; set; }
             public bool Colorful { get; set; }
             public int ColorDepth { get; set; }
@@ -195,7 +191,7 @@ namespace screen_file_receiver
         /// <summary>
         /// 从图片解码所有数据块（包含元数据）
         /// </summary>
-        public static DecodeResult DecodeImageWithMetadata(string imageFile)
+        public static DecodeResult DecodeImageWithMetadata(string imageFile, bool debug)
         {
             var result = new DecodeResult();
 
@@ -203,10 +199,10 @@ namespace screen_file_receiver
             {
                 if (image.Empty())
                 {
-                    throw new Exception($"Failed to load image: {imageFile}");
+                    throw new Exception($"加载图片失败: {imageFile}");
                 }
 
-                result.Metadata = ReadMetadata(imageFile);
+                result.Metadata = ReadMetadata(imageFile, debug);
 
                 var dataMatrixContours = FindDataMatrixContours(image);
 
@@ -224,14 +220,14 @@ namespace screen_file_receiver
             return result;
         }
 
-        /// <summary>
-        /// 从图片解码所有数据块（向后兼容的简化版本）
-        /// </summary>
-        public static List<(int row, int col, byte[] data)> DecodeImage(string imageFile)
-        {
-            var result = DecodeImageWithMetadata(imageFile);
-            return result.DataBlocks;
-        }
+        ///// <summary>
+        ///// 从图片解码所有数据块（向后兼容的简化版本）
+        ///// </summary>
+        //public static List<(int row, int col, byte[] data)> DecodeImage(string imageFile)
+        //{
+        //    var result = DecodeImageWithMetadata(imageFile);
+        //    return result.DataBlocks;
+        //}
 
         /// <summary>
         /// 查找所有 DataMatrix 二维码轮廓
@@ -266,7 +262,7 @@ namespace screen_file_receiver
         }
 
         /// <summary>
-        /// 灰度模式解码
+        /// 黑白模式解码
         /// </summary>
         private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours)
         {
@@ -372,7 +368,7 @@ namespace screen_file_receiver
         }
 
         /// <summary>
-        /// 在指定位置解码 DataMatrix（用于灰度模式）
+        /// 在指定位置解码 DataMatrix（用于黑白模式）
         /// </summary>
         private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect, BarcodeReader reader)
         {
@@ -564,12 +560,12 @@ namespace screen_file_receiver
         /// <summary>
         /// 使用 DetectBarcodes 读取图像左右两侧条码，返回文件名文本、元数据、文件名、时间戳
         /// </summary>
-        public static MetadataResult ReadMetadata(string imageFile)
+        public static MetadataResult ReadMetadata(string imageFile, bool debug = false)
         {
             var result = new MetadataResult();
 
             // 左侧：元数据条码（$ 开头，Base64 编码）
-            var leftCodes = DetectBarcodes(imageFile, isLeft: true);
+            var leftCodes = DetectBarcodes(imageFile, isLeft: true, debug);
             foreach (var code in leftCodes)
             {
                 if (code.StartsWith("$"))
@@ -594,7 +590,7 @@ namespace screen_file_receiver
             }
 
             // 右侧：文件名条码、时间戳条码（Base64）
-            var rightCodes = DetectBarcodes(imageFile, isLeft: false);
+            var rightCodes = DetectBarcodes(imageFile, isLeft: false, debug);
             if (rightCodes.Count >= 2)
             {
                 var ordered = rightCodes.OrderByDescending(c => c.Length).ToList();
@@ -651,31 +647,35 @@ namespace screen_file_receiver
             return merged;
         }
 
-        public static List<Rect> DetectBarcodesInRoi(Mat roi, string label, Rect roiOffset)
+        public static List<Rect> DetectBarcodesInRoi(Mat roi, string label, Rect roiOffset, bool debug)
         {
             var result = new List<Rect>();
 
             using (Mat gray = new Mat())
             {
                 Cv2.CvtColor(roi, gray, ColorConversionCodes.BGR2GRAY);
-                //Cv2.ImShow($"{label} - 1 Gray", gray);
+
+                if (debug) Cv2.ImShow($"{label} - 1 Gray", gray);
 
                 using (Mat gradX = new Mat())
                 {
                     Cv2.Sobel(gray, gradX, MatType.CV_32F, 1, 0, ksize: 3);
                     Cv2.ConvertScaleAbs(gradX, gradX);
-                    //Cv2.ImShow($"{label} - 2 Sobel X", gradX);
+
+                    if (debug) Cv2.ImShow($"{label} - 2 Sobel X", gradX);
 
                     using (Mat binary = new Mat())
                     {
-                        Cv2.Threshold(gradX, binary, 25, 255, ThresholdTypes.Binary);
-                        //Cv2.ImShow($"{label} - 3 Binary", binary);
+                        Cv2.Threshold(gradX, binary, 64, 255, ThresholdTypes.Binary);
+                        if (debug)
+                            Cv2.ImShow($"{label} - 3 Binary", binary);
 
                         using (Mat closed = new Mat())
                         using (Mat kernelClose = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(35, 1)))
                         {
                             Cv2.MorphologyEx(binary, closed, MorphTypes.Close, kernelClose);
-                            //Cv2.ImShow($"{label} - 4 Close", closed);
+
+                            if (debug) Cv2.ImShow($"{label} - 4 Close", closed);
 
                             using (Mat dilated = new Mat())
                             using (Mat eroded = new Mat())
@@ -683,7 +683,8 @@ namespace screen_file_receiver
                             {
                                 Cv2.Dilate(closed, dilated, kernelSmall, null, 1);
                                 Cv2.Erode(dilated, eroded, kernelSmall, null, 1);
-                                //Cv2.ImShow($"{label} - 5 OpenClose", eroded);
+                                if (debug)
+                                    Cv2.ImShow($"{label} - 5 OpenClose", eroded);
 
                                 Cv2.FindContours(eroded, out Point[][] contours, out HierarchyIndex[] hierarchy,
                                     RetrievalModes.External, ContourApproximationModes.ApproxSimple);
@@ -711,8 +712,8 @@ namespace screen_file_receiver
                                             rawRects.Add(r);
                                         }
                                     }
-
-                                    //Cv2.ImShow($"{label} - 6 All Rects", debugRoi);
+                                    if (debug)
+                                        Cv2.ImShow($"{label} - 6 All Rects", debugRoi);
                                     Console.WriteLine($"    {label} rawRects after filter: {rawRects.Count}");
                                     var merged = MergeVerticallyAlignedRects(rawRects, yGapThreshold: 5);
                                     Console.WriteLine($"    {label} merged count: {merged.Count}");

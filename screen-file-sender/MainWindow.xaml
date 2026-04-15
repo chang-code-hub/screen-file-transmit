@@ -5,7 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:screen_file_transmit"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="Screen File Sender"
+    Title="屏幕文件发送器"
     Width="600"
     ResizeMode="NoResize"
     SizeToContent="Height"
@@ -31,7 +31,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <Label VerticalAlignment="Center" Content="Select File:" />
+            <Label VerticalAlignment="Center" Content="选择文件：" />
             <TextBox
                 x:Name="FilePathTextBox"
                 Grid.Column="1"
@@ -42,7 +42,7 @@
                 Grid.Column="2"
                 Width="80"
                 Command="{Binding BrowseFileCommand}"
-                Content="Browse..." />
+                Content="浏览..." />
         </Grid>
 
         <!--  Color Mode Selection  -->
@@ -57,7 +57,7 @@
             <Label
                 Grid.Column="0"
                 VerticalAlignment="Center"
-                Content="Encoding Scale:" />
+                Content="编码比例：" />
             <ComboBox
                 x:Name="ScaleComboBox"
                 Grid.Column="1"
@@ -68,24 +68,21 @@
             <Label
                 Grid.Column="2"
                 VerticalAlignment="Center"
-                Content="Resolution:" />
+                Content="分辨率：" />
             <!--<TextBlock Grid.Column="3" VerticalAlignment="Center">
                 <Run Text="{Binding ScreenSize.Width}" />
                 <Run Text=" * " />
                 <Run Text="{Binding ScreenSize.Height}" />
             </TextBlock>-->
             <!--  Resolution Selection  -->
-        
-            
-            <ComboBox 
+
+            <ComboBox
                 x:Name="ResolutionComboBox"
-                Grid.Column="3" 
+                Grid.Column="3"
                 VerticalContentAlignment="Center"
                 ItemsSource="{Binding ResolutionList}"
                 SelectedItem="{Binding SelectedResolution}" />
-         
         </Grid>
-
 
         <!--  Shrink Settings  -->
         <Grid Grid.Row="2" Margin="0,0,0,10">
@@ -99,7 +96,7 @@
             <Label
                 Grid.Column="0"
                 VerticalAlignment="Center"
-                Content="Width Shrink:" />
+                Content="宽度收缩：" />
             <TextBox
                 Grid.Column="1"
                 VerticalContentAlignment="Center"
@@ -107,7 +104,7 @@
             <Label
                 Grid.Column="2"
                 VerticalAlignment="Center"
-                Content="Height Shrink:" />
+                Content="高度收缩：" />
             <TextBox
                 Grid.Column="3"
                 VerticalContentAlignment="Center"
@@ -122,12 +119,12 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <!--Color Mode + Color Depth-->
-            <Label Grid.Column="0" VerticalAlignment="Center" Content="Color Mode:" />
+            <Label Grid.Column="0" VerticalAlignment="Center" Content="颜色模式：" />
             <ComboBox x:Name="ColorModeComboBox" Grid.Column="1" VerticalContentAlignment="Center" ItemsSource="{Binding ColorModeList}" SelectedItem="{Binding ColorMode}" />
             <!--<Label Grid.Column="2" VerticalAlignment="Center" Content="Color Depth:" />
             <ComboBox Grid.Column="3" VerticalContentAlignment="Center" ItemsSource="{Binding ColorDepthList}" SelectedItem="{Binding ColorDepth}" />-->
             <!--  Password  -->
-            <Label Grid.Column="2" VerticalAlignment="Center" Content="Password:" />
+            <Label Grid.Column="2" VerticalAlignment="Center" Content="密码：" />
             <PasswordBox Grid.Column="3" x:Name="PasswordBox" VerticalContentAlignment="Center" />
         </Grid>
 
@@ -136,7 +133,7 @@
                 <ColumnDefinition Width="110" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Label Grid.Column="0" VerticalAlignment="Center" Content="Password:" />
+            <Label Grid.Column="0" VerticalAlignment="Center" Content="密码：" />
             <PasswordBox x:Name="PasswordBox" Grid.Column="1" VerticalContentAlignment="Center" />
         </Grid>-->
 
@@ -162,7 +159,7 @@
             <Label
                 Grid.Column="0"
                 VerticalAlignment="Center"
-                Content="Custom Size:" />
+                Content="自定义尺寸：" />
             <TextBox
                 Grid.Column="1"
                 VerticalContentAlignment="Center"
@@ -188,7 +185,7 @@
             <Label
                 Grid.Column="0"
                 VerticalAlignment="Center"
-                Content="File Size:" />
+                Content="文件大小：" />
             <TextBlock
                 Grid.Column="1"
                 VerticalAlignment="Center"
@@ -217,14 +214,14 @@
                 Height="24"
                 Click="Button_Click"
                 Command="{Binding SaveToFileCommand}"
-                Content="Convert..." />
+                Content="转换..." />
             <Button
                 Grid.Column="3"
                 Width="110"
                 Height="24"
                 Click="Button_Click"
                 Command="{Binding StartCommand}"
-                Content="Preview" />
+                Content="预览" />
         </Grid>
     </Grid>
 </Window>

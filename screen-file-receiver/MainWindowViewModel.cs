@@ -1,13 +1,13 @@
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
-using Microsoft.Win32;
-using System.Windows;
 
 namespace screen_file_receiver
 {
@@ -149,7 +149,7 @@ namespace screen_file_receiver
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Multiselect = true;
-            openFileDialog.Filter = "Image Files|*.png;*.jpg;*.jpeg;*.bmp|All Files|*.*";
+            openFileDialog.Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp|所有文件|*.*";
             if (openFileDialog.ShowDialog() ?? false)
             {
                 AddFiles(openFileDialog.FileNames);
@@ -197,10 +197,7 @@ namespace screen_file_receiver
                     {
                         item.IsComplete = false;
                     }
-
                 }
-
-
             }
         }
 
@@ -223,10 +220,9 @@ namespace screen_file_receiver
                     CurrentPage = meta?.CurrentPage ?? 0,
                     TotalPages = meta?.TotalPages ?? 0
                 };
-                item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
-                item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
-                item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "Colorful" : "Gray")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}";
-
+                //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
+                //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
+                item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}";
 
                 return item;
             }
@@ -239,8 +235,8 @@ namespace screen_file_receiver
                     SaveFileName = Path.GetFileNameWithoutExtension(filePath),
                     Status = $"读取失败: {ex.Message}"
                 };
-                errorItem.DeleteCommand = new RelayCommand(_ => DeleteItem(errorItem), _ => !IsBusy);
-                errorItem.RetryCommand = new RelayCommand(_ => RetryItem(errorItem), _ => !IsBusy);
+                //errorItem.DeleteCommand = new RelayCommand(_ => DeleteItem(errorItem), _ => !IsBusy);
+                //errorItem.RetryCommand = new RelayCommand(_ => RetryItem(errorItem), _ => !IsBusy);
                 return errorItem;
             }
         }
@@ -309,34 +305,34 @@ namespace screen_file_receiver
             item.PropertyChanged -= FileItem_PropertyChanged;
         }
 
-        private void RetryItem(FileItem item)
-        {
-            if (item == null || string.IsNullOrEmpty(item.FullPath))
-                return;
+        //private void RetryItem(FileItem item)
+        //{
+        //    if (item == null || string.IsNullOrEmpty(item.FullPath))
+        //        return;
 
-            item.Status = "重试中...";
-            item.ProgressValue = 0;
-            try
-            {
-                using (var tempStream = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose))
-                {
-                    if (DataMatrixReader.ReadToFile(item.FullPath, tempStream, out var extractedName, out _, out _))
-                    {
-                        item.Status = "就绪";
-                        if (!string.IsNullOrEmpty(extractedName) && string.IsNullOrEmpty(item.SaveFileName))
-                            item.SaveFileName = extractedName;
-                    }
-                    else
-                    {
-                        item.Status = "解析失败";
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                item.Status = $"错误: {ex.Message}";
-            }
-        }
+        //    item.Status = "重试中...";
+        //    item.ProgressValue = 0;
+        //    try
+        //    {
+        //        using (var tempStream = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose))
+        //        {
+        //            if (DataMatrixReader.ReadToFile(item.FullPath, tempStream, false))
+        //            {
+        //                item.Status = "就绪";
+        //                if (!string.IsNullOrEmpty(extractedName) && string.IsNullOrEmpty(item.SaveFileName))
+        //                    item.SaveFileName = extractedName;
+        //            }
+        //            else
+        //            {
+        //                item.Status = "解析失败";
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        item.Status = $"错误: {ex.Message}";
+        //    }
+        //}
 
         private void LoadPreview()
         {
@@ -426,7 +422,6 @@ namespace screen_file_receiver
                     return;
             }
 
-
             var groups = completeItems.GroupBy(f => new { f.FileId, f.SaveFileName }).ToList();
 
             IsBusy = true;
@@ -442,7 +437,7 @@ namespace screen_file_receiver
                 {
                     string outputFileName = group.Key.SaveFileName;
                     if (string.IsNullOrWhiteSpace(outputFileName))
-                        outputFileName = "decoded.bin";
+                        outputFileName = "解码文件.bin";
 
                     string outputPath = Path.Combine(OutputFilePath, outputFileName);
                     outputPath = GetUniqueFilePath(outputPath);
@@ -464,7 +459,7 @@ namespace screen_file_receiver
                                 continue;
                             }
 
-                            if (!DataMatrixReader.ReadToFile(item.FullPath, encryptedMs, out _, out _, out _))
+                            if (!DataMatrixReader.ReadToFile(item.FullPath, encryptedMs, false))
                             {
                                 item.Status = "解析失败";
                                 anyFailed = true;

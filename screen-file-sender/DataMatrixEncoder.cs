@@ -1,26 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
-using System.Net.NetworkInformation;
 using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Media.Media3D;
 using ZXing;
-using ZXing.Aztec.Internal;
-using ZXing.Datamatrix;
-using ZXing.QrCode.Internal;
 using Brushes = System.Drawing.Brushes;
 using Color = System.Drawing.Color;
-using Image = System.Windows.Controls.Image;
 using Pen = System.Drawing.Pen;
 using Point = System.Drawing.Point;
 
@@ -90,7 +79,6 @@ namespace screen_file_transmit
         {
             int scale = codeScale;
 
-
             string bestVersion = null;
             int maxRows = 0;
             int maxCols = 0;
@@ -150,7 +138,6 @@ namespace screen_file_transmit
                 BitmapHeight = matrix.MaxRows * cellStep
             };
         }
-
 
         public static Bitmap DrawDataMatrix(FileStream fileStream, int row, int column, int scale, byte[] chuck,
             DataMatrixResult matrix,
@@ -353,9 +340,9 @@ namespace screen_file_transmit
             return scaled;
         }
 
-        public static String GenerateFileId( )
+        public static String GenerateFileId()
         {
-            return "#"+ Guid.NewGuid().ToString().Split('-').Last();
+            return "#" + Guid.NewGuid().ToString().Split('-').Last();
             //long date =  DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             //Byte[] bytes = BitConverter.GetBytes(date);
             //return Convert.ToBase64String(bytes);
@@ -439,10 +426,9 @@ namespace screen_file_transmit
                 g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
                 g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-
                 // ===== 左侧：文件名（旋转90度）=====
                 var displayName = string.IsNullOrEmpty(fileName)
-                    ? "Unknown"
+                    ? "未知"
                     : $"{fileName} ({currentPage}/{totalPages})";
                 using (var nameFont = new Font("Microsoft YaHei", FONT_SIZE, System.Drawing.FontStyle.Regular))
                 {
@@ -511,7 +497,6 @@ namespace screen_file_transmit
                 g.DrawImage(rotatedInfoBitmap, new Point(infoX, infoY));
                 rotatedInfoBitmap.Dispose();
 
-
                 // ===== 右侧：文件名条码（旋转90度，中文转拼音首字母，保留扩展名）=====
                 if (!string.IsNullOrEmpty(fileName))
                 {
@@ -545,7 +530,6 @@ namespace screen_file_transmit
                         var fileNameBarcode = GenerateCode128(pinyinInitials, qrHeight, scale);
                         int remainingHeight = bitmap.Height - margin;
 
-
                         fileNameBarcode = ScaleBarcodeToFit(fileNameBarcode, remainingHeight);
                         var rotatedFileNameBarcode = RotateBitmap90Clockwise(fileNameBarcode, 90);
                         fileNameBarcode.Dispose();
@@ -559,7 +543,7 @@ namespace screen_file_transmit
                     }
                 }
 
-                // ===== 右侧：GUID条码（旋转90度）===== 
+                // ===== 右侧：GUID条码（旋转90度）=====
                 if (!string.IsNullOrEmpty(sessionGuid))
                 {
                     var guidBitmap = GenerateCode128(sessionGuid, qrHeight, scale);

@@ -1,18 +1,14 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 using System.Drawing;
-using System.Windows.Input;
-using System.IO;
-using Microsoft.Win32;
-using MessageBox = System.Windows.MessageBox;
-using System.IO.Pipes;
 using System.Drawing.Imaging;
-using System.Drawing.Drawing2D;
+using System.IO;
+using System.Text;
+using System.Windows;
+using System.Windows.Input;
+using MessageBox = System.Windows.MessageBox;
 
 namespace screen_file_transmit
 {
@@ -39,7 +35,7 @@ namespace screen_file_transmit
         public string FileSizeStr { get; set; }
         public long FileOffset { get; set; }
 
-        public string ColorMode { get; set; } = "Black";
+        public string ColorMode { get; set; } = "黑白";
 
         public int ColorDepth { get; set; } = 1;
 
@@ -54,10 +50,10 @@ namespace screen_file_transmit
         public List<Resolution> ResolutionList { get; } = new List<Resolution>
         {
             new Resolution { Name = "当前屏幕", Width = 0, Height = 0 },
-            new Resolution { Name = "1920 x 1080 (FHD)", Width = 1920, Height = 1080 },
-            new Resolution { Name = "2560 x 1440 (QHD)", Width = 2560, Height = 1440 },
+            new Resolution { Name = "1920 x 1080 (全高清)", Width = 1920, Height = 1080 },
+            new Resolution { Name = "2560 x 1440 (2K)", Width = 2560, Height = 1440 },
             new Resolution { Name = "3840 x 2160 (4K)", Width = 3840, Height = 2160 },
-            new Resolution { Name = "1280 x 720 (HD)", Width = 1280, Height = 720 },
+            new Resolution { Name = "1280 x 720 (高清)", Width = 1280, Height = 720 },
             new Resolution { Name = "1366 x 768 (笔记本)", Width = 1366, Height = 768 },
             new Resolution { Name = "1600 x 900", Width = 1600, Height = 900 },
             new Resolution { Name = "1440 x 900", Width = 1440, Height = 900 },
@@ -71,10 +67,11 @@ namespace screen_file_transmit
 
         // 自定义分辨率
         public int CustomWidth { get; set; } = 1920;
+
         public int CustomHeight { get; set; } = 1080;
         public bool IsCustomResolution => SelectedResolution?.Width == -1;
 
-        public List<string> ColorModeList => new List<string>() { "Black", "RGB" };
+        public List<string> ColorModeList => new List<string>() { "黑白", "彩色" };
 
         public List<int> ColorDepthList => new List<int>() { 1, 2, 3, 4, 5, 6, 7, 8 };
         public List<int> ScaleList => new List<int>() { 2, 3, 4, 5 };
@@ -144,6 +141,7 @@ namespace screen_file_transmit
 
         // Command for browsing files
         public ICommand BrowseFileCommand => new RelayCommand((x) => BrowseFile());
+
         public ICommand StartCommand => new RelayCommand((x) => StartEncoding());
         public ICommand SaveToFileCommand => new RelayCommand((x) => SaveToFile());
 
@@ -173,13 +171,13 @@ namespace screen_file_transmit
                     fs.Dispose();
                     tempFs.Position = 0;
 
-                    var window = new MatrixWindow(tempFs, ColorDepth, ColorMode == "RGB", Scale,
+                    var window = new MatrixWindow(tempFs, ColorDepth, ColorMode == "彩色", Scale,
                         Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight);
                     window.Show();
                 }
                 else
                 {
-                    var window = new MatrixWindow(fs, ColorDepth, ColorMode == "RGB", Scale, Path.GetFileName(FilePath),
+                    var window = new MatrixWindow(fs, ColorDepth, ColorMode == "彩色", Scale, Path.GetFileName(FilePath),
                         ShrinkWidth, ShrinkHeight);
                     window.Show();
                 }
@@ -259,7 +257,7 @@ namespace screen_file_transmit
                         // 计算生成多少页
                         long totalBytes = workStream.Length;
                         long bytesPerPage = matrix.PageByteCount * ColorDepth *
-                                            (ColorMode == "RGB" ? 3 : 1);
+                                            (ColorMode == "彩色" ? 3 : 1);
                         int totalPages = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
 
                         var originalFileName = Path.GetFileNameWithoutExtension(FilePath);
@@ -274,7 +272,7 @@ namespace screen_file_transmit
 
                             // 生成图片
                             var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap((FileStream)workStream, matrix,
-                                pageInfo, ColorDepth, ColorMode == "RGB", Scale,
+                                pageInfo, ColorDepth, ColorMode == "彩色", Scale,
                                 Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid);
                             if (bitmap == null)
                                 continue;
@@ -341,7 +339,7 @@ namespace screen_file_transmit
             // 第一次生成时创建 GUID
             if (string.IsNullOrEmpty(sessionGuid))
             {
-                sessionGuid =DataMatrixEncoder.GenerateFileId();
+                sessionGuid = DataMatrixEncoder.GenerateFileId();
             }
 
             int usableWidth = Math.Max(1, screenWidth - shrinkWidth);
@@ -353,7 +351,6 @@ namespace screen_file_transmit
             var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(
                 fileStream, matrix, pageInfo, colorDepth, colorful, scale,
                 fileName, currentPage == 1, currentPage, totalPage, sessionGuid);
-
 
             return bitmap;
         }

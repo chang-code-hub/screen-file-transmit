@@ -1,33 +1,35 @@
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
-using System.Linq;
-using System.Text;
 using OpenCvSharp;
 using screen_file_receiver;
 using screen_file_transmit;
+using System;
+using System.Collections.Generic;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
 
 namespace qr_codec_test
 {
-    class Program
+    internal class Program
     {
         // 屏幕配置参数
         private const int ScreenWidth = 1920;//- 79;
+
         private const int ScreenHeight = 1080;//- 8;
         private const int Scale = 3;
         private const int ColorDepth = 1;
         private const bool Colorful = true;
+        private const int NoiseStdDev = 0;   // 高斯噪点标准差，值越大噪点越重
+        private const int JpegQuality = 80;  // JPEG 压缩质量，值越小块效应/伪影越重
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             TestEncodeAndDecode();
+            //TestNoisyDecode();
             // 运行条码区域检测测试
-            TestBarcodeDetection();
+            //TestBarcodeDetection();
         }
 
-        static void TestBarcodeDetection()
+        private static void TestBarcodeDetection()
         {
             Console.WriteLine("=== Barcode Detection Test ===\n");
 
@@ -62,9 +64,8 @@ namespace qr_codec_test
             Cv2.DestroyAllWindows();
         }
 
-        static void TestEncodeAndDecode()
+        private static void TestEncodeAndDecode()
         {
-
             Console.WriteLine("=== QR File Transfer Codec Test ===\n");
 
             // 路径配置
@@ -133,7 +134,7 @@ namespace qr_codec_test
         /// <summary>
         /// 将文件编码为 DataMatrix 图片序列
         /// </summary>
-        static List<string> EncodeFile(string inputFile, string outputDir)
+        private static List<string> EncodeFile(string inputFile, string outputDir)
         {
             var generatedImages = new List<string>();
 
@@ -169,7 +170,6 @@ namespace qr_codec_test
                 {
                     pageNumber++;
                     long pageOffset = fileStream.Position;
-
 
                     var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(
                         fileStream,
@@ -208,7 +208,7 @@ namespace qr_codec_test
         /// <summary>
         /// 从 DataMatrix 图片序列解码文件
         /// </summary>
-        static bool DecodeImages(List<string> imageFiles, string outputFile)
+        private static bool DecodeImages(List<string> imageFiles, string outputFile, bool debug = false)
         {
             try
             {
@@ -222,7 +222,7 @@ namespace qr_codec_test
                         Console.WriteLine($"  Processing: {Path.GetFileName(imageFile)}");
 
                         // 解码当前页（带元数据）
-                        var decodeResult = DataMatrixReader.DecodeImageWithMetadata(imageFile);
+                        var decodeResult = DataMatrixReader.DecodeImageWithMetadata(imageFile, debug);
 
                         if (decodeResult.DataBlocks.Count == 0)
                         {
@@ -273,9 +273,119 @@ namespace qr_codec_test
         }
 
         /// <summary>
+        /// 为编码后的图像添加噪点、水印、压缩后进行解码测试
+        /// </summary>
+        private static void TestNoisyDecode()
+        {
+            Console.WriteLine("\n=== Noisy Decode Test ===\n");
+
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string projectRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
+            string outputDir = Path.Combine(projectRoot, "data", "out");
+
+            var originalImages = Directory.GetFiles(outputDir, "page_*.png").Where(c => !c.Contains("degraded")).OrderBy(f => f).ToList();
+            if (originalImages.Count == 0)
+            {
+                Console.WriteLine($"SKIP: no page_*.png files found in {outputDir}");
+                return;
+            }
+
+            Directory.CreateDirectory(outputDir);
+            var degradedImages = new List<string>();
+
+            foreach (var originalImage in originalImages)
+            {
+                string fileName = Path.GetFileNameWithoutExtension(originalImage);
+                Console.WriteLine($"Processing: {Path.GetFileName(originalImage)}");
+
+                using (Mat image = Cv2.ImRead(originalImage, ImreadModes.Color))
+                {
+                    // 1. 添加高斯噪点
+                    Mat noise = new Mat(image.Size(), MatType.CV_8UC3);
+                    Cv2.Randn(noise, new Scalar(0, 0, 0), new Scalar(NoiseStdDev, NoiseStdDev, NoiseStdDev));
+                    Mat noisy = new Mat();
+                    Cv2.Add(image, noise, noisy);
+                    noise.Dispose();
+
+                    // 2. 添加透明水印（正中 + 十字分4区后每区正中）
+                    string watermark = "WATERMARK";
+                    double fontScale = 2.0;
+                    int thickness = 3;
+                    var textSize = Cv2.GetTextSize(watermark, HersheyFonts.HersheySimplex, fontScale, thickness, out int baseline);
+
+                    int w = noisy.Width;
+                    int h = noisy.Height;
+                    int cx = w / 2;
+                    int cy = h / 2;
+
+                    // 绘制十字分割线
+                    //Cv2.Line(noisy, new OpenCvSharp.Point(cx, 0), new OpenCvSharp.Point(cx, h), new Scalar(200, 200, 200), 2);
+                    //Cv2.Line(noisy, new OpenCvSharp.Point(0, cy), new OpenCvSharp.Point(w, cy), new Scalar(200, 200, 200), 2);
+
+                    // 5 个水印位置
+                    var positions = new[]
+                    {
+                        (cx, cy),           // 中心
+                        (cx / 2, cy / 2),   // 左上区中心
+                        (cx * 3 / 2, cy / 2),   // 右上区中心
+                        (cx / 2, cy * 3 / 2),   // 左下区中心
+                        (cx * 3 / 2, cy * 3 / 2) // 右下区中心
+                    };
+
+                    Mat overlay = noisy.Clone();
+                    foreach (var (px, py) in positions)
+                    {
+                        int tx = px - textSize.Width / 2;
+                        int ty = py + textSize.Height / 2;
+                        Cv2.PutText(overlay, watermark, new OpenCvSharp.Point(tx, ty), HersheyFonts.HersheySimplex, fontScale, new Scalar(255, 255, 255), thickness, LineTypes.AntiAlias);
+                    }
+                    // 透明混合（alpha = 0.4）
+                    Cv2.AddWeighted(overlay, 0.4, noisy, 0.6, 0, noisy);
+                    overlay.Dispose();
+
+                    // 3. 模拟 H.264/JPEG 块效应：低质量 JPEG 重编码
+                    string degradedPath = Path.Combine(outputDir, $"{fileName}_degraded.jpg");
+                    Cv2.ImWrite(degradedPath, noisy, new int[] { (int)ImwriteFlags.JpegQuality, JpegQuality });
+
+                    degradedImages.Add(degradedPath);
+
+                    //// 从压缩后的图像重新加载并解码
+                    //using (Mat degraded = Cv2.ImRead(degradedPath, ImreadModes.Color))
+                    //{
+                    //    string degradedPng = Path.Combine(outputDir, $"{fileName}_degraded.png");
+                    //    Cv2.ImWrite(degradedPng, degraded);
+                    //    degradedImages.Add(degradedPng);
+                    //}
+
+                    noisy.Dispose();
+                }
+            }
+
+            Console.WriteLine($"Degraded images saved. Attempting to decode {degradedImages.Count} image(s)...");
+
+            string degradedDecodedFile = Path.Combine(outputDir, "decoded_degraded.zip");
+            if (File.Exists(degradedDecodedFile))
+            {
+                File.Delete(degradedDecodedFile);
+            }
+
+            bool decodeSuccess = DecodeImages(degradedImages, degradedDecodedFile, false);
+            if (decodeSuccess && File.Exists(degradedDecodedFile))
+            {
+                Console.WriteLine($"  Decoded file: {degradedDecodedFile} ({new FileInfo(degradedDecodedFile).Length} bytes)");
+            }
+            else
+            {
+                Console.WriteLine("  FAILED: Decoding degraded images failed.");
+            }
+
+            Console.WriteLine();
+        }
+
+        /// <summary>
         /// 验证原始文件和解码后的文件是否一致
         /// </summary>
-        static void VerifyFiles(string originalFile, string decodedFile)
+        private static void VerifyFiles(string originalFile, string decodedFile)
         {
             if (!File.Exists(originalFile))
             {
