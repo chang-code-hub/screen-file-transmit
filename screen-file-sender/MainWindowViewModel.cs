@@ -71,7 +71,7 @@ namespace screen_file_transmit
         public int CustomHeight { get; set; } = 1080;
         public bool IsCustomResolution => SelectedResolution?.Width == -1;
 
-        public List<string> ColorModeList => new List<string>() { "黑白", "彩色" };
+        public List<string> ColorModeList => new List<string>() { "黑白", "彩色（高质量传输）" };
 
         public List<int> ColorDepthList => new List<int>() { 1, 2, 3, 4, 5, 6, 7, 8 };
         public List<int> ScaleList => new List<int>() { 2, 3, 4, 5 };
@@ -171,13 +171,13 @@ namespace screen_file_transmit
                     fs.Dispose();
                     tempFs.Position = 0;
 
-                    var window = new MatrixWindow(tempFs, ColorDepth, ColorMode == "彩色", Scale,
+                    var window = new MatrixWindow(tempFs, ColorDepth, ColorMode != "黑白", Scale,
                         Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight);
                     window.Show();
                 }
                 else
                 {
-                    var window = new MatrixWindow(fs, ColorDepth, ColorMode == "彩色", Scale, Path.GetFileName(FilePath),
+                    var window = new MatrixWindow(fs, ColorDepth, ColorMode != "黑白", Scale, Path.GetFileName(FilePath),
                         ShrinkWidth, ShrinkHeight);
                     window.Show();
                 }
@@ -257,7 +257,7 @@ namespace screen_file_transmit
                         // 计算生成多少页
                         long totalBytes = workStream.Length;
                         long bytesPerPage = matrix.PageByteCount * ColorDepth *
-                                            (ColorMode == "彩色" ? 3 : 1);
+                                            (ColorMode != "黑白" ? 3 : 1);
                         int totalPages = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
 
                         var originalFileName = Path.GetFileNameWithoutExtension(FilePath);
@@ -272,7 +272,7 @@ namespace screen_file_transmit
 
                             // 生成图片
                             var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap((FileStream)workStream, matrix,
-                                pageInfo, ColorDepth, ColorMode == "彩色", Scale,
+                                pageInfo, ColorDepth, ColorMode != "黑白", Scale,
                                 Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid);
                             if (bitmap == null)
                                 continue;

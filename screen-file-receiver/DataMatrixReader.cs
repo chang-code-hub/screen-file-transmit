@@ -487,45 +487,7 @@ namespace screen_file_receiver
 
             return result;
         }
-
-        /// <summary>
-        /// 从解码数据列表中提取文件名
-        /// </summary>
-        public static string ExtractFileName(List<(int row, int col, byte[] data)> decodedData)
-        {
-            var firstChunk = decodedData.FirstOrDefault(d => d.row == 0 && d.col == 0);
-            if (firstChunk.data == null || firstChunk.data.Length == 0)
-            {
-                return null;
-            }
-
-            int separatorIndex = Array.IndexOf(firstChunk.data, (byte)0x00);
-            if (separatorIndex <= 0)
-            {
-                return null;
-            }
-
-            var fileNameBytes = firstChunk.data.Take(separatorIndex).ToArray();
-            return Encoding.UTF8.GetString(fileNameBytes);
-        }
-
-        public static byte[] ExtractDataWithoutFileName(byte[] data)
-        {
-            int separatorIndex = Array.IndexOf(data, (byte)0x00);
-            if (separatorIndex < 0)
-            {
-                return data;
-            }
-
-            int startIndex = separatorIndex + 1;
-            if (startIndex >= data.Length)
-            {
-                return new byte[0];
-            }
-
-            return data.Skip(startIndex).ToArray();
-        }
-
+          
         private static bool IsBase64String(string s)
         {
             if (string.IsNullOrEmpty(s) || s.Length % 4 != 0)
@@ -608,7 +570,7 @@ namespace screen_file_receiver
             }
             else if (rightCodes.Count == 1)
             {
-                result.FileName = rightCodes[0];
+                result.FileName = rightCodes[0].TrimStart('#');
             }
 
             return result;
@@ -707,7 +669,7 @@ namespace screen_file_receiver
                                             Console.WriteLine($"      rect [{r.X},{r.Y}] {r.Width}x{r.Height} ratio={ratio:F2} area={area}");
                                         }
 
-                                        if (ratio < 0.4 && r.Height > 25 && area > 300)
+                                        if (ratio < 0.5 && r.Height > 25 && area > 300)
                                         {
                                             rawRects.Add(r);
                                         }
