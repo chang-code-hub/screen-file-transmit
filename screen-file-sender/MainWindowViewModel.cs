@@ -38,16 +38,67 @@ namespace screen_file_transmit
         public string FileSizeStr { get; set; }
         public long FileOffset { get; set; }
 
-        public string ColorMode { get; set; } = "黑白";
+        private string _colorMode = "黑白";
+        public string ColorMode
+        {
+            get => _colorMode;
+            set
+            {
+                _colorMode = value;
+                _appConfig.ColorMode = value;
+                _appConfig.Save();
+            }
+        }
 
-        public int ColorDepth { get; set; } = 1;
+        private int _colorDepth = 1;
+        public int ColorDepth
+        {
+            get => _colorDepth;
+            set
+            {
+                _colorDepth = value;
+                _appConfig.ColorDepth = value;
+                _appConfig.Save();
+            }
+        }
 
         public string Password { get; set; }
 
-        public int Scale { get; set; } = 2;
+        private int _scale = 2;
+        public int Scale
+        {
+            get => _scale;
+            set
+            {
+                _scale = value;
+                _appConfig.Scale = value;
+                _appConfig.Save();
+            }
+        }
 
-        public int ShrinkWidth { get; set; } = GetDefaultShrinkWidth();
-        public int ShrinkHeight { get; set; } = GetDefaultShrinkHeight();
+        private int _shrinkWidth = GetDefaultShrinkWidth();
+        public int ShrinkWidth
+        {
+            get => _shrinkWidth;
+            set
+            {
+                _shrinkWidth = value;
+                _appConfig.ShrinkWidth = value;
+                _appConfig.Save();
+            }
+        }
+
+        private int _shrinkHeight = GetDefaultShrinkHeight();
+        public int ShrinkHeight
+        {
+            get => _shrinkHeight;
+            set
+            {
+                _shrinkHeight = value;
+                _appConfig.ShrinkHeight = value;
+                _appConfig.Save();
+            }
+        }
 
         // 分辨率选择
         public List<Resolution> ResolutionList { get; } = new List<Resolution>
@@ -66,12 +117,46 @@ namespace screen_file_transmit
             new Resolution { Name = "自定义", Width = -1, Height = -1 }
         };
 
-        public Resolution SelectedResolution { get; set; }
+        private Resolution _selectedResolution;
+        public Resolution SelectedResolution
+        {
+            get => _selectedResolution;
+            set
+            {
+                _selectedResolution = value;
+                if (value != null)
+                {
+                    _appConfig.ResolutionWidth = value.Width;
+                    _appConfig.ResolutionHeight = value.Height;
+                    _appConfig.Save();
+                }
+            }
+        }
 
         // 自定义分辨率
-        public int CustomWidth { get; set; } = 1920;
+        private int _customWidth = 1920;
+        public int CustomWidth
+        {
+            get => _customWidth;
+            set
+            {
+                _customWidth = value;
+                _appConfig.CustomWidth = value;
+                _appConfig.Save();
+            }
+        }
 
-        public int CustomHeight { get; set; } = 1080;
+        private int _customHeight = 1080;
+        public int CustomHeight
+        {
+            get => _customHeight;
+            set
+            {
+                _customHeight = value;
+                _appConfig.CustomHeight = value;
+                _appConfig.Save();
+            }
+        }
         public bool IsCustomResolution => SelectedResolution?.Width == -1;
 
         public List<string> ColorModeList => new List<string>() { "黑白", "彩色（高质量传输）" };
@@ -80,7 +165,17 @@ namespace screen_file_transmit
         public List<int> ScaleList => new List<int>() { 2, 3, 4, 5 };
         public List<int> ErrorCorrectionList => new List<int>() { 0, 5, 10, 15, 20, 25, 30  };
 
-        public int ErrorCorrectionPercent { get; set; } = 0;
+        private int _errorCorrectionPercent = 0;
+        public int ErrorCorrectionPercent
+        {
+            get => _errorCorrectionPercent;
+            set
+            {
+                _errorCorrectionPercent = value;
+                _appConfig.ErrorCorrectionPercent = value;
+                _appConfig.Save();
+            }
+        }
 
         private string _saveDirectory;
         public string SaveDirectory
@@ -103,6 +198,7 @@ namespace screen_file_transmit
         private readonly AppConfig _appConfig = new AppConfig();
 
         public bool IsPreviewMode { get; set; }
+        public bool IsPreviewLoading { get; set; }
         public BitmapSource PreviewImageSource { get; set; }
         public int PreviewCurrentPage { get; set; }
         public int PreviewTotalPages { get; set; }
@@ -113,6 +209,7 @@ namespace screen_file_transmit
         private string _previewSessionGuid;
         private int _previewTargetWidth;
         private int _previewTargetHeight;
+        private CancellationTokenSource _previewCts;
 
         public Rectangle ScreenSize
         {
@@ -152,10 +249,20 @@ namespace screen_file_transmit
 
         public MainWindowViewModel()
         {
-            // 默认选择"当前屏幕"
-            SelectedResolution = ResolutionList[0];
             _appConfig.Load();
             _saveDirectory = _appConfig.SaveDirectory;
+
+            _scale = _appConfig.Scale;
+            _colorMode = _appConfig.ColorMode;
+            _colorDepth = _appConfig.ColorDepth;
+            _errorCorrectionPercent = _appConfig.ErrorCorrectionPercent;
+            _shrinkWidth = _appConfig.ShrinkWidth > 0 ? _appConfig.ShrinkWidth : GetDefaultShrinkWidth();
+            _shrinkHeight = _appConfig.ShrinkHeight > 0 ? _appConfig.ShrinkHeight : GetDefaultShrinkHeight();
+            _customWidth = _appConfig.CustomWidth;
+            _customHeight = _appConfig.CustomHeight;
+
+            var savedRes = ResolutionList.Find(r => r.Width == _appConfig.ResolutionWidth && r.Height == _appConfig.ResolutionHeight);
+            _selectedResolution = savedRes ?? ResolutionList[0];
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -163,6 +270,11 @@ namespace screen_file_transmit
         protected virtual void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            if(propertyName == nameof(FilePath))
+            { 
+                ConversionProgress = 0;
+                ConversionStatus = string.Empty;
+            }
         }
 
         private string GetFriendlyFileSize(long bytes)
@@ -182,12 +294,13 @@ namespace screen_file_transmit
         // Command for browsing files
         public ICommand BrowseFileCommand => new RelayCommand((x) => BrowseFile());
         public ICommand BrowseSaveDirectoryCommand => new RelayCommand((x) => BrowseSaveDirectory());
+        public ICommand OpenSaveDirectoryCommand => new RelayCommand((x) => OpenSaveDirectory());
 
         public ICommand PreviewCommand => new RelayCommand((x) => StartPreview());
         public ICommand SaveToFileCommand => new RelayCommand(async (x) => await SaveToFileAsync());
         public ICommand CancelCommand => new RelayCommand((x) => _cts?.Cancel());
-        public ICommand PreviewPreviousPageCommand => new RelayCommand((x) => PreviewPreviousPage(), (x) => PreviewCurrentPage > 1);
-        public ICommand PreviewNextPageCommand => new RelayCommand((x) => PreviewNextPage(), (x) => PreviewCurrentPage < PreviewTotalPages);
+        public ICommand PreviewPreviousPageCommand => new RelayCommand((x) => PreviewPreviousPage(), (x) => PreviewCurrentPage > 1 && !IsPreviewLoading);
+        public ICommand PreviewNextPageCommand => new RelayCommand((x) => PreviewNextPage(), (x) => PreviewCurrentPage < PreviewTotalPages && !IsPreviewLoading);
         public ICommand PreviewBackCommand => new RelayCommand((x) => ExitPreview());
 
         private void BrowseFile()
@@ -255,34 +368,72 @@ namespace screen_file_transmit
             }
         }
 
-        private void ShowPreviewPage(int page)
+        private async void ShowPreviewPage(int page)
         {
             if (_previewStream == null) return;
 
-            long bytesPerPage = DataMatrixEncoder.CalculateScreenDataMatrix(
-                    Math.Max(1, _previewTargetWidth - ShrinkWidth), Math.Max(1, _previewTargetHeight - ShrinkHeight), Scale, ErrorCorrectionPercent)
-                .PageByteCount * ColorDepth * (ColorMode != "黑白" ? 3 : 1);
+            _previewCts?.Cancel();
+            _previewCts = new CancellationTokenSource();
+            var token = _previewCts.Token;
 
-            _previewStream.Seek((page - 1) * bytesPerPage, SeekOrigin.Begin);
+            IsPreviewLoading = true;
+            CommandManager.InvalidateRequerySuggested();
 
-            var bitmap = GeneratePreviewBitmap(
-                _previewStream, _previewTargetWidth, _previewTargetHeight, ColorDepth,
-                ColorMode != "黑白", Scale, Path.GetFileName(FilePath),
-                page, PreviewTotalPages, ref _previewSessionGuid,
-                ShrinkWidth, ShrinkHeight, ErrorCorrectionPercent);
-
-            if (bitmap != null)
+            try
             {
-                PreviewImageSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(bitmap);
-                bitmap.Dispose();
-            }
-            else
-            {
-                PreviewImageSource = null;
-            }
+                long bytesPerPage = DataMatrixEncoder.CalculateScreenDataMatrix(
+                        Math.Max(1, _previewTargetWidth - ShrinkWidth), Math.Max(1, _previewTargetHeight - ShrinkHeight), Scale, ErrorCorrectionPercent)
+                    .PageByteCount * ColorDepth * (ColorMode != "黑白" ? 3 : 1);
 
-            PreviewCurrentPage = page;
-            PreviewInfoText = $"{Path.GetFileName(FilePath)} - 第 {page}/{PreviewTotalPages} 页";
+                _previewStream.Seek((page - 1) * bytesPerPage, SeekOrigin.Begin);
+                byte[] pageBuffer = new byte[bytesPerPage];
+                int readBytes = _previewStream.Read(pageBuffer, 0, pageBuffer.Length);
+                if (readBytes < pageBuffer.Length) Array.Resize(ref pageBuffer, readBytes);
+
+                var sessionGuid = _previewSessionGuid;
+                var bitmap = await Task.Run(() =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    using (var ms = new MemoryStream(pageBuffer))
+                    {
+                        return GeneratePreviewBitmap(
+                            ms, _previewTargetWidth, _previewTargetHeight, ColorDepth,
+                            ColorMode != "黑白", Scale, Path.GetFileName(FilePath),
+                            page, PreviewTotalPages, ref sessionGuid,
+                            ShrinkWidth, ShrinkHeight, ErrorCorrectionPercent);
+                    }
+                }, token);
+
+                _previewSessionGuid = sessionGuid;
+
+                token.ThrowIfCancellationRequested();
+
+                if (bitmap != null)
+                {
+                    PreviewImageSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(bitmap);
+                    bitmap.Dispose();
+                }
+                else
+                {
+                    PreviewImageSource = null;
+                }
+
+                PreviewCurrentPage = page;
+                PreviewInfoText = $"{Path.GetFileName(FilePath)} - 第 {page}/{PreviewTotalPages} 页";
+            }
+            catch (OperationCanceledException)
+            {
+                // 忽略取消
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"生成预览失败: {ex.Message}");
+            }
+            finally
+            {
+                IsPreviewLoading = false;
+                CommandManager.InvalidateRequerySuggested();
+            }
         }
 
         private void PreviewPreviousPage()
@@ -303,6 +454,9 @@ namespace screen_file_transmit
 
         public void ExitPreview()
         {
+            _previewCts?.Cancel();
+            _previewCts = null;
+            IsPreviewLoading = false;
             IsPreviewMode = false;
             PreviewImageSource = null;
             _previewSessionGuid = null;
@@ -350,6 +504,17 @@ namespace screen_file_transmit
             }
         }
 
+        private void OpenSaveDirectory()
+        {
+            var path = SaveDirectory;
+            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            {
+                MessageBox.Show("保存路径不存在");
+                return;
+            }
+            System.Diagnostics.Process.Start("explorer.exe", path);
+        }
+
         private async Task SaveToFileAsync()
         {
             if (string.IsNullOrEmpty(FilePath) || !File.Exists(FilePath))
@@ -389,23 +554,30 @@ namespace screen_file_transmit
             try
             {
                 int totalPages = await Task.Run(() => SaveToFileCore(saveDir, progress, _cts.Token), _cts.Token);
-                MessageBox.Show($"成功生成 {totalPages} 张图片到:\n{saveDir}");
+                ConversionStatus = $"生成成功";
+                Console.Beep();
+                //MessageBox.Show($"成功生成 {totalPages} 张图片到:\n{saveDir}");
             }
             catch (OperationCanceledException)
             {
-                MessageBox.Show("转换已取消");
+                //MessageBox.Show("转换已取消");
             }
             catch (Exception e)
             {
-                MessageBox.Show($"保存失败: {e.Message}");
+                Console.Beep();
+                ConversionStatus = $"生成失败";
+                Application.Current.MainWindow.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show($"保存失败: {e.Message}");
+                });
             }
             finally
             {
                 IsConverting = false;
                 IsConvertButtonEnabled = true;
                 IsPreviewButtonEnabled = true;
-                ConversionProgress = 0;
-                ConversionStatus = string.Empty;
+                //ConversionProgress = 0;
+                //ConversionStatus = string.Empty;
                 _cts?.Dispose();
                 _cts = null;
             }
@@ -453,6 +625,7 @@ namespace screen_file_transmit
 
                     // 生成会话GUID（去掉横线）
                     var sessionGuid = DataMatrixEncoder.GenerateFileId();
+                    var timestamp = DateTime.Now.ToString("yyMMddHHmmss");
 
                     for (int page = 0; page < totalPages; page++)
                     {
@@ -463,15 +636,14 @@ namespace screen_file_transmit
                         // 生成图片
                         var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(workStream, matrix,
                             pageInfo, ColorDepth, ColorMode != "黑白", Scale,
-                            Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid,
+                            Path.GetFileName(FilePath), page == 0, page + 1, totalPages, "#" + sessionGuid,
                             !string.IsNullOrEmpty(Password), ErrorCorrectionPercent);
                         if (bitmap == null)
                             continue;
 
                         // 生成文件名：原文件名_yymmddhhmmss_4位串号.png（下划线分割）
-                        var timestamp = DateTime.Now.ToString("yyMMddHHmmss");
                         var serial = GenerateSerialNumber(page, 4);
-                        var fileName = $"{originalFileName}_{timestamp}_{serial}.png";
+                        var fileName = $"{originalFileName}_{timestamp}_{sessionGuid}_{serial}.png";
                         var fullPath = Path.Combine(saveDir, fileName);
 
                         bitmap.Save(fullPath, ImageFormat.Png);

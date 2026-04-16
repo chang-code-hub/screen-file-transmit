@@ -51,7 +51,7 @@ namespace screen_file_receiver
             get => _statusText;
             set
             {
-                _statusText = value;
+                _statusText = value?.Trim();
                 OnPropertyChanged(nameof(StatusText));
             }
         }
@@ -152,6 +152,7 @@ namespace screen_file_receiver
         public ICommand RemoveFileCommand => new RelayCommand(_ => RemoveFile(), _ => !IsBusy && SelectedFileItem != null && FileItems.Count > 0);
         public ICommand ClearFilesCommand => new RelayCommand(_ => ClearFiles(), _ => !IsBusy && FileItems.Count > 0);
         public ICommand BrowseOutputPathCommand => new RelayCommand(_ => BrowseOutputPath(), _ => !IsBusy);
+        public ICommand OpenOutputPathCommand => new RelayCommand(_ => OpenOutputPath());
         public ICommand ConvertCommand => new RelayCommand(_ => StartConvert(), _ => !IsBusy && FileItems.Count > 0 && !string.IsNullOrWhiteSpace(OutputFilePath));
 
         private void AddFiles()
@@ -389,6 +390,17 @@ namespace screen_file_receiver
             }
         }
 
+        private void OpenOutputPath()
+        {
+            var path = OutputFilePath;
+            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            {
+                MessageBox.Show("保存路径不存在");
+                return;
+            }
+            System.Diagnostics.Process.Start("explorer.exe", path);
+        }
+
         private string GetUniqueFilePath(string basePath)
         {
             if (!File.Exists(basePath))
@@ -507,13 +519,15 @@ namespace screen_file_receiver
 
                 if (anyFailed)
                 {
-                    MessageBox.Show("部分文件解析失败，已完成可解析部分");
-                    StatusText = "部分完成";
+                    //MessageBox.Show("部分文件解析失败，已完成可解析部分");
+                    StatusText = "部分文件解析失败，已完成可解析部分";
+                    Console.Beep();
                 }
                 else
                 {
-                    MessageBox.Show("解析成功");
+                    //MessageBox.Show("解析成功");
                     StatusText = "解析成功";
+                    Console.Beep();
                 }
             }
             catch (Exception e)
@@ -524,7 +538,7 @@ namespace screen_file_receiver
             finally
             {
                 IsBusy = false;
-                ProgressValue = 0;
+                //ProgressValue = 0;
             }
         }
     }

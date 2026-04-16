@@ -389,7 +389,7 @@ namespace screen_file_transmit
 
         public static String GenerateFileId()
         {
-            return "#" + Guid.NewGuid().ToString().Split('-').Last();
+            return  Guid.NewGuid().ToString().Split('-').Last();
             //long date =  DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             //Byte[] bytes = BitConverter.GetBytes(date);
             //return Convert.ToBase64String(bytes);

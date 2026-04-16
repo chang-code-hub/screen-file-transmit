@@ -29,7 +29,7 @@ namespace screen_file_transmit
             if (e.PropertyName == nameof(MainWindowViewModel.IsPreviewMode))
             {
                 if (viewModel.IsPreviewMode)
-                { 
+                {
                     this.ResizeMode = ResizeMode.CanResize;
                     this.SizeToContent = SizeToContent.WidthAndHeight;
                 }
@@ -40,7 +40,16 @@ namespace screen_file_transmit
                     this.Width = 680;
                 }
                 SetWindowPosition();
-            } 
+            }
+            else if (e.PropertyName == nameof(MainWindowViewModel.PreviewImageSource))
+            {
+                if (viewModel.IsPreviewMode && viewModel.PreviewImageSource != null)
+                {
+                    this.Width = viewModel.PreviewImageSource.PixelWidth;
+                    this.Height = viewModel.PreviewImageSource.PixelHeight;
+                    SetWindowPosition();
+                }
+            }
         }
         private void SetWindowPosition()
         {

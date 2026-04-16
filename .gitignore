@@ -82,3 +82,4 @@ artifacts/
 # Ignore EF migrations
 Migrations/
 /files
+/data/out

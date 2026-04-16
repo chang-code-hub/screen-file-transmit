@@ -143,8 +143,49 @@
                     SelectedItem="{Binding SelectedResolution}" />
             </Grid>
 
-            <!--  Shrink Settings  -->
+
+            <!--  Custom Resolution  -->
             <Grid Grid.Row="3" Margin="0,0,0,10">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCustomResolution}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsPreviewMode}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Label
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    Content="自定义尺寸：" />
+                <TextBox
+                    Grid.Column="1"
+                    VerticalContentAlignment="Center"
+                    Text="{Binding CustomWidth}" />
+                <Label
+                    Grid.Column="2"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Content="×" />
+                <TextBox
+                    Grid.Column="3"
+                    VerticalContentAlignment="Center"
+                    Text="{Binding CustomHeight}" />
+            </Grid>
+            <!--  Shrink Settings  -->
+            <Grid Grid.Row="4" Margin="0,0,0,10">
                 <Grid.Style>
                     <Style TargetType="Grid">
                         <Setter Property="Visibility" Value="Visible" />
@@ -180,7 +221,7 @@
                     Text="{Binding ShrinkHeight}" />
             </Grid>
 
-            <Grid Grid.Row="4" Margin="0,0,0,10">
+            <Grid Grid.Row="5" Margin="0,0,0,10">
                 <Grid.Style>
                     <Style TargetType="Grid">
                         <Setter Property="Visibility" Value="Visible" />
@@ -217,7 +258,7 @@
             </Grid>
 
             <!--  Save Directory  -->
-            <Grid Grid.Row="5" Margin="0,0,0,10">
+            <Grid Grid.Row="6" Margin="0,0,0,10">
                 <Grid.Style>
                     <Style TargetType="Grid">
                         <Setter Property="Visibility" Value="Visible" />
@@ -232,6 +273,7 @@
                     <ColumnDefinition Width="110" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Label VerticalAlignment="Center" Content="保存路径：" />
                 <TextBox
@@ -242,49 +284,14 @@
                 <Button
                     Grid.Column="2"
                     Width="80"
+                    Margin="0,0,5,0"
                     Command="{Binding BrowseSaveDirectoryCommand}"
                     Content="浏览..." />
-            </Grid>
-
-            <!--  Custom Resolution  -->
-            <Grid Grid.Row="6" Margin="0,0,0,10">
-                <Grid.Style>
-                    <Style TargetType="Grid">
-                        <Setter Property="Visibility" Value="Collapsed" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsCustomResolution}" Value="True">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding IsPreviewMode}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Grid.Style>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="110" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="50" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Label
-                    Grid.Column="0"
-                    VerticalAlignment="Center"
-                    Content="自定义尺寸：" />
-                <TextBox
-                    Grid.Column="1"
-                    VerticalContentAlignment="Center"
-                    Text="{Binding CustomWidth}" />
-                <Label
-                    Grid.Column="2"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Content="×" />
-                <TextBox
+                <Button
                     Grid.Column="3"
-                    VerticalContentAlignment="Center"
-                    Text="{Binding CustomHeight}" />
+                    Width="80"
+                    Command="{Binding OpenSaveDirectoryCommand}"
+                    Content="打开" />
             </Grid>
 
             <!--  Progress  -->
@@ -438,6 +445,26 @@
                     Stretch="None"
                     UseLayoutRounding="True" />
             </ScrollViewer>
+            <Grid
+                Grid.Row="2"
+                Panel.ZIndex="1"
+                Background="#CCFFFFFF"
+                Visibility="{Binding IsPreviewLoading, Converter={StaticResource BoolToVis}}">
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Orientation="Vertical">
+                    <ProgressBar
+                        Width="480"
+                        Height="16"
+                        IsIndeterminate="True" />
+                    <TextBlock
+                        Margin="0,10,0,0"
+                        HorizontalAlignment="Center"
+                        FontSize="14"
+                        Text="加载中..." />
+                </StackPanel>
+            </Grid>
         </Grid>
     </Grid>
 </Window>
