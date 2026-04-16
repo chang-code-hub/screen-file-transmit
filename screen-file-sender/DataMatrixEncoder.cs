@@ -21,7 +21,7 @@ namespace screen_file_transmit
         private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         private static readonly int META_BARCODE_HEIGHT = 25;
         private static readonly int MARGIN = 5;
-        private static readonly int FONT_SIZE = 12;
+        private static readonly int FONT_SIZE = 10;
 
         private static readonly int META_INFO_WIDTH =
             MARGIN + META_BARCODE_HEIGHT + MARGIN + META_BARCODE_HEIGHT + MARGIN + MARGIN +

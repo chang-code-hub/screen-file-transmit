@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using MessageBox = System.Windows.MessageBox;
 
 namespace screen_file_transmit
@@ -101,6 +102,18 @@ namespace screen_file_transmit
         private CancellationTokenSource _cts;
         private readonly AppConfig _appConfig = new AppConfig();
 
+        public bool IsPreviewMode { get; set; }
+        public BitmapSource PreviewImageSource { get; set; }
+        public int PreviewCurrentPage { get; set; }
+        public int PreviewTotalPages { get; set; }
+        public string PreviewInfoText { get; set; }
+
+        private Stream _previewStream;
+        private FileStream _previewEncryptedTempStream;
+        private string _previewSessionGuid;
+        private int _previewTargetWidth;
+        private int _previewTargetHeight;
+
         public Rectangle ScreenSize
         {
             get => _screenSize;
@@ -170,9 +183,12 @@ namespace screen_file_transmit
         public ICommand BrowseFileCommand => new RelayCommand((x) => BrowseFile());
         public ICommand BrowseSaveDirectoryCommand => new RelayCommand((x) => BrowseSaveDirectory());
 
-        public ICommand StartCommand => new RelayCommand((x) => StartEncoding());
+        public ICommand PreviewCommand => new RelayCommand((x) => StartPreview());
         public ICommand SaveToFileCommand => new RelayCommand(async (x) => await SaveToFileAsync());
         public ICommand CancelCommand => new RelayCommand((x) => _cts?.Cancel());
+        public ICommand PreviewPreviousPageCommand => new RelayCommand((x) => PreviewPreviousPage(), (x) => PreviewCurrentPage > 1);
+        public ICommand PreviewNextPageCommand => new RelayCommand((x) => PreviewNextPage(), (x) => PreviewCurrentPage < PreviewTotalPages);
+        public ICommand PreviewBackCommand => new RelayCommand((x) => ExitPreview());
 
         private void BrowseFile()
         {
@@ -185,35 +201,139 @@ namespace screen_file_transmit
             }
         }
 
-        private void StartEncoding()
+        private void StartPreview()
         {
+            if (string.IsNullOrEmpty(FilePath) || !File.Exists(FilePath))
+            {
+                MessageBox.Show("请先选择要编码的文件");
+                return;
+            }
+
             try
             {
+                ExitPreview();
+
                 var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read);
+                _previewEncryptedTempStream = null;
 
                 // 如有密码则加密到临时流
                 if (!string.IsNullOrEmpty(Password))
                 {
-                    var tempFs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite,
-                        FileShare.None, 4096, FileOptions.DeleteOnClose);
-                    CryptoHelper.EncryptStream(fs, tempFs, Password);
+                    _previewEncryptedTempStream = new FileStream(Path.GetTempFileName(), FileMode.Create,
+                        FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+                    CryptoHelper.EncryptStream(fs, _previewEncryptedTempStream, Password);
                     fs.Dispose();
-                    tempFs.Position = 0;
-
-                    var window = new MatrixWindow(tempFs, ColorDepth, ColorMode != "黑白", Scale,
-                        Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight, ErrorCorrectionPercent);
-                    window.Show();
+                    _previewEncryptedTempStream.Position = 0;
+                    _previewStream = _previewEncryptedTempStream;
                 }
                 else
                 {
-                    var window = new MatrixWindow(fs, ColorDepth, ColorMode != "黑白", Scale, Path.GetFileName(FilePath),
-                        ShrinkWidth, ShrinkHeight, ErrorCorrectionPercent);
-                    window.Show();
+                    _previewStream = fs;
                 }
+
+                GetTargetResolution(out _previewTargetWidth, out _previewTargetHeight);
+                int usableWidth = Math.Max(1, _previewTargetWidth - ShrinkWidth);
+                int usableHeight = Math.Max(1, _previewTargetHeight - ShrinkHeight);
+
+                var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
+                    usableWidth, usableHeight, Scale, ErrorCorrectionPercent);
+
+                long totalBytes = _previewStream.Length;
+                long bytesPerPage = matrix.PageByteCount * ColorDepth *
+                                    (ColorMode != "黑白" ? 3 : 1);
+                PreviewTotalPages = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
+                PreviewCurrentPage = 1;
+                _previewSessionGuid = null;
+
+                IsPreviewMode = true;
+                ShowPreviewPage(1);
             }
             catch (Exception e)
             {
-                MessageBox.Show(e.Message);
+                MessageBox.Show($"预览失败: {e.Message}");
+                ExitPreview();
+            }
+        }
+
+        private void ShowPreviewPage(int page)
+        {
+            if (_previewStream == null) return;
+
+            long bytesPerPage = DataMatrixEncoder.CalculateScreenDataMatrix(
+                    Math.Max(1, _previewTargetWidth - ShrinkWidth), Math.Max(1, _previewTargetHeight - ShrinkHeight), Scale, ErrorCorrectionPercent)
+                .PageByteCount * ColorDepth * (ColorMode != "黑白" ? 3 : 1);
+
+            _previewStream.Seek((page - 1) * bytesPerPage, SeekOrigin.Begin);
+
+            var bitmap = GeneratePreviewBitmap(
+                _previewStream, _previewTargetWidth, _previewTargetHeight, ColorDepth,
+                ColorMode != "黑白", Scale, Path.GetFileName(FilePath),
+                page, PreviewTotalPages, ref _previewSessionGuid,
+                ShrinkWidth, ShrinkHeight, ErrorCorrectionPercent);
+
+            if (bitmap != null)
+            {
+                PreviewImageSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(bitmap);
+                bitmap.Dispose();
+            }
+            else
+            {
+                PreviewImageSource = null;
+            }
+
+            PreviewCurrentPage = page;
+            PreviewInfoText = $"{Path.GetFileName(FilePath)} - 第 {page}/{PreviewTotalPages} 页";
+        }
+
+        private void PreviewPreviousPage()
+        {
+            if (PreviewCurrentPage > 1)
+            {
+                ShowPreviewPage(PreviewCurrentPage - 1);
+            }
+        }
+
+        private void PreviewNextPage()
+        {
+            if (PreviewCurrentPage < PreviewTotalPages)
+            {
+                ShowPreviewPage(PreviewCurrentPage + 1);
+            }
+        }
+
+        public void ExitPreview()
+        {
+            IsPreviewMode = false;
+            PreviewImageSource = null;
+            _previewSessionGuid = null;
+            PreviewCurrentPage = 0;
+            PreviewTotalPages = 0;
+            PreviewInfoText = string.Empty;
+
+            _previewEncryptedTempStream?.Dispose();
+            _previewEncryptedTempStream = null;
+
+            _previewStream?.Dispose();
+            _previewStream = null;
+        }
+
+        private void GetTargetResolution(out int targetWidth, out int targetHeight)
+        {
+            if (SelectedResolution.Width == 0)
+            {
+                var workingArea = GetWorkingArea();
+                targetWidth = workingArea.Width > 0 ? workingArea.Width : 1920;
+                targetHeight = workingArea.Height > 0 ? workingArea.Height : 1080;
+            }
+            else if (SelectedResolution.Width == -1)
+            {
+                targetWidth = CustomWidth;
+                targetHeight = CustomHeight;
+            }
+            else
+            {
+                targetWidth = SelectedResolution.Width;
+                targetHeight = SelectedResolution.Height;
             }
         }
 
@@ -312,26 +432,7 @@ namespace screen_file_transmit
                 try
                 {
                     // 获取选择的分辨率
-                    int targetWidth, targetHeight;
-                    if (SelectedResolution.Width == 0)
-                    {
-                        // 使用当前屏幕工作区（去掉任务栏）
-                        var workingArea = GetWorkingArea();
-                        targetWidth = workingArea.Width > 0 ? workingArea.Width : 1920;
-                        targetHeight = workingArea.Height > 0 ? workingArea.Height : 1080;
-                    }
-                    else if (SelectedResolution.Width == -1)
-                    {
-                        // 使用自定义分辨率
-                        targetWidth = CustomWidth;
-                        targetHeight = CustomHeight;
-                    }
-                    else
-                    {
-                        // 使用预设分辨率
-                        targetWidth = SelectedResolution.Width;
-                        targetHeight = SelectedResolution.Height;
-                    }
+                    GetTargetResolution(out int targetWidth, out int targetHeight);
 
                     // 应用缩小设定
                     int usableWidth = Math.Max(1, targetWidth - ShrinkWidth);
