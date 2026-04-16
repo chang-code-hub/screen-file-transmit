@@ -1,19 +1,23 @@
 ﻿using OpenCvSharp;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows;
 using Witteborn.ReedSolomon;
 using ZXing;
+using ZXing.Common;
+using ZXing.Datamatrix;
 using Point = OpenCvSharp.Point;
 using Rect = OpenCvSharp.Rect;
 using Size = OpenCvSharp.Size;
 
 namespace screen_file_receiver
-{
-    public static class DataMatrixReader
+{ 
+
+    public static class ImageReader
     {
         private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         private static readonly Encoding Iso88591 = Encoding.GetEncoding("ISO-8859-1");
@@ -54,17 +58,39 @@ namespace screen_file_receiver
             foreach (var block in final)
             {
                 var bytes = block.data;
-                fileStream.Write(bytes, 0, bytes.Length);
-            }
-
-            if (meta.HasErrorCorrection && meta.PageValidLength > 0)
-            {
-                long written = fileStream.Position - offset;
-                if (written > meta.PageValidLength)
+                if (bytes.Length < 2)
                 {
-                    fileStream.SetLength(offset + meta.PageValidLength);
-                    fileStream.Position = offset + meta.PageValidLength;
+                    fileStream.Write(bytes, 0, bytes.Length);
+                    continue;
                 }
+
+                // 前 2 字节为长度前缀（大端序），表示原始数据长度（不含 CRC32）
+                int payloadLength = (bytes[0] << 8) | bytes[1];
+                int cellDataLength = payloadLength + 4; // 原始数据 + CRC32
+                int availableLength = bytes.Length - 2;
+                if (cellDataLength > availableLength)
+                    cellDataLength = availableLength;
+
+                if (cellDataLength < 4)
+                {
+                    fileStream.Write(bytes, 0, bytes.Length);
+                    continue;
+                }
+
+                var cellData = new byte[cellDataLength];
+                Array.Copy(bytes, 2, cellData, 0, cellDataLength);
+
+                var data = new byte[payloadLength];
+                Array.Copy(cellData, 0, data, 0, payloadLength);
+                var crcBytes = new byte[4];
+                Array.Copy(cellData, payloadLength, crcBytes, 0, 4);
+                var computedCrc = Crc32.ComputeHash(data);
+                if (!crcBytes.SequenceEqual(computedCrc))
+                {
+                    MessageBox.Show($"CRC32 校验失败: 数据块 ({block.row}, {block.col})");
+                    return false;
+                }
+                fileStream.Write(data, 0, data.Length);
             }
 
             return true;
@@ -197,7 +223,6 @@ namespace screen_file_receiver
             public bool HasPassword { get; set; }
             public bool HasErrorCorrection { get; set; }
             public int ErrorCorrectionPercent { get; set; }
-            public int PageValidLength { get; set; }
             public int ColorDepth { get; set; }
             public int CurrentPage { get; set; }
             public int TotalPages { get; set; }
@@ -206,7 +231,7 @@ namespace screen_file_receiver
         /// <summary>
         /// 从图片解码所有数据块（包含元数据）
         /// </summary>
-        public static DecodeResult DecodeImageWithMetadata(string imageFile, bool debug)
+        private static DecodeResult DecodeImageWithMetadata(string imageFile, bool debug)
         {
             var result = new DecodeResult();
 
@@ -240,7 +265,7 @@ namespace screen_file_receiver
             return result;
         }
 
-        public static (int dataShards, int parityShards) GetRsShardCounts(int errorCorrectionPercent)
+        private static (int dataShards, int parityShards) GetRsShardCounts(int errorCorrectionPercent)
         {
             switch (errorCorrectionPercent)
             {
@@ -270,19 +295,30 @@ namespace screen_file_receiver
             var result = new List<(int row, int col, byte[] data)>();
             foreach (var block in dataBlocks)
             {
-                if (block.data.Length % totalShards != 0)
+                if (block.data.Length < 2)
                 {
                     result.Add(block);
                     continue;
                 }
 
-                int shardSize = block.data.Length / totalShards;
+                // 分离长度前缀和 RS 编码数据
+                byte[] lenPrefix = new byte[2];
+                Array.Copy(block.data, 0, lenPrefix, 0, 2);
+                int rsDataLength = block.data.Length - 2;
+
+                if (rsDataLength % totalShards != 0)
+                {
+                    result.Add(block);
+                    continue;
+                }
+
+                int shardSize = rsDataLength / totalShards;
                 byte[][] shards = new byte[totalShards][];
                 bool[] present = new bool[totalShards];
                 for (int i = 0; i < totalShards; i++)
                 {
                     shards[i] = new byte[shardSize];
-                    Array.Copy(block.data, i * shardSize, shards[i], 0, shardSize);
+                    Array.Copy(block.data, 2 + i * shardSize, shards[i], 0, shardSize);
                     present[i] = true;
                 }
 
@@ -292,6 +328,7 @@ namespace screen_file_receiver
                     rs.DecodeMissing(shards, present, 0, shardSize);
                     using (var ms = new MemoryStream())
                     {
+                        ms.Write(lenPrefix, 0, 2); // 重新附加长度前缀
                         for (int i = 0; i < dataShards; i++)
                         {
                             ms.Write(shards[i], 0, shardSize);
@@ -354,9 +391,9 @@ namespace screen_file_receiver
         private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours)
         {
             var results = new List<(int row, int col, byte[] data)>();
-            var reader = new BarcodeReader();
-            reader.Options.TryHarder = true;
-            reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
+            var reader = new DataMatrixReader(); 
+            //reader.Options.TryHarder = true;
+            //reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
 
             foreach (var rect in contours)
             {
@@ -376,9 +413,9 @@ namespace screen_file_receiver
         private static List<(int row, int col, byte[] data)> DecodeColorfulMode(Mat image, List<Rect> contours)
         {
             var results = new List<(int row, int col, byte[] data)>();
-            var reader = new BarcodeReader();
-            reader.Options.TryHarder = true;
-            reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
+            var reader = new DataMatrixReader();
+            //reader.Options.TryHarder = true;
+            //reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
 
             Mat[] channels = new Mat[3];
             Cv2.Split(image, out channels);
@@ -415,7 +452,7 @@ namespace screen_file_receiver
         /// 从单通道解码 DataMatrix
         /// </summary>
         private static (int row, int col, byte[] data)? DecodeDataMatrixFromChannel(
-            Mat channel, Rect rect, BarcodeReader reader, int layer)
+            Mat channel, Rect rect, DataMatrixReader reader, int layer)
         {
             int padding = 5;
             int x = Math.Max(0, rect.X - padding);
@@ -457,7 +494,7 @@ namespace screen_file_receiver
         /// <summary>
         /// 在指定位置解码 DataMatrix（用于黑白模式）
         /// </summary>
-        private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect, BarcodeReader reader)
+        private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect, DataMatrixReader reader)
         {
             int padding = 5;
             int x = Math.Max(0, rect.X - padding);
@@ -491,20 +528,28 @@ namespace screen_file_receiver
         /// </summary>
         private static (int row, int col, byte[] data) MergeLayerData(List<(int layer, int row, int col, byte[] data)> layerResults)
         {
-            if (layerResults.Count == 1)
-            {
-                var r = layerResults[0];
-                return (r.row, r.col, r.data);
-            }
-
             var sorted = layerResults.OrderBy(l => l.layer).ToList();
             var first = sorted[0];
 
             using (var ms = new MemoryStream())
             {
+                // 从第一层提取长度前缀
+                if (first.data.Length >= 2)
+                {
+                    ms.Write(first.data, 0, 2);
+                }
+
+                // 每层只拼接数据部分（去掉长度前缀）
                 foreach (var layer in sorted)
                 {
-                    ms.Write(layer.data, 0, layer.data.Length);
+                    if (layer.data.Length > 2)
+                    {
+                        ms.Write(layer.data, 2, layer.data.Length - 2);
+                    }
+                    else if (layer.data.Length > 0)
+                    {
+                        ms.Write(layer.data, 0, layer.data.Length);
+                    }
                 }
                 return (first.row, first.col, ms.ToArray());
             }
@@ -513,18 +558,33 @@ namespace screen_file_receiver
         /// <summary>
         /// 尝试解码 DataMatrix
         /// </summary>
-        private static string TryDecodeDataMatrix(Mat image, BarcodeReader reader, int retryCount = 3)
+        private static string TryDecodeDataMatrix(Mat image, DataMatrixReader reader, int retryCount = 3)
         {
             for (int attempt = 0; attempt <= retryCount; attempt++)
             {
                 using (Mat processed = PreprocessForDecode(image, attempt))
-                using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(processed))
                 {
-                    var result = reader.Decode(bitmap);
-
-                    if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
+                    //Cv2.ImShow("DM", processed);
+                    //Cv2.WaitKey();
+                    using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(processed))
                     {
-                        return result.Text;
+                        var source = new BitmapLuminanceSource(bitmap);
+                        var binarizer = new HybridBinarizer(source);
+                        var binaryBitmap = new BinaryBitmap(binarizer);
+                        var hints = new Dictionary<DecodeHintType, object>
+                        {
+                            { DecodeHintType.CHARACTER_SET, "ISO-8859-1" },
+                            { DecodeHintType.TRY_HARDER, true }
+                        };
+
+                        //SaveBinaryBitmapAsImage(binaryBitmap, Directory.GetCurrentDirectory() + "/debug.png");
+
+                        var result = reader.decode(binaryBitmap, hints); 
+
+                        if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
+                        {
+                            return result.Text;
+                        }
                     }
                 }
             }
@@ -532,6 +592,86 @@ namespace screen_file_receiver
             return null;
         }
 
+        public static void SaveBinaryBitmapAsImage(BinaryBitmap binaryBitmap, string filePath)
+        {
+            try
+            {
+                if (binaryBitmap == null)
+                {
+                    Console.WriteLine("SaveBinaryBitmapAsImage: binaryBitmap is null");
+                    return;
+                }
+
+                // 获取内部的二值化位图 - 这里可能抛出异常
+                var bitMatrix = binaryBitmap.BlackMatrix;
+
+                if (bitMatrix == null)
+                {
+                    Console.WriteLine("SaveBinaryBitmapAsImage: BlackMatrix is null");
+                    return;
+                }
+
+                int width = bitMatrix.Width;
+                int height = bitMatrix.Height;
+
+                if (width <= 0 || height <= 0)
+                {
+                    Console.WriteLine($"SaveBinaryBitmapAsImage: Invalid dimensions {width}x{height}");
+                    return;
+                }
+
+                using (var bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format1bppIndexed))
+                {
+                    // 设置调色板
+                    var palette = bitmap.Palette;
+                    palette.Entries[0] = Color.Black;
+                    palette.Entries[1] = Color.White;
+                    bitmap.Palette = palette;
+
+                    // 写入像素数据 - 注意 Format1bppIndexed 需要特殊处理
+                    // 方案A：使用 LockBits 高效写入
+                    var data = bitmap.LockBits(
+                        new Rectangle(0, 0, width, height),
+                        System.Drawing.Imaging.ImageLockMode.WriteOnly,
+                        System.Drawing.Imaging.PixelFormat.Format1bppIndexed);
+
+                    try
+                    {
+                        byte[] bytes = new byte[data.Stride * height];
+                        for (int y = 0; y < height; y++)
+                        {
+                            for (int x = 0; x < width; x++)
+                            {
+                                if (bitMatrix[x, y]) // true = 黑
+                                {
+                                    // 设置对应位为 0（黑色）
+                                }
+                                else
+                                {
+                                    // 设置对应位为 1（白色）
+                                    int byteIndex = y * data.Stride + (x >> 3);
+                                    int bitIndex = 7 - (x & 7);
+                                    bytes[byteIndex] |= (byte)(1 << bitIndex);
+                                }
+                            }
+                        }
+                        System.Runtime.InteropServices.Marshal.Copy(bytes, 0, data.Scan0, bytes.Length);
+                    }
+                    finally
+                    {
+                        bitmap.UnlockBits(data);
+                    }
+
+                    bitmap.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+                    Console.WriteLine($"Saved binary bitmap to {filePath}, size={width}x{height}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SaveBinaryBitmapAsImage failed: {ex.Message}");
+                // 不重新抛出异常，避免影响主流程
+            }
+        }
         /// <summary>
         /// 解码预处理
         /// </summary>
@@ -546,7 +686,7 @@ namespace screen_file_receiver
 
             if (attempt == 1)
             {
-                Cv2.Resize(image, result, new Size(), 2.0, 2.0, InterpolationFlags.Linear);
+                Cv2.Resize(image, result, new Size(), 3.0, 3.0, InterpolationFlags.Linear);
             }
             else if (attempt == 2)
             {
@@ -638,10 +778,6 @@ namespace screen_file_receiver
                             {
                                 result.ErrorCorrectionPercent = result.Metadata[4];
                             }
-                            if (result.Metadata.Length >= 9)
-                            {
-                                result.PageValidLength = (result.Metadata[5] << 24) | (result.Metadata[6] << 16) | (result.Metadata[7] << 8) | result.Metadata[8];
-                            }
                         }
                     }
                     catch { }
@@ -673,7 +809,7 @@ namespace screen_file_receiver
             return result;
         }
 
-        public static List<Rect> MergeVerticallyAlignedRects(List<Rect> rects, int yGapThreshold)
+        private static List<Rect> MergeVerticallyAlignedRects(List<Rect> rects, int yGapThreshold)
         {
             if (rects.Count == 0) return rects;
 

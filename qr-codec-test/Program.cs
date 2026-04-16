@@ -6,28 +6,117 @@ using System.Collections.Generic;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Text;
+using ZXing;
+using ZXing.Common;
 
 namespace qr_codec_test
 {
     internal class Program
     {
         // 屏幕配置参数
-        private const int ScreenWidth = 1920;//- 79;
+        private const int ScreenWidth = 1920 * 2;//- 79;
 
-        private const int ScreenHeight = 1080;//- 8;
+        private const int ScreenHeight = 1080 * 2;//- 8;
         private const int Scale = 3;
         private const int ColorDepth = 1;
         private const bool Colorful = false;
         private const int NoiseStdDev = 0;   // 高斯噪点标准差，值越大噪点越重
-        private const int JpegQuality = 50;  // JPEG 压缩质量，值越小块效应/伪影越重
+        private const int JpegQuality = 10;  // JPEG 压缩质量，值越小块效应/伪影越重
         private const int ErrorCorrectionPercent = 30;
 
         private static void Main(string[] args)
         {
-            //TestEncodeAndDecode();
+            TestDecodeDmPng();
+            TestEncodeAndDecode();
             TestNoisyDecode();
             // 运行条码区域检测测试
             //TestBarcodeDetection();
+        }
+
+        private static void TestDecodeDmPng()
+        {
+            Console.WriteLine("=== Decode data\\dm.png Test ===\n");
+
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string projectRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
+            string imageFile = Path.Combine(projectRoot, "data", "dm.png");
+
+            if (!File.Exists(imageFile))
+            {
+                Console.WriteLine($"ERROR: {imageFile} not found");
+                return;
+            }
+
+            Console.WriteLine($"Image: {imageFile}");
+             
+
+            // 2. 直接用 ZXing DataMatrixReader 解码
+            using (Mat image = Cv2.ImRead(imageFile, ImreadModes.Color))
+            {
+                if (image.Empty())
+                {
+                    Console.WriteLine("ERROR: Failed to load image with OpenCV");
+                    return;
+                }
+
+                Console.WriteLine($"Image size: {image.Width}x{image.Height}");
+
+                var reader = new ZXing.Datamatrix.DataMatrixReader();
+                var hints = new Dictionary<DecodeHintType, object>
+                {
+                    { DecodeHintType.CHARACTER_SET, "ISO-8859-1" },
+                    { DecodeHintType.TRY_HARDER, true }
+                };
+
+                using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(image))
+                {
+                    var source = new BitmapLuminanceSource(bitmap);
+                    var binarizer = new HybridBinarizer(source);
+                    var binaryBitmap = new BinaryBitmap(binarizer);
+                    var result = reader.decode(binaryBitmap, hints);
+
+                    if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
+                    {
+                        Console.WriteLine($"\nDataMatrix decoded successfully!");
+                        Console.WriteLine($"Text length: {result.Text.Length}");
+                        Console.WriteLine($"Text: {result.Text}");
+
+                        byte[] bytes = Encoding.GetEncoding("ISO-8859-1").GetBytes(result.Text);
+                        Console.WriteLine($"Bytes: {BitConverter.ToString(bytes.Take(Math.Min(bytes.Length, 64)).ToArray())}");
+                        if (bytes.Length > 64)
+                            Console.WriteLine($"  ... ({bytes.Length - 64} more bytes)");
+                    }
+                    else
+                    {
+                        Console.WriteLine("\nERROR: Could not decode DataMatrix directly.");
+
+                        // 尝试用 ImageReader 的完整解码流程
+                        Console.WriteLine("Trying full ImageReader decode flow...");
+                        try
+                        {
+                            using (var ms = new MemoryStream())
+                            {
+                                bool ok = ImageReader.ReadToFile(imageFile, ms, true);
+                                if (ok)
+                                {
+                                    Console.WriteLine($"ImageReader success! Decoded {ms.Length} bytes");
+                                }
+                                else
+                                {
+                                    Console.WriteLine("ImageReader returned false");
+                                }
+                            }
+                        }
+                        catch (Exception ex2)
+                        {
+                            Console.WriteLine($"ImageReader failed: {ex2.Message}");
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine("\nTest completed.");
         }
 
         private static void TestBarcodeDetection()
@@ -48,7 +137,7 @@ namespace qr_codec_test
                 }
 
                 Console.WriteLine($"Processing: {Path.GetFileName(imageFile)}");
-                var meta = DataMatrixReader.ReadMetadata(imageFile);
+                var meta = ImageReader.ReadMetadata(imageFile);
                 Console.WriteLine($"  Metadata:     {(meta.Metadata != null ? BitConverter.ToString(meta.Metadata) : "null")}");
                 Console.WriteLine($"  MaxRows:      {meta.MaxRows}");
                 Console.WriteLine($"  MaxCols:      {meta.MaxCols}");
@@ -223,36 +312,12 @@ namespace qr_codec_test
                     {
                         Console.WriteLine($"  Processing: {Path.GetFileName(imageFile)}");
 
-                        // 解码当前页（带元数据）
-                        var decodeResult = DataMatrixReader.DecodeImageWithMetadata(imageFile, debug);
-
-                        if (decodeResult.DataBlocks.Count == 0)
+                        // 解码当前页并直接写入输出流
+                        bool ok = ImageReader.ReadToFile(imageFile, outputStream, debug);
+                        if (!ok)
                         {
-                            Console.WriteLine($"    WARNING: No DataMatrix codes found!");
+                            Console.WriteLine($"    ERROR: Failed to decode {Path.GetFileName(imageFile)}");
                             continue;
-                        }
-
-                        var meta = decodeResult.Metadata;
-                        Console.WriteLine($"    Metadata: Grid={meta?.MaxRows}x{meta?.MaxCols}, " +
-                            $"Colorful={meta?.Colorful}, Depth={meta?.ColorDepth}, " +
-                            $"Page={meta?.CurrentPage}/{meta?.TotalPages}, " +
-                            $"ErrorCorrectionPercent={meta?.ErrorCorrectionPercent}");
-
-                        // 按行列排序
-                        var sortedData = decodeResult.DataBlocks.OrderBy(d => d.row).ThenBy(d => d.col).ToList();
-                        Console.WriteLine($"    Decoded {sortedData.Count} blocks");
-
-                        // 写入数据
-                        foreach (var block in sortedData)
-                        {
-                            byte[] dataToWrite;
-
-                            dataToWrite = block.data;
-
-                            if (dataToWrite.Length > 0)
-                            {
-                                outputStream.Write(dataToWrite, 0, dataToWrite.Length);
-                            }
                         }
 
                         Console.WriteLine($"    OK - Current output size: {outputStream.Length} bytes");

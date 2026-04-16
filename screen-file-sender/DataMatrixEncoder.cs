@@ -9,6 +9,8 @@ using System.Text;
 using System.Windows.Media.Imaging;
 using Witteborn.ReedSolomon;
 using ZXing;
+using ZXing.Datamatrix;
+using ZXing.Datamatrix.Encoder;
 using Brushes = System.Drawing.Brushes;
 using Color = System.Drawing.Color;
 using Pen = System.Drawing.Pen;
@@ -16,12 +18,14 @@ using Point = System.Drawing.Point;
 
 namespace screen_file_transmit
 {
+
     public class DataMatrixEncoder
     {
         private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         private static readonly int META_BARCODE_HEIGHT = 25;
         private static readonly int MARGIN = 5;
         private static readonly int FONT_SIZE = 10;
+        private static Encoding iso88591 = Encoding.GetEncoding("ISO-8859-1");
 
         private static readonly int META_INFO_WIDTH =
             MARGIN + META_BARCODE_HEIGHT + MARGIN + META_BARCODE_HEIGHT + MARGIN + MARGIN +
@@ -38,8 +42,8 @@ namespace screen_file_transmit
                 //{ "14x14", new DataMatrixVersion { Size = 14, Capacity = 8 } },
                 //{ "16x16", new DataMatrixVersion { Size = 16, Capacity = 12 } },
                 //{ "18x18", new DataMatrixVersion { Size = 18, Capacity = 18 } },
-                { "20x20", new DataMatrixVersion { Size = 20, Capacity = 22 } },
-                { "22x22", new DataMatrixVersion { Size = 22, Capacity = 30 } },
+                //{ "20x20", new DataMatrixVersion { Size = 20, Capacity = 22 } },
+                //{ "22x22", new DataMatrixVersion { Size = 22, Capacity = 30 } },
                 { "24x24", new DataMatrixVersion { Size = 24, Capacity = 36 } },
                 { "26x26", new DataMatrixVersion { Size = 26, Capacity = 44 } },
                 { "32x32", new DataMatrixVersion { Size = 32, Capacity = 62 } },
@@ -130,9 +134,10 @@ namespace screen_file_transmit
 
                 if (cols <= 0 || rows <= 0) continue;
 
-                int rawByteCount = CalcBase256ByteLength(versionData.Capacity - 6);
+                int rawByteCount = versionData.Capacity - 6;
                 int effByteCount = CalculateEffectiveByteCount(rawByteCount, errorCorrectionPercent);
-                if (effByteCount <= 0) continue;
+                effByteCount -= 4; // 为 CRC32 预留 4 字节
+                effByteCount -= 2; // 为长度前缀预留 2 字节
 
                 int totalCapacity = rows * cols * effByteCount;
 
@@ -172,23 +177,11 @@ namespace screen_file_transmit
                 BitmapWidth = matrix.MaxCols * cellStep + META_INFO_WIDTH,
                 BitmapHeight = matrix.MaxRows * cellStep
             };
-        }
+        } 
 
-        public static Bitmap DrawDataMatrix(Stream stream, int row, int column, int scale, byte[] chuck,
+        private static Bitmap DrawDataMatrix(byte[] cellData, int row, int column, int scale,
             DataMatrixResult matrix,
-            int depth, bool colorful)
-        {
-            int bytesPerDm = chuck.Length * depth * (colorful ? 3 : 1);
-            byte[] cellData = new byte[bytesPerDm];
-            int read = stream.Read(cellData, 0, cellData.Length);
-            if (read == 0) return null;
-            if (read < cellData.Length) Array.Resize(ref cellData, read);
-            return DrawDataMatrix(cellData, row, column, scale, matrix, depth, colorful);
-        }
-
-        public static Bitmap DrawDataMatrix(byte[] cellData, int row, int column, int scale,
-            DataMatrixResult matrix,
-            int depth, bool colorful)
+            int depth, bool colorful, int payloadLength  )
         {
             List<Bitmap> bitmaps = new List<Bitmap>();
             int offset = 0;
@@ -196,16 +189,26 @@ namespace screen_file_transmit
             int layerSize = matrix.CodeByteCount;
             for (int i = 0; i < layerCount; i++)
             {
-                if (offset >= cellData.Length)
+                if (offset >= cellData.Length && i > 0)
                     break;
-                int readLength = Math.Min(layerSize, cellData.Length - offset);
+                int maxLayerPayload = layerSize;
+                if (i == 0) maxLayerPayload -= 2; // 前 2 字节用于长度前缀
+                if (maxLayerPayload <= 0) break;
+                int readLength = Math.Min(maxLayerPayload, cellData.Length - offset);
+                if (readLength <= 0) break;
                 byte[] buffer = new byte[readLength];
-                Array.Copy(cellData, offset, buffer, 0, readLength);
-                offset += readLength;
+                if (readLength > 0)
+                {
+                    Array.Copy(cellData, offset, buffer, 0, readLength);
+                    offset += readLength;
+                }
                 using (var ms = new MemoryStream())
                 {
                     byte[] bytes = Encoding.ASCII.GetBytes($"{rcString[row]}{rcString[column]}");
                     ms.Write(bytes, 0, bytes.Length);
+                    byte[] lenBytes = new byte[] { (byte)(payloadLength >> 8), (byte)payloadLength };
+                    ms.Write(lenBytes, 0, lenBytes.Length);
+
                     ms.Write(buffer, 0, buffer.Length);
                     var chuckBitmap = GenerateDataMatrix(ms.ToArray(), matrix.CodeSize, scale);
                     bitmaps.Add(chuckBitmap);
@@ -266,45 +269,48 @@ namespace screen_file_transmit
 
             return color;
         }
+         
 
-        public static Bitmap GenerateDataMatrix(string content, int size, int scale)
+        private static Bitmap GenerateDataMatrix(byte[] content, int size, int scale)
         {
-            // Create a BarcodeWriter instance for DataMatrixEncoder encoding
+            //var writer = new BarcodeWriter
+            //{
+            //    Format = BarcodeFormat.DATA_MATRIX,
+            //    Options = new ZXing.Common.EncodingOptions
+            //    {
+            //        Width = size * scale,
+            //        Height = size * scale,
+            //        PureBarcode = true,
+            //        Margin = 0
+            //    }
+            //};
+
             var writer = new BarcodeWriter
             {
                 Format = BarcodeFormat.DATA_MATRIX,
-                Options = new ZXing.Common.EncodingOptions
+                Options = new DatamatrixEncodingOptions
                 {
-                    Width = size * scale,
-                    Height = size * scale,
+                    // 设置字符集为 ISO-8859-1，中文等非 ASCII 字符会触发 Base256
+                    //CharacterSet = "ISO-8859-1", 
                     PureBarcode = true,
-                    Margin = 0 // No margin for tight fit
+                    Margin = 0,
+                    CompactEncoding = true,         // 关键：启用紧凑编码
+                    //SymbolShape = SymbolShapeHint.FORCE_SQUARE, 
+
+                    // 可选：设置尺寸约束
+                    Width = size * scale,
+                    Height = size * scale, 
+                    //MinSize = new Dimension(size * scale, size * scale),
+                    //MaxSize = new Dimension(size * scale, size * scale)
                 }
             };
 
-            // Encode the content into a DataMatrixEncoder Bitmap
-            return writer.Write(content);
-        }
-
-        public static Bitmap GenerateDataMatrix(byte[] content, int size, int scale)
-        {
-            var writer = new BarcodeWriter
-            {
-                Format = BarcodeFormat.DATA_MATRIX,
-                Options = new ZXing.Common.EncodingOptions
-                {
-                    Width = size * scale,
-                    Height = size * scale,
-                    PureBarcode = true,
-                    Margin = 0
-                }
-            };
-            var iso88591 = Encoding.GetEncoding("ISO-8859-1");
-            string text = iso88591.GetString(content);
+            var encode = iso88591;// iso88591; //Encoding.ASCII;//
+            string text = encode.GetString(content);
             return writer.Write(text);
         }
 
-        public static Bitmap GenerateDataRectangleMatrix(string content, int height, int width, int scale,
+        private static Bitmap GenerateDataRectangleMatrix(string content, int height, int width, int scale,
             bool border = false)
         {
             // 计算目标尺寸（像素）
@@ -354,7 +360,7 @@ namespace screen_file_transmit
             return img;
         }
 
-        public static Bitmap GenerateCode128(string content, int height, int scale)
+        private static Bitmap GenerateCode128(string content, int height, int scale)
         {
             var writer = new BarcodeWriter
             {
@@ -407,12 +413,11 @@ namespace screen_file_transmit
             }
 
             long offset = stream.Position;
-            int dmDataLayers = colorDepth * (colorful ? 3 : 1);
-            int rawBytesPerDm = matrix.EffectiveByteCount * dmDataLayers;
+            //int dmDataLayers = colorDepth * (colorful ? 3 : 1);
+            int rawBytesPerDm = matrix.EffectiveByteCount;// * dmDataLayers;
 
             bool end = false;
             int count = 0;
-            int pageValidLength = 0;
 
             var (dataShards, parityShards) = errorCorrectionPercent > 0 ? GetRsShardCounts(errorCorrectionPercent) : (0, 0);
             ReedSolomon rs = null;
@@ -432,8 +437,13 @@ namespace screen_file_transmit
                     byte[] cellData = new byte[rawBytesPerDm];
                     int read = stream.Read(cellData, 0, cellData.Length);
                     if (read == 0) { end = true; break; }
+                    // 追加 CRC32
                     if (read < cellData.Length) Array.Resize(ref cellData, read);
-                    pageValidLength += read;
+                    var crcBytes = Crc32.ComputeHash(cellData);
+                    int payloadLength = cellData.Length;
+
+                    Array.Resize(ref cellData, cellData.Length + crcBytes.Length);
+                    Array.Copy(crcBytes, 0, cellData, cellData.Length - crcBytes.Length, crcBytes.Length);
 
                     if (rs != null)
                     {
@@ -447,7 +457,7 @@ namespace screen_file_transmit
                     }
 
                     var bitmapPart = DrawDataMatrix(cellData, row, column, scale, matrix,
-                        colorDepth, colorful);
+                        colorDepth, colorful, payloadLength);
 
                     if (bitmapPart != null)
                     {
@@ -477,7 +487,7 @@ namespace screen_file_transmit
             // 在左右两侧绘制元数据信息
             DrawInfoArea(bitmap, matrix, pageInfo, colorful, colorDepth, offset, stream.Position - offset,
                 stream.Length,
-                count, fileName, currentPage, totalPages, scale, sessionGuid, hasPassword, errorCorrectionPercent, pageValidLength);
+                count, fileName, currentPage, totalPages, scale, sessionGuid, hasPassword, errorCorrectionPercent);
 
             return bitmap;
         }
@@ -488,7 +498,7 @@ namespace screen_file_transmit
         public static void DrawInfoArea(Bitmap bitmap, DataMatrixResult matrix, PageInfo pageInfo, bool colorful,
             int colorDepth,
             long offset, long length, long totalLength, int count, string fileName, int currentPage, int totalPages,
-            int scale, string sessionGuid, bool hasPassword = false, int errorCorrectionPercent = 0, int pageValidLength = 0)
+            int scale, string sessionGuid, bool hasPassword = false, int errorCorrectionPercent = 0)
         {
             // 条码原始高度
             int maxBarcodeHeight = bitmap.Height - MARGIN * 2; // 条码最大高度（旋转后）
@@ -554,10 +564,6 @@ namespace screen_file_transmit
                 meta.Add((byte)(currentPage));
                 meta.Add((byte)(totalPages));
                 meta.Add((byte)(errorCorrectionPercent));
-                meta.Add((byte)(pageValidLength >> 24));
-                meta.Add((byte)(pageValidLength >> 16));
-                meta.Add((byte)(pageValidLength >> 8));
-                meta.Add((byte)(pageValidLength));
                 var info = "$" + Convert.ToBase64String(meta.ToArray());
 
                 var infoBitmap = GenerateCode128(info, META_BARCODE_HEIGHT, scale); // 高度20，然后旋转

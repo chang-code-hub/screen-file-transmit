@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -18,11 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\screen-file-sender\DataMatrixEncoder.cs" Link="Encoder\DataMatrixEncoder.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\screen-file-receiver\screen-file-receiver.csproj" />
+    <ProjectReference Include="..\screen-file-sender\screen-file-sender.csproj" />
   </ItemGroup>
 
   <ItemGroup>

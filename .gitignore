@@ -83,3 +83,5 @@ artifacts/
 Migrations/
 /files
 /data/out
+
+.fake

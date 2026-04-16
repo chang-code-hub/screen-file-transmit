@@ -216,7 +216,7 @@ namespace screen_file_receiver
         {
             try
             {
-                var meta = DataMatrixReader.ReadMetadata(filePath);
+                var meta = ImageReader.ReadMetadata(filePath);
                 var item = new FileItem
                 {
                     FullPath = filePath,
@@ -230,7 +230,6 @@ namespace screen_file_receiver
                     HasPassword = meta?.HasPassword ?? false,
                     HasErrorCorrection = meta?.HasErrorCorrection ?? false,
                     ErrorCorrectionPercent = meta?.ErrorCorrectionPercent ?? 0,
-                    PageValidLength = meta?.PageValidLength ?? 0,
                     ColorDepth = meta?.ColorDepth ?? 0,
                     CurrentPage = meta?.CurrentPage ?? 0,
                     TotalPages = meta?.TotalPages ?? 0
@@ -491,7 +490,7 @@ namespace screen_file_receiver
                                 continue;
                             }
 
-                            if (!DataMatrixReader.ReadToFile(item.FullPath, encryptedMs, false))
+                            if (!ImageReader.ReadToFile(item.FullPath, encryptedMs, false))
                             {
                                 item.Status = "解析失败";
                                 anyFailed = true;
