@@ -35,7 +35,7 @@ dotnet run --project screen-file-receiver
 文件编码使用多步流程：
 
 1. **分块** - 根据 DataMatrix 容量将文件分割成块（容量因版本而异，例如 144x144 可存储 1558 个 ASCII 字符）
-2. **Base64 编码** - 每个块使用 Base64 编码，并添加 2 字符前缀表示网格位置（行/列使用 `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz` base62 编码）
+2. **Base256 编码** - 每个块使用 Base256 编码，并添加 2 字符前缀表示网格位置（行/列使用 `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz` base62 编码）
 3. **色深** - 支持灰度或 RGB 模式，可配置位深度（1-8）。RGB 模式下每个颜色通道使用加法混色携带独立数据层
 4. **网格布局** - DataMatrix 二维码按网格排列，计算最优布局以最大化屏幕利用率
 
@@ -43,9 +43,9 @@ dotnet run --project screen-file-receiver
 
 **DataMatrix（数据二维码）**
 - 格式：`DATA_MATRIX`，使用 ZXing 生成
-- 内容格式：`[行坐标][列坐标][Base64数据块]`
+- 内容格式：`[行坐标][列坐标][Base256数据块]`
 - 坐标编码：使用 62 进制字符集 `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`
-- 每个数据块前 2 个字符为网格坐标前缀，剩余为 Base64 编码的二进制数据
+- 每个数据块前 2 个字符为网格坐标前缀，剩余为 Base256 编码的二进制数据
 - 首个块 `(0,0)` 可选包含原始文件名：以 UTF-8 编码的文件名字符串 + `\0` 分隔符开头
 
 **Code 128 元数据条码**
@@ -53,7 +53,7 @@ dotnet run --project screen-file-receiver
 - 位置：画面左侧，顺时针旋转 90 度
 - 内容：`$` + 4 个字节的Base64字符串
   - 字节 0：高 4 位为行数，低 4 位为列数（`rowCount << 4 | colCount`）
-  - 字节 1：最高位为彩色模式标志（`0x80`），高位第二位表示是否有密码，低 6 位为色深度（`1-8`）
+  - 字节 1：最高位为彩色模式标志（`0x80`），高位第二位表示是否有密码，高位第三位表示是否开启纠错，低 6 位为色深度（`1-8`）
   - 字节 2：当前页码
   - 字节 3：总页数
 
@@ -95,7 +95,7 @@ dotnet run --project screen-file-receiver
 
 ### DataMatrix 版本映射
 
-发送端实现使用硬编码版本表映射尺寸到 ASCII 容量（例如 144x144 → 1558 字符）。每个二维码的实际字节容量计算公式为 `Math.floor((capacity * 3) / 4)`（考虑 Base64 开销）。
+发送端实现使用硬编码版本表映射尺寸到 ASCII 容量（例如 144x144 → 1558 字符）。
 
 ### 包管理
 

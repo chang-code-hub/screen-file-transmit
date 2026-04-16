@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Media;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -555,7 +556,7 @@ namespace screen_file_transmit
             {
                 int totalPages = await Task.Run(() => SaveToFileCore(saveDir, progress, _cts.Token), _cts.Token);
                 ConversionStatus = $"生成成功";
-                Console.Beep();
+                SystemSounds.Asterisk.Play();
                 //MessageBox.Show($"成功生成 {totalPages} 张图片到:\n{saveDir}");
             }
             catch (OperationCanceledException)
@@ -564,8 +565,8 @@ namespace screen_file_transmit
             }
             catch (Exception e)
             {
-                Console.Beep();
                 ConversionStatus = $"生成失败";
+                SystemSounds.Exclamation.Play();
                 Application.Current.MainWindow.Dispatcher.Invoke(() =>
                 {
                     MessageBox.Show($"保存失败: {e.Message}");

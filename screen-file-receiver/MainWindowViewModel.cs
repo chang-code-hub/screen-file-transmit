@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Media;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
@@ -521,13 +522,13 @@ namespace screen_file_receiver
                 {
                     //MessageBox.Show("部分文件解析失败，已完成可解析部分");
                     StatusText = "部分文件解析失败，已完成可解析部分";
-                    Console.Beep();
+                    SystemSounds.Exclamation.Play();
                 }
                 else
                 {
                     //MessageBox.Show("解析成功");
                     StatusText = "解析成功";
-                    Console.Beep();
+                    SystemSounds.Asterisk.Play();
                 }
             }
             catch (Exception e)

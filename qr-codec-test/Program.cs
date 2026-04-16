@@ -19,12 +19,12 @@ namespace qr_codec_test
         private const int ColorDepth = 1;
         private const bool Colorful = false;
         private const int NoiseStdDev = 0;   // 高斯噪点标准差，值越大噪点越重
-        private const int JpegQuality = 80;  // JPEG 压缩质量，值越小块效应/伪影越重
-        private const int ErrorCorrectionPercent = 0;
+        private const int JpegQuality = 50;  // JPEG 压缩质量，值越小块效应/伪影越重
+        private const int ErrorCorrectionPercent = 30;
 
         private static void Main(string[] args)
         {
-            TestEncodeAndDecode();
+            //TestEncodeAndDecode();
             TestNoisyDecode();
             // 运行条码区域检测测试
             //TestBarcodeDetection();
