@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Media.Imaging;
+using Witteborn.ReedSolomon;
 using ZXing;
 using Brushes = System.Drawing.Brushes;
 using Color = System.Drawing.Color;
@@ -32,11 +33,11 @@ namespace screen_file_transmit
         private static readonly Dictionary<string, DataMatrixVersion> dataMatrixVersions =
             new Dictionary<string, DataMatrixVersion>
             {
-                { "10x10", new DataMatrixVersion { Size = 10, Capacity = 3 } },
-                { "12x12", new DataMatrixVersion { Size = 12, Capacity = 5 } },
-                { "14x14", new DataMatrixVersion { Size = 14, Capacity = 8 } },
-                { "16x16", new DataMatrixVersion { Size = 16, Capacity = 12 } },
-                { "18x18", new DataMatrixVersion { Size = 18, Capacity = 18 } },
+                //{ "10x10", new DataMatrixVersion { Size = 10, Capacity = 3 } },
+                //{ "12x12", new DataMatrixVersion { Size = 12, Capacity = 5 } },
+                //{ "14x14", new DataMatrixVersion { Size = 14, Capacity = 8 } },
+                //{ "16x16", new DataMatrixVersion { Size = 16, Capacity = 12 } },
+                //{ "18x18", new DataMatrixVersion { Size = 18, Capacity = 18 } },
                 { "20x20", new DataMatrixVersion { Size = 20, Capacity = 22 } },
                 { "22x22", new DataMatrixVersion { Size = 22, Capacity = 30 } },
                 { "24x24", new DataMatrixVersion { Size = 24, Capacity = 36 } },
@@ -75,7 +76,35 @@ namespace screen_file_transmit
             return capacity;
         }
 
-        public static DataMatrixResult CalculateScreenDataMatrix(int screenWidth, int screenHeight, int codeScale)
+        public static (int dataShards, int parityShards) GetRsShardCounts(int errorCorrectionPercent)
+        {
+            switch (errorCorrectionPercent)
+            {
+                case 5: return (19, 1);
+                case 10: return (9, 1);
+                case 15: return (17, 3);
+                case 20: return (4, 1);
+                case 25: return (3, 1);
+                case 30: return (7, 3);
+                case 35: return (13, 7);
+                case 40: return (3, 2);
+                case 45: return (11, 9);
+                case 50: return (1, 1);
+                default: return (0, 0);
+            }
+        }
+
+        public static int CalculateEffectiveByteCount(int codeByteCount, int errorCorrectionPercent)
+        {
+            if (errorCorrectionPercent <= 0 || codeByteCount <= 0) return codeByteCount;
+            var (dataShards, parityShards) = GetRsShardCounts(errorCorrectionPercent);
+            int totalShards = dataShards + parityShards;
+            int shardSize = codeByteCount / totalShards;
+            if (shardSize <= 0) return 0;
+            return dataShards * shardSize;
+        }
+
+        public static DataMatrixResult CalculateScreenDataMatrix(int screenWidth, int screenHeight, int codeScale, int errorCorrectionPercent = 0)
         {
             int scale = codeScale;
 
@@ -84,6 +113,7 @@ namespace screen_file_transmit
             int maxCols = 0;
             int maxByteCount = 0;
             int codeByteCount = 0;
+            int effectiveByteCount = 0;
             int codeCapacity = 0;
             int codeSize = 0;
 
@@ -100,8 +130,11 @@ namespace screen_file_transmit
 
                 if (cols <= 0 || rows <= 0) continue;
 
-                int byteCount = CalcBase256ByteLength(versionData.Capacity - 5);
-                int totalCapacity = rows * cols * byteCount;
+                int rawByteCount = CalcBase256ByteLength(versionData.Capacity - 6);
+                int effByteCount = CalculateEffectiveByteCount(rawByteCount, errorCorrectionPercent);
+                if (effByteCount <= 0) continue;
+
+                int totalCapacity = rows * cols * effByteCount;
 
                 if (totalCapacity > maxByteCount)
                 {
@@ -110,7 +143,8 @@ namespace screen_file_transmit
                     maxCols = cols;
                     codeSize = versionData.Size;
                     bestVersion = version;
-                    codeByteCount = byteCount;
+                    codeByteCount = rawByteCount;
+                    effectiveByteCount = effByteCount;
                     codeCapacity = versionData.Capacity;
                 }
             }
@@ -122,8 +156,9 @@ namespace screen_file_transmit
                 MaxCols = maxCols,
                 CodeSize = codeSize,
                 CodeByteCount = codeByteCount,
+                EffectiveByteCount = effectiveByteCount,
                 CodeCapacity = codeCapacity,
-                PageByteCount = codeByteCount * maxRows * maxCols,
+                PageByteCount = effectiveByteCount * maxRows * maxCols,
             };
         }
 
@@ -139,29 +174,41 @@ namespace screen_file_transmit
             };
         }
 
-        public static Bitmap DrawDataMatrix(FileStream fileStream, int row, int column, int scale, byte[] chuck,
+        public static Bitmap DrawDataMatrix(Stream stream, int row, int column, int scale, byte[] chuck,
+            DataMatrixResult matrix,
+            int depth, bool colorful)
+        {
+            int bytesPerDm = chuck.Length * depth * (colorful ? 3 : 1);
+            byte[] cellData = new byte[bytesPerDm];
+            int read = stream.Read(cellData, 0, cellData.Length);
+            if (read == 0) return null;
+            if (read < cellData.Length) Array.Resize(ref cellData, read);
+            return DrawDataMatrix(cellData, row, column, scale, matrix, depth, colorful);
+        }
+
+        public static Bitmap DrawDataMatrix(byte[] cellData, int row, int column, int scale,
             DataMatrixResult matrix,
             int depth, bool colorful)
         {
             List<Bitmap> bitmaps = new List<Bitmap>();
-            for (int i = 0; i < depth * (colorful ? 3 : 1); i++)
+            int offset = 0;
+            int layerCount = depth * (colorful ? 3 : 1);
+            int layerSize = matrix.CodeByteCount;
+            for (int i = 0; i < layerCount; i++)
             {
-                byte[] buffer;
-
-                var readLength = fileStream.Read(chuck, 0, chuck.Length);
-                if (readLength <= 0)
+                if (offset >= cellData.Length)
                     break;
-                buffer = new byte[readLength];
-                Array.Copy(chuck, buffer, buffer.Length);
+                int readLength = Math.Min(layerSize, cellData.Length - offset);
+                byte[] buffer = new byte[readLength];
+                Array.Copy(cellData, offset, buffer, 0, readLength);
+                offset += readLength;
                 using (var ms = new MemoryStream())
                 {
                     byte[] bytes = Encoding.ASCII.GetBytes($"{rcString[row]}{rcString[column]}");
                     ms.Write(bytes, 0, bytes.Length);
                     ms.Write(buffer, 0, buffer.Length);
                     var chuckBitmap = GenerateDataMatrix(ms.ToArray(), matrix.CodeSize, scale);
-                    //var base64 = $"{rcString[row]}{rcString[column]}{Convert.ToBase64String(buffer)}";
-                    //var chuckBitmap = GenerateDataMatrix(base64, matrix.CodeSize, scale);
-                    bitmaps.Add((chuckBitmap));
+                    bitmaps.Add(chuckBitmap);
                 }
             }
 
@@ -351,9 +398,10 @@ namespace screen_file_transmit
         /// <summary>
         /// 生成完整的 DataMatrix 图片（包含网格和元数据区域）
         /// </summary>
-        public static Bitmap GenerateDataMatrixBitmap(FileStream fileStream, DataMatrixResult matrix, PageInfo pageInfo,
+        public static Bitmap GenerateDataMatrixBitmap(Stream stream, DataMatrixResult matrix, PageInfo pageInfo,
             int colorDepth, bool colorful, int scale, string fileName = null, bool includeFileName = false,
-            int currentPage = 1, int totalPages = 1, string sessionGuid = null, bool hasPassword = false)
+            int currentPage = 1, int totalPages = 1, string sessionGuid = null, bool hasPassword = false,
+            int errorCorrectionPercent = 0)
         {
             var bitmap = new Bitmap(pageInfo.BitmapWidth, pageInfo.BitmapHeight);
             using (Graphics g = Graphics.FromImage(bitmap))
@@ -361,10 +409,20 @@ namespace screen_file_transmit
                 g.Clear(System.Drawing.Color.White);
             }
 
-            var offset = fileStream.Position;
-            var chuck = new byte[matrix.CodeByteCount];
+            long offset = stream.Position;
+            int dmDataLayers = colorDepth * (colorful ? 3 : 1);
+            int rawBytesPerDm = matrix.EffectiveByteCount * dmDataLayers;
+
             bool end = false;
             int count = 0;
+            int pageValidLength = 0;
+
+            var (dataShards, parityShards) = errorCorrectionPercent > 0 ? GetRsShardCounts(errorCorrectionPercent) : (0, 0);
+            ReedSolomon rs = null;
+            if (errorCorrectionPercent > 0 && dataShards > 0)
+            {
+                rs = new ReedSolomon(dataShards, parityShards);
+            }
 
             for (int row = 0; !end && row < matrix.MaxRows; row++)
             {
@@ -373,7 +431,25 @@ namespace screen_file_transmit
                 for (int column = 0; !end && column < matrix.MaxCols; column++)
                 {
                     var left = pageInfo.CellStep * column + META_INFO_WIDTH_LEFT;
-                    var bitmapPart = DrawDataMatrix(fileStream, row, column, scale, chuck, matrix,
+
+                    byte[] cellData = new byte[rawBytesPerDm];
+                    int read = stream.Read(cellData, 0, cellData.Length);
+                    if (read == 0) { end = true; break; }
+                    if (read < cellData.Length) Array.Resize(ref cellData, read);
+                    pageValidLength += read;
+
+                    if (rs != null)
+                    {
+                        var shards = rs.ManagedEncode(cellData);
+                        using (var ms = new MemoryStream())
+                        {
+                            foreach (var shard in shards)
+                                ms.Write(shard, 0, shard.Length);
+                            cellData = ms.ToArray();
+                        }
+                    }
+
+                    var bitmapPart = DrawDataMatrix(cellData, row, column, scale, matrix,
                         colorDepth, colorful);
 
                     if (bitmapPart != null)
@@ -402,9 +478,9 @@ namespace screen_file_transmit
                 return null;
 
             // 在左右两侧绘制元数据信息
-            DrawInfoArea(bitmap, matrix, pageInfo, colorful, colorDepth, offset, fileStream.Position - offset,
-                fileStream.Length,
-                count, fileName, currentPage, totalPages, scale, sessionGuid, hasPassword);
+            DrawInfoArea(bitmap, matrix, pageInfo, colorful, colorDepth, offset, stream.Position - offset,
+                stream.Length,
+                count, fileName, currentPage, totalPages, scale, sessionGuid, hasPassword, errorCorrectionPercent, pageValidLength);
 
             return bitmap;
         }
@@ -415,7 +491,7 @@ namespace screen_file_transmit
         public static void DrawInfoArea(Bitmap bitmap, DataMatrixResult matrix, PageInfo pageInfo, bool colorful,
             int colorDepth,
             long offset, long length, long totalLength, int count, string fileName, int currentPage, int totalPages,
-            int scale, string sessionGuid, bool hasPassword = false)
+            int scale, string sessionGuid, bool hasPassword = false, int errorCorrectionPercent = 0, int pageValidLength = 0)
         {
             // 条码原始高度
             int maxBarcodeHeight = bitmap.Height - MARGIN * 2; // 条码最大高度（旋转后）
@@ -477,12 +553,17 @@ namespace screen_file_transmit
                 // ===== 左侧：元数据条码（旋转90度）=====
                 List<byte> meta = new List<byte>();
                 meta.Add((byte)(matrix.MaxRows << 4 | matrix.MaxCols));
-                meta.Add((byte)((colorful ? 0x80 : 0x00) | (hasPassword ? 0x40 : 0x00) | colorDepth));
+                meta.Add((byte)((colorful ? 0x80 : 0x00) | (hasPassword ? 0x40 : 0x00) | (errorCorrectionPercent > 0 ? 0x20 : 0x00) | colorDepth));
                 meta.Add((byte)(currentPage));
                 meta.Add((byte)(totalPages));
+                meta.Add((byte)(errorCorrectionPercent));
+                meta.Add((byte)(pageValidLength >> 24));
+                meta.Add((byte)(pageValidLength >> 16));
+                meta.Add((byte)(pageValidLength >> 8));
+                meta.Add((byte)(pageValidLength));
                 var info = "$" + Convert.ToBase64String(meta.ToArray());
 
-                var infoBitmap = GenerateCode128(info, META_BARCODE_HEIGHT - MARGIN, scale); // 高度20，然后旋转
+                var infoBitmap = GenerateCode128(info, META_BARCODE_HEIGHT, scale); // 高度20，然后旋转
 
                 // 缩放条码以适应边界（旋转后的高度 = 原始宽度）
                 infoBitmap = ScaleBarcodeToFit(infoBitmap, maxBarcodeHeight);
@@ -491,7 +572,7 @@ namespace screen_file_transmit
                 var rotatedInfoBitmap = RotateBitmap90Clockwise(infoBitmap);
                 infoBitmap.Dispose();
 
-                int infoX = MARGIN + META_BARCODE_HEIGHT + MARGIN + MARGIN;
+                int infoX = MARGIN + META_BARCODE_HEIGHT + MARGIN ;
                 int infoY = MARGIN;
                 g.DrawImage(rotatedInfoBitmap, new Point(infoX, infoY));
                 rotatedInfoBitmap.Dispose();
@@ -708,6 +789,7 @@ namespace screen_file_transmit
         public int MaxCols { get; set; }
         public int CodeSize { get; set; }
         public int CodeByteCount { get; set; }
+        public int EffectiveByteCount { get; set; }
         public int CodeCapacity { get; set; }
         public int PageByteCount { get; set; }
     }

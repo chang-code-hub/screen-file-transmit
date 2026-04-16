@@ -12,13 +12,14 @@ namespace screen_file_transmit
     /// </summary>
     public partial class MatrixWindow : Window
     {
-        private readonly FileStream fileStream;
+        private readonly Stream stream;
         private readonly int colorDepth;
         private readonly bool colorful;
         private readonly int scale;
         private readonly string fileName;
         private readonly int shrinkWidth;
         private readonly int shrinkHeight;
+        private readonly int errorCorrectionPercent;
         private int currentPage = 1;
         private int totalPage = 1;
         private string sessionGuid;
@@ -31,15 +32,16 @@ namespace screen_file_transmit
             InitializeComponent();
         }
 
-        public MatrixWindow(FileStream fileStream, int colorDepth, bool colorful, int scale, string fileName = null, int shrinkWidth = 0, int shrinkHeight = 0)
+        public MatrixWindow(Stream stream, int colorDepth, bool colorful, int scale, string fileName = null, int shrinkWidth = 0, int shrinkHeight = 0, int errorCorrectionPercent = 0)
         {
-            this.fileStream = fileStream;
+            this.stream = stream;
             this.colorDepth = colorDepth;
             this.colorful = colorful;
             this.scale = scale;
             this.fileName = fileName;
             this.shrinkWidth = shrinkWidth;
             this.shrinkHeight = shrinkHeight;
+            this.errorCorrectionPercent = errorCorrectionPercent;
             InitializeComponent();
             this.Loaded += MatrixWindow_Loaded;
             this.Closed += MatrixWindow_Closed;
@@ -48,8 +50,8 @@ namespace screen_file_transmit
 
         private void MatrixWindow_Closed(object sender, EventArgs e)
         {
-            fileStream.Close();
-            fileStream.Dispose();
+            stream.Close();
+            stream.Dispose();
         }
 
         private void MatrixWindow_Loaded(object sender, RoutedEventArgs e)
@@ -75,10 +77,10 @@ namespace screen_file_transmit
             //var screenWidth = (int)DisplayGrid.ActualWidth;
             //var screenHeight = (int)DisplayGrid.ActualHeight;
             var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
-                physicalWidth, physicalHeight, scale);
+                physicalWidth, physicalHeight, scale, errorCorrectionPercent);
 
             // 计算生成多少页
-            long totalBytes = fileStream.Length;
+            long totalBytes = stream.Length;
             long bytesPerPage = matrix.PageByteCount * colorDepth *
                                 (colorful ? 3 : 1);
             this.totalPage = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
@@ -123,11 +125,12 @@ namespace screen_file_transmit
         {
             DisplayGrid.Content = null;
 
-            fileStreamPos = fileStream.Position;
+            fileStreamPos = stream.Position;
             // 使用 MainWindowViewModel 的方法生成预览图片
             var bitmap = MainWindowViewModel.GeneratePreviewBitmap(
-                fileStream, physicalWidth, physicalHeight, colorDepth, colorful, scale,
-                fileName, currentPage, totalPage, ref sessionGuid, shrinkWidth, shrinkHeight);
+                stream, physicalWidth, physicalHeight, colorDepth, colorful, scale,
+                fileName, currentPage, totalPage, ref sessionGuid, shrinkWidth, shrinkHeight,
+                errorCorrectionPercent);
 
             this.Title = $"{fileName ?? "二维码矩阵"} - 第 {currentPage - 1} 页";
 
@@ -145,7 +148,7 @@ namespace screen_file_transmit
             });
 
             // 使用 MainWindowViewModel 的方法检查是否还有更多数据
-            NextPage.IsEnabled = MainWindowViewModel.HasMoreData(fileStream);
+            NextPage.IsEnabled = MainWindowViewModel.HasMoreData(stream);
         }
     }
 }

@@ -10,12 +10,16 @@
     <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
-	  <PackageReference Include="Costura.Fody" />
+	  <PackageReference Include="Costura.Fody">
+	    <PrivateAssets>all</PrivateAssets>
+	    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>
 	  <PackageReference Include="Microsoft.CSharp" />
 	  <PackageReference Include="OpenCvSharp4" />
 	  <PackageReference Include="OpenCvSharp4.Extensions" />
 	  <PackageReference Include="OpenCvSharp4.runtime.win" />
 	  <PackageReference Include="PropertyChanged.Fody" />
+	  <PackageReference Include="ReedSolomon" />
 	  <PackageReference Include="System.Data.DataSetExtensions" />
 	  <PackageReference Include="System.Linq.Expressions" />
 	  <PackageReference Include="ZXing.Net" />

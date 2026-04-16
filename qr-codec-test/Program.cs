@@ -17,14 +17,15 @@ namespace qr_codec_test
         private const int ScreenHeight = 1080;//- 8;
         private const int Scale = 3;
         private const int ColorDepth = 1;
-        private const bool Colorful = true;
+        private const bool Colorful = false;
         private const int NoiseStdDev = 0;   // 高斯噪点标准差，值越大噪点越重
         private const int JpegQuality = 80;  // JPEG 压缩质量，值越小块效应/伪影越重
+        private const int ErrorCorrectionPercent = 0;
 
         private static void Main(string[] args)
         {
             TestEncodeAndDecode();
-            //TestNoisyDecode();
+            TestNoisyDecode();
             // 运行条码区域检测测试
             //TestBarcodeDetection();
         }
@@ -145,7 +146,7 @@ namespace qr_codec_test
             }
 
             // 计算最优 DataMatrix 配置
-            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(ScreenWidth, ScreenHeight, Scale);
+            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(ScreenWidth, ScreenHeight, Scale, ErrorCorrectionPercent);
             Console.WriteLine($"Matrix configuration:");
             Console.WriteLine($"  Version: {matrix.BestVersion}");
             Console.WriteLine($"  Grid: {matrix.MaxRows}x{matrix.MaxCols}");
@@ -182,7 +183,9 @@ namespace qr_codec_test
                         true, // includeFileName
                         pageNumber,
                         totalPages,
-                        ts
+                        ts,
+                        false,
+                        ErrorCorrectionPercent
                     );
 
                     if (bitmap != null)
@@ -214,7 +217,6 @@ namespace qr_codec_test
             {
                 using (var outputStream = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
                 {
-                    bool isFirstPage = true;
                     string detectedFileName = null;
 
                     foreach (var imageFile in imageFiles.OrderBy(f => f))
@@ -233,7 +235,8 @@ namespace qr_codec_test
                         var meta = decodeResult.Metadata;
                         Console.WriteLine($"    Metadata: Grid={meta?.MaxRows}x{meta?.MaxCols}, " +
                             $"Colorful={meta?.Colorful}, Depth={meta?.ColorDepth}, " +
-                            $"Page={meta?.CurrentPage}/{meta?.TotalPages}");
+                            $"Page={meta?.CurrentPage}/{meta?.TotalPages}, " +
+                            $"ErrorCorrectionPercent={meta?.ErrorCorrectionPercent}");
 
                         // 按行列排序
                         var sortedData = decodeResult.DataBlocks.OrderBy(d => d.row).ThenBy(d => d.col).ToList();

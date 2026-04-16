@@ -20,6 +20,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -28,6 +29,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="110" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
@@ -38,8 +40,14 @@
                 Margin="0,0,5,0"
                 VerticalContentAlignment="Center"
                 Text="{Binding FilePath}" />
-            <Button
+            <TextBlock
                 Grid.Column="2"
+                Margin="0,0,10,0"
+                MinWidth="80"
+                VerticalAlignment="Center"
+                Text="{Binding FileSizeStr}" />
+            <Button
+                Grid.Column="3"
                 Width="80"
                 Command="{Binding BrowseFileCommand}"
                 Content="浏览..." />
@@ -118,11 +126,15 @@
                 <ColumnDefinition Width="110" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <!--Color Mode + Color Depth-->
-            <Label Grid.Column="0" VerticalAlignment="Center" Content="颜色模式：" />
-            <ComboBox x:Name="ColorModeComboBox" Grid.Column="1" VerticalContentAlignment="Center" ItemsSource="{Binding ColorModeList}" SelectedItem="{Binding ColorMode}" />
-            <!--<Label Grid.Column="2" VerticalAlignment="Center" Content="Color Depth:" />
-            <ComboBox Grid.Column="3" VerticalContentAlignment="Center" ItemsSource="{Binding ColorDepthList}" SelectedItem="{Binding ColorDepth}" />-->
+            <Label
+                Grid.Column="0"
+                VerticalAlignment="Center"
+                Content="纠错级别：" />
+            <ComboBox
+                Grid.Column="1"
+                VerticalContentAlignment="Center"
+                ItemsSource="{Binding ErrorCorrectionList}"
+                SelectedItem="{Binding ErrorCorrectionPercent}" />
             <!--  Password  -->
             <Label Grid.Column="2" VerticalAlignment="Center" Content="密码：" />
             <PasswordBox Grid.Column="3" x:Name="PasswordBox" VerticalContentAlignment="Center" />
@@ -136,6 +148,26 @@
             <Label Grid.Column="0" VerticalAlignment="Center" Content="密码：" />
             <PasswordBox x:Name="PasswordBox" Grid.Column="1" VerticalContentAlignment="Center" />
         </Grid>-->
+
+        <!--  Save Directory  -->
+        <Grid Grid.Row="4" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Label VerticalAlignment="Center" Content="保存路径：" />
+            <TextBox
+                Grid.Column="1"
+                Margin="0,0,5,0"
+                VerticalContentAlignment="Center"
+                Text="{Binding SaveDirectory}" />
+            <Button
+                Grid.Column="2"
+                Width="80"
+                Command="{Binding BrowseSaveDirectoryCommand}"
+                Content="浏览..." />
+        </Grid>
 
         <!--  Custom Resolution  -->
         <Grid Grid.Row="5" Margin="0,0,0,10">
@@ -175,7 +207,7 @@
                 Text="{Binding CustomHeight}" />
         </Grid>
 
-        <Grid Grid.Row="6" Margin="0,0,0,10">
+        <!--<Grid Grid.Row="6" Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="110" />
                 <ColumnDefinition Width="*" />
@@ -190,19 +222,44 @@
                 Grid.Column="1"
                 VerticalAlignment="Center"
                 Text="{Binding FileSizeStr}" />
-            <!--<Label
+            -->
+        <!--<Label
                 Grid.Column="2"
                 VerticalAlignment="Center"
                 Content="File Offset:" />-->
-            <!--<TextBox
+        <!--<TextBox
                 Grid.Column="3"
                 VerticalContentAlignment="Center"
                 Text="{Binding FileOffset}" />-->
-        </Grid>
-        <!--  Submit Button  -->
+        <!--
+        </Grid>-->
+        <!--  Progress  -->
         <Grid Grid.Row="7" Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="150" />
+            </Grid.ColumnDefinitions>
+            <Label>保存进度：</Label>
+            <ProgressBar
+                Grid.Column="1"
+                Height="20"
+                Maximum="100"
+                Minimum="0"
+                Value="{Binding ConversionProgress}" />
+            <TextBlock
+                Grid.Column="2"
+                Margin="10,0,0,0"
+                VerticalAlignment="Center"
+                Text="{Binding ConversionStatus}" />
+        </Grid>
+
+        <!--  Submit Button  -->
+        <Grid Grid.Row="8" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="Auto" />
@@ -214,14 +271,23 @@
                 Height="24"
                 Click="Button_Click"
                 Command="{Binding SaveToFileCommand}"
-                Content="转换..." />
+                Content="转换..."
+                IsEnabled="{Binding IsConvertButtonEnabled}" />
             <Button
                 Grid.Column="3"
                 Width="110"
                 Height="24"
+                Command="{Binding CancelCommand}"
+                Content="取消"
+                IsEnabled="{Binding IsConverting}" />
+            <Button
+                Grid.Column="5"
+                Width="110"
+                Height="24"
                 Click="Button_Click"
                 Command="{Binding StartCommand}"
-                Content="预览" />
+                Content="预览"
+                IsEnabled="{Binding IsPreviewButtonEnabled}" />
         </Grid>
     </Grid>
 </Window>

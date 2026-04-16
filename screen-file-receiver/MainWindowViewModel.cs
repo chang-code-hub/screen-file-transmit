@@ -23,6 +23,7 @@ namespace screen_file_receiver
         private FileItem _selectedFileItem;
         private bool _isSyncingProperty;
         private string _outputFilePath;
+        private readonly AppConfig _appConfig = new AppConfig();
 
         public ObservableCollection<FileItem> FileItems
         {
@@ -115,7 +116,15 @@ namespace screen_file_receiver
                 _outputFilePath = value;
                 OnPropertyChanged(nameof(OutputFilePath));
                 CommandManager.InvalidateRequerySuggested();
+                _appConfig.SaveDirectory = value;
+                _appConfig.Save();
             }
+        }
+
+        public MainWindowViewModel()
+        {
+            _appConfig.Load();
+            _outputFilePath = _appConfig.SaveDirectory;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -217,13 +226,16 @@ namespace screen_file_receiver
                     MaxCols = meta?.MaxCols ?? 0,
                     Colorful = meta?.Colorful ?? false,
                     HasPassword = meta?.HasPassword ?? false,
+                    HasErrorCorrection = meta?.HasErrorCorrection ?? false,
+                    ErrorCorrectionPercent = meta?.ErrorCorrectionPercent ?? 0,
+                    PageValidLength = meta?.PageValidLength ?? 0,
                     ColorDepth = meta?.ColorDepth ?? 0,
                     CurrentPage = meta?.CurrentPage ?? 0,
                     TotalPages = meta?.TotalPages ?? 0
                 };
                 //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
                 //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
-                item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " 有密码" : "")}";
+                item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " 有密码" : "")}{(item.HasErrorCorrection ? $" RS={item.ErrorCorrectionPercent}%" : "")}";
 
                 return item;
             }

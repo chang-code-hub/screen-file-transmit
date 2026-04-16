@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows;
+using Witteborn.ReedSolomon;
 using ZXing;
 using Point = OpenCvSharp.Point;
 using Rect = OpenCvSharp.Rect;
@@ -54,6 +55,16 @@ namespace screen_file_receiver
             {
                 var bytes = block.data;
                 fileStream.Write(bytes, 0, bytes.Length);
+            }
+
+            if (meta.HasErrorCorrection && meta.PageValidLength > 0)
+            {
+                long written = fileStream.Position - offset;
+                if (written > meta.PageValidLength)
+                {
+                    fileStream.SetLength(offset + meta.PageValidLength);
+                    fileStream.Position = offset + meta.PageValidLength;
+                }
             }
 
             return true;
@@ -184,6 +195,9 @@ namespace screen_file_receiver
             public int MaxCols { get; set; }
             public bool Colorful { get; set; }
             public bool HasPassword { get; set; }
+            public bool HasErrorCorrection { get; set; }
+            public int ErrorCorrectionPercent { get; set; }
+            public int PageValidLength { get; set; }
             public int ColorDepth { get; set; }
             public int CurrentPage { get; set; }
             public int TotalPages { get; set; }
@@ -216,8 +230,80 @@ namespace screen_file_receiver
                 {
                     result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours);
                 }
+
+                if (result.Metadata?.HasErrorCorrection == true && result.DataBlocks != null && result.DataBlocks.Count > 0)
+                {
+                    result.DataBlocks = DecodeWithReedSolomon(result.DataBlocks, result.Metadata);
+                }
             }
 
+            return result;
+        }
+
+        public static (int dataShards, int parityShards) GetRsShardCounts(int errorCorrectionPercent)
+        {
+            switch (errorCorrectionPercent)
+            {
+                case 5: return (19, 1);
+                case 10: return (9, 1);
+                case 15: return (17, 3);
+                case 20: return (4, 1);
+                case 25: return (3, 1);
+                case 30: return (7, 3);
+                case 35: return (13, 7);
+                case 40: return (3, 2);
+                case 45: return (11, 9);
+                case 50: return (1, 1);
+                default: return (0, 0);
+            }
+        }
+
+        /// <summary>
+        /// 对每个 DataMatrix 数据块进行 Reed-Solomon 解码
+        /// </summary>
+        private static List<(int row, int col, byte[] data)> DecodeWithReedSolomon(List<(int row, int col, byte[] data)> dataBlocks, MetadataResult meta)
+        {
+            var (dataShards, parityShards) = GetRsShardCounts(meta.ErrorCorrectionPercent);
+            int totalShards = dataShards + parityShards;
+            if (dataShards <= 0 || parityShards <= 0) return dataBlocks;
+
+            var result = new List<(int row, int col, byte[] data)>();
+            foreach (var block in dataBlocks)
+            {
+                if (block.data.Length % totalShards != 0)
+                {
+                    result.Add(block);
+                    continue;
+                }
+
+                int shardSize = block.data.Length / totalShards;
+                byte[][] shards = new byte[totalShards][];
+                bool[] present = new bool[totalShards];
+                for (int i = 0; i < totalShards; i++)
+                {
+                    shards[i] = new byte[shardSize];
+                    Array.Copy(block.data, i * shardSize, shards[i], 0, shardSize);
+                    present[i] = true;
+                }
+
+                try
+                {
+                    var rs = new ReedSolomon(dataShards, parityShards);
+                    rs.DecodeMissing(shards, present, 0, shardSize);
+                    using (var ms = new MemoryStream())
+                    {
+                        for (int i = 0; i < dataShards; i++)
+                        {
+                            ms.Write(shards[i], 0, shardSize);
+                        }
+                        result.Add((block.row, block.col, ms.ToArray()));
+                    }
+                }
+                catch
+                {
+                    result.Add(block);
+                }
+            }
             return result;
         }
 
@@ -544,9 +630,18 @@ namespace screen_file_receiver
                             result.MaxCols = result.Metadata[0] & 0x0F;
                             result.Colorful = (result.Metadata[1] & 0x80) != 0;
                             result.HasPassword = (result.Metadata[1] & 0x40) != 0;
-                            result.ColorDepth = result.Metadata[1] & 0x3F;
+                            result.HasErrorCorrection = (result.Metadata[1] & 0x20) != 0;
+                            result.ColorDepth = result.Metadata[1] & 0x1F;
                             result.CurrentPage = result.Metadata[2];
                             result.TotalPages = result.Metadata[3];
+                            if (result.Metadata.Length >= 5)
+                            {
+                                result.ErrorCorrectionPercent = result.Metadata[4];
+                            }
+                            if (result.Metadata.Length >= 9)
+                            {
+                                result.PageValidLength = (result.Metadata[5] << 24) | (result.Metadata[6] << 16) | (result.Metadata[7] << 8) | result.Metadata[8];
+                            }
                         }
                     }
                     catch { }

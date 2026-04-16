@@ -127,6 +127,9 @@ namespace screen_file_receiver
         public int MaxCols { get; set; }
         public bool Colorful { get; set; }
         public bool HasPassword { get; set; }
+        public bool HasErrorCorrection { get; set; }
+        public int ErrorCorrectionPercent { get; set; }
+        public int PageValidLength { get; set; }
         public int ColorDepth { get; set; }
         public int CurrentPage { get; set; }
         public int TotalPages { get; set; }

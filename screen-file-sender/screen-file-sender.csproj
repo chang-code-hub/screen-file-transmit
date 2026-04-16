@@ -11,8 +11,12 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CSharp" />
     <PackageReference Include="PropertyChanged.Fody" />
+    <PackageReference Include="ReedSolomon" />
     <PackageReference Include="System.Data.DataSetExtensions" />
 	<PackageReference Include="ZXing.Net" />
-    <PackageReference Include="Costura.Fody" />
+    <PackageReference Include="Costura.Fody">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup> 
 </Project>

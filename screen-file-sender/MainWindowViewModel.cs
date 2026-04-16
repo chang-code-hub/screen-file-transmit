@@ -6,6 +6,8 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using MessageBox = System.Windows.MessageBox;
@@ -75,6 +77,29 @@ namespace screen_file_transmit
 
         public List<int> ColorDepthList => new List<int>() { 1, 2, 3, 4, 5, 6, 7, 8 };
         public List<int> ScaleList => new List<int>() { 2, 3, 4, 5 };
+        public List<int> ErrorCorrectionList => new List<int>() { 0, 5, 10, 15, 20, 25, 30  };
+
+        public int ErrorCorrectionPercent { get; set; } = 0;
+
+        private string _saveDirectory;
+        public string SaveDirectory
+        {
+            get => _saveDirectory;
+            set
+            {
+                _saveDirectory = value;
+                _appConfig.SaveDirectory = value;
+                _appConfig.Save();
+            }
+        }
+
+        public bool IsConverting { get; set; }
+        public int ConversionProgress { get; set; }
+        public string ConversionStatus { get; set; }
+        public bool IsConvertButtonEnabled { get; set; } = true;
+        public bool IsPreviewButtonEnabled { get; set; } = true;
+        private CancellationTokenSource _cts;
+        private readonly AppConfig _appConfig = new AppConfig();
 
         public Rectangle ScreenSize
         {
@@ -116,6 +141,8 @@ namespace screen_file_transmit
         {
             // 默认选择"当前屏幕"
             SelectedResolution = ResolutionList[0];
+            _appConfig.Load();
+            _saveDirectory = _appConfig.SaveDirectory;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -141,9 +168,11 @@ namespace screen_file_transmit
 
         // Command for browsing files
         public ICommand BrowseFileCommand => new RelayCommand((x) => BrowseFile());
+        public ICommand BrowseSaveDirectoryCommand => new RelayCommand((x) => BrowseSaveDirectory());
 
         public ICommand StartCommand => new RelayCommand((x) => StartEncoding());
-        public ICommand SaveToFileCommand => new RelayCommand((x) => SaveToFile());
+        public ICommand SaveToFileCommand => new RelayCommand(async (x) => await SaveToFileAsync());
+        public ICommand CancelCommand => new RelayCommand((x) => _cts?.Cancel());
 
         private void BrowseFile()
         {
@@ -172,13 +201,13 @@ namespace screen_file_transmit
                     tempFs.Position = 0;
 
                     var window = new MatrixWindow(tempFs, ColorDepth, ColorMode != "黑白", Scale,
-                        Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight);
+                        Path.GetFileName(FilePath), ShrinkWidth, ShrinkHeight, ErrorCorrectionPercent);
                     window.Show();
                 }
                 else
                 {
                     var window = new MatrixWindow(fs, ColorDepth, ColorMode != "黑白", Scale, Path.GetFileName(FilePath),
-                        ShrinkWidth, ShrinkHeight);
+                        ShrinkWidth, ShrinkHeight, ErrorCorrectionPercent);
                     window.Show();
                 }
             }
@@ -188,7 +217,20 @@ namespace screen_file_transmit
             }
         }
 
-        private void SaveToFile()
+        private void BrowseSaveDirectory()
+        {
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "选择保存图片的文件夹"
+            };
+
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                SaveDirectory = dialog.SelectedPath;
+            }
+        }
+
+        private async Task SaveToFileAsync()
         {
             if (string.IsNullOrEmpty(FilePath) || !File.Exists(FilePath))
             {
@@ -196,110 +238,154 @@ namespace screen_file_transmit
                 return;
             }
 
-            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            string saveDir = SaveDirectory;
+            if (string.IsNullOrEmpty(saveDir))
             {
-                Description = "选择保存图片的文件夹"
-            };
+                var dialog = new System.Windows.Forms.FolderBrowserDialog
+                {
+                    Description = "选择保存图片的文件夹"
+                };
 
-            if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
-                return;
+                if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                    return;
+
+                saveDir = dialog.SelectedPath;
+                SaveDirectory = saveDir;
+            }
+
+            IsConverting = true;
+            IsConvertButtonEnabled = false;
+            IsPreviewButtonEnabled = false;
+            ConversionProgress = 0;
+            ConversionStatus = "准备中...";
+            _cts = new CancellationTokenSource();
+
+            var progress = new Progress<(int progress, string status)>(report =>
+            {
+                ConversionProgress = report.progress;
+                ConversionStatus = report.status;
+            });
 
             try
             {
-                using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read))
-                {
-                    Stream workStream = fs;
-                    FileStream encryptedTempStream = null;
-
-                    // 如有密码则加密到临时流
-                    if (!string.IsNullOrEmpty(Password))
-                    {
-                        encryptedTempStream = new FileStream(Path.GetTempFileName(), FileMode.Create,
-                            FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
-                        CryptoHelper.EncryptStream(fs, encryptedTempStream, Password);
-                        encryptedTempStream.Position = 0;
-                        workStream = encryptedTempStream;
-                    }
-
-                    try
-                    {
-                        // 获取选择的分辨率
-                        int targetWidth, targetHeight;
-                        if (SelectedResolution.Width == 0)
-                        {
-                            // 使用当前屏幕工作区（去掉任务栏）
-                            var workingArea = GetWorkingArea();
-                            targetWidth = workingArea.Width > 0 ? workingArea.Width : 1920;
-                            targetHeight = workingArea.Height > 0 ? workingArea.Height : 1080;
-                        }
-                        else if (SelectedResolution.Width == -1)
-                        {
-                            // 使用自定义分辨率
-                            targetWidth = CustomWidth;
-                            targetHeight = CustomHeight;
-                        }
-                        else
-                        {
-                            // 使用预设分辨率
-                            targetWidth = SelectedResolution.Width;
-                            targetHeight = SelectedResolution.Height;
-                        }
-
-                        // 应用缩小设定
-                        int usableWidth = Math.Max(1, targetWidth - ShrinkWidth);
-                        int usableHeight = Math.Max(1, targetHeight - ShrinkHeight);
-
-                        // 计算网格布局（扣除元数据区域高度）
-                        var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
-                            usableWidth, usableHeight, Scale);
-                        var pageInfo = DataMatrixEncoder.CalculatePageInfo(matrix, Scale);
-
-                        // 计算生成多少页
-                        long totalBytes = workStream.Length;
-                        long bytesPerPage = matrix.PageByteCount * ColorDepth *
-                                            (ColorMode != "黑白" ? 3 : 1);
-                        int totalPages = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
-
-                        var originalFileName = Path.GetFileNameWithoutExtension(FilePath);
-                        var saveDir = dialog.SelectedPath;
-
-                        // 生成会话GUID（去掉横线）
-                        var sessionGuid = DataMatrixEncoder.GenerateFileId();
-
-                        for (int page = 0; page < totalPages; page++)
-                        {
-                            workStream.Seek(page * bytesPerPage, SeekOrigin.Begin);
-
-                            // 生成图片
-                            var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap((FileStream)workStream, matrix,
-                                pageInfo, ColorDepth, ColorMode != "黑白", Scale,
-                                Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid,
-                                !string.IsNullOrEmpty(Password));
-                            if (bitmap == null)
-                                continue;
-
-                            // 生成文件名：原文件名_yymmddhhmm_4位串号.png（下划线分割）
-                            var timestamp = DateTime.Now.ToString("yyMMddHHmm");
-                            var serial = GenerateSerialNumber(page, 4);
-                            var fileName = $"{originalFileName}_{timestamp}_{serial}.png";
-                            var fullPath = Path.Combine(saveDir, fileName);
-
-                            bitmap.Save(fullPath, ImageFormat.Png);
-                            bitmap.Dispose();
-                        }
-
-                        MessageBox.Show($"成功生成 {totalPages} 张图片到:\n{saveDir}");
-                    }
-                    finally
-                    {
-                        encryptedTempStream?.Dispose();
-                    }
-                }
+                int totalPages = await Task.Run(() => SaveToFileCore(saveDir, progress, _cts.Token), _cts.Token);
+                MessageBox.Show($"成功生成 {totalPages} 张图片到:\n{saveDir}");
+            }
+            catch (OperationCanceledException)
+            {
+                MessageBox.Show("转换已取消");
             }
             catch (Exception e)
             {
                 MessageBox.Show($"保存失败: {e.Message}");
             }
+            finally
+            {
+                IsConverting = false;
+                IsConvertButtonEnabled = true;
+                IsPreviewButtonEnabled = true;
+                ConversionProgress = 0;
+                ConversionStatus = string.Empty;
+                _cts?.Dispose();
+                _cts = null;
+            }
+        }
+
+        private int SaveToFileCore(string saveDir, IProgress<(int progress, string status)> progress, CancellationToken token)
+        {
+            int totalPages = 0;
+            using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read))
+            {
+                Stream workStream = fs;
+                FileStream encryptedTempStream = null;
+
+                // 如有密码则加密到临时流
+                if (!string.IsNullOrEmpty(Password))
+                {
+                    encryptedTempStream = new FileStream(Path.GetTempFileName(), FileMode.Create,
+                        FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+                    CryptoHelper.EncryptStream(fs, encryptedTempStream, Password);
+                    encryptedTempStream.Position = 0;
+                    workStream = encryptedTempStream;
+                }
+
+                try
+                {
+                    // 获取选择的分辨率
+                    int targetWidth, targetHeight;
+                    if (SelectedResolution.Width == 0)
+                    {
+                        // 使用当前屏幕工作区（去掉任务栏）
+                        var workingArea = GetWorkingArea();
+                        targetWidth = workingArea.Width > 0 ? workingArea.Width : 1920;
+                        targetHeight = workingArea.Height > 0 ? workingArea.Height : 1080;
+                    }
+                    else if (SelectedResolution.Width == -1)
+                    {
+                        // 使用自定义分辨率
+                        targetWidth = CustomWidth;
+                        targetHeight = CustomHeight;
+                    }
+                    else
+                    {
+                        // 使用预设分辨率
+                        targetWidth = SelectedResolution.Width;
+                        targetHeight = SelectedResolution.Height;
+                    }
+
+                    // 应用缩小设定
+                    int usableWidth = Math.Max(1, targetWidth - ShrinkWidth);
+                    int usableHeight = Math.Max(1, targetHeight - ShrinkHeight);
+
+                    // 计算网格布局（扣除元数据区域高度）
+                    var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
+                        usableWidth, usableHeight, Scale, ErrorCorrectionPercent);
+                    var pageInfo = DataMatrixEncoder.CalculatePageInfo(matrix, Scale);
+
+                    // 计算生成多少页
+                    long totalBytes = workStream.Length;
+                    long bytesPerPage = matrix.PageByteCount * ColorDepth *
+                                        (ColorMode != "黑白" ? 3 : 1);
+                    totalPages = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
+
+                    var originalFileName = Path.GetFileNameWithoutExtension(FilePath);
+
+                    // 生成会话GUID（去掉横线）
+                    var sessionGuid = DataMatrixEncoder.GenerateFileId();
+
+                    for (int page = 0; page < totalPages; page++)
+                    {
+                        token.ThrowIfCancellationRequested();
+
+                        workStream.Seek(page * bytesPerPage, SeekOrigin.Begin);
+
+                        // 生成图片
+                        var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(workStream, matrix,
+                            pageInfo, ColorDepth, ColorMode != "黑白", Scale,
+                            Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid,
+                            !string.IsNullOrEmpty(Password), ErrorCorrectionPercent);
+                        if (bitmap == null)
+                            continue;
+
+                        // 生成文件名：原文件名_yymmddhhmmss_4位串号.png（下划线分割）
+                        var timestamp = DateTime.Now.ToString("yyMMddHHmmss");
+                        var serial = GenerateSerialNumber(page, 4);
+                        var fileName = $"{originalFileName}_{timestamp}_{serial}.png";
+                        var fullPath = Path.Combine(saveDir, fileName);
+
+                        bitmap.Save(fullPath, ImageFormat.Png);
+                        bitmap.Dispose();
+
+                        progress?.Report(((int)((page + 1) * 100.0 / totalPages), $"正在生成第 {page + 1}/{totalPages} 页..."));
+                    }
+                }
+                finally
+                {
+                    encryptedTempStream?.Dispose();
+                }
+            }
+
+            return totalPages;
         }
 
         /// <summary>
@@ -324,7 +410,7 @@ namespace screen_file_transmit
         /// 生成二维码矩阵图片（用于预览）
         /// </summary>
         public static Bitmap GeneratePreviewBitmap(
-            FileStream fileStream,
+            Stream stream,
             int screenWidth,
             int screenHeight,
             int colorDepth,
@@ -335,7 +421,8 @@ namespace screen_file_transmit
             int totalPage,
             ref string sessionGuid,
             int shrinkWidth = 0,
-            int shrinkHeight = 0)
+            int shrinkHeight = 0,
+            int errorCorrectionPercent = 0)
         {
             // 第一次生成时创建 GUID
             if (string.IsNullOrEmpty(sessionGuid))
@@ -345,14 +432,14 @@ namespace screen_file_transmit
 
             int usableWidth = Math.Max(1, screenWidth - shrinkWidth);
             int usableHeight = Math.Max(1, screenHeight - shrinkHeight);
-            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(usableWidth, usableHeight, scale);
+            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(usableWidth, usableHeight, scale, errorCorrectionPercent);
             var pageInfo = DataMatrixEncoder.CalculatePageInfo(matrix, scale);
 
             // 使用 GenerateDataMatrixBitmap 方法生成图片
             var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(
-                fileStream, matrix, pageInfo, colorDepth, colorful, scale,
+                stream, matrix, pageInfo, colorDepth, colorful, scale,
                 fileName, currentPage == 1, currentPage, totalPage, sessionGuid,
-                false);
+                false, errorCorrectionPercent);
 
             return bitmap;
         }
@@ -360,9 +447,9 @@ namespace screen_file_transmit
         /// <summary>
         /// 检查是否还有更多数据需要显示
         /// </summary>
-        public static bool HasMoreData(FileStream fileStream)
+        public static bool HasMoreData(Stream stream)
         {
-            return fileStream.Length > fileStream.Position;
+            return stream.Length > stream.Position;
         }
     }
 }
