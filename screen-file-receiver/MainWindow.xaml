@@ -238,13 +238,20 @@
 
         <!--  Convert Button  -->
         <Grid Grid.Row="6" Margin="0,0,0,10">
-            <Button
-                Width="110"
-                Height="24"
-                HorizontalAlignment="Center"
-                Click="Button_Click"
-                Command="{Binding ConvertCommand}"
-                Content="转换" />
+            <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                <Button
+                    Width="110"
+                    Height="24"
+                    Margin="0,0,10,0"
+                    Click="Button_Click"
+                    Command="{Binding ConvertCommand}"
+                    Content="转换" />
+                <Button
+                    Width="110"
+                    Height="24"
+                    Command="{Binding OpenScreenshotToolCommand}"
+                    Content="截图工具" />
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

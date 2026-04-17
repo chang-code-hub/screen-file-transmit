@@ -1,0 +1,27 @@
+<Window x:Class="screen_file_receiver.RegionSelectOverlay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="#80000000"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Left="{x:Static SystemParameters.VirtualScreenLeft}"
+        Top="{x:Static SystemParameters.VirtualScreenTop}"
+        Width="{x:Static SystemParameters.VirtualScreenWidth}"
+        Height="{x:Static SystemParameters.VirtualScreenHeight}"
+        Cursor="Cross"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseMove="Window_MouseMove"
+        MouseLeftButtonUp="Window_MouseLeftButtonUp">
+    <Canvas>
+        <Rectangle x:Name="SelectionRect"
+                   Fill="#20FFFFFF"
+                   Stroke="White"
+                   StrokeDashArray="4 4"
+                   StrokeThickness="1"
+                   Visibility="Collapsed" />
+    </Canvas>
+</Window>

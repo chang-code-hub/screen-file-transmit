@@ -1,0 +1,24 @@
+<Window x:Class="screen_file_receiver.WindowSelectOverlay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Left="{x:Static SystemParameters.VirtualScreenLeft}"
+        Top="{x:Static SystemParameters.VirtualScreenTop}"
+        Width="{x:Static SystemParameters.VirtualScreenWidth}"
+        Height="{x:Static SystemParameters.VirtualScreenHeight}"
+        Cursor="Cross"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        MouseMove="Window_MouseMove"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Canvas>
+        <Border x:Name="HighlightBorder"
+                BorderBrush="Red"
+                BorderThickness="2"
+                Visibility="Collapsed" />
+    </Canvas>
+</Window>

@@ -134,78 +134,84 @@ namespace screen_file_receiver
 
         public static List<string> DetectBarcodes(string imageFile, bool isLeft = true, bool debug = false)
         {
-            var results = new List<string>();
             using (Mat rawImg = Cv2.ImRead(imageFile))
             {
                 if (rawImg.Empty())
                 {
                     Console.WriteLine("  Failed to load image.");
-                    return results;
+                    return new List<string>();
                 }
- 
-                var img = StretchSideRegion(rawImg, isLeft);
-                Cv2.Rotate(img, img, RotateFlags.Rotate90Counterclockwise);
+                return DetectBarcodes(rawImg, isLeft, debug);
+            }
+        }
 
-                double imgWidth = img.Width;
-                double imgHeight = img.Height;
-                int edgeWidth = (int)imgWidth;
+        public static List<string> DetectBarcodes(Mat rawImg, bool isLeft = true, bool debug = false)
+        {
+            var results = new List<string>();
 
-                Mat debugImg = img.Clone();
-                var allRects = new List<Rect>();
+            var img = StretchSideRegion(rawImg, isLeft);
+            Cv2.Rotate(img, img, RotateFlags.Rotate90Counterclockwise);
 
-                Console.WriteLine($"  Image size: {imgWidth}x{imgHeight}");
+            double imgWidth = img.Width;
+            double imgHeight = img.Height;
+            int edgeWidth = (int)imgWidth;
 
-                int x0 = isLeft ? 0 : (int)imgWidth - edgeWidth;
-                var roiRect = new Rect(x0, 0, edgeWidth, (int)imgHeight);
-                using (Mat roi = new Mat(img, roiRect))
+            Mat debugImg = img.Clone();
+            var allRects = new List<Rect>();
+
+            Console.WriteLine($"  Image size: {imgWidth}x{imgHeight}");
+
+            int x0 = isLeft ? 0 : (int)imgWidth - edgeWidth;
+            var roiRect = new Rect(x0, 0, edgeWidth, (int)imgHeight);
+            using (Mat roi = new Mat(img, roiRect))
+            {
+                var found = DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, false);
+                allRects = found;
+
+                var reader = new BarcodeReader();
+                reader.Options.TryHarder = true;
+                reader.Options.PossibleFormats = new[] { BarcodeFormat.CODE_128 };
+
+                foreach (var r in found)
                 {
-                    var found = DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, false);
-                    allRects = found;
+                    var absRect = new Rect(r.X + x0, r.Y, r.Width, r.Height);
+                    var color = isLeft ? new Scalar(0, 0, 255) : new Scalar(0, 255, 255);
+                    Cv2.Rectangle(debugImg, absRect, color, 3);
 
-                    var reader = new BarcodeReader();
-                    reader.Options.TryHarder = true;
-                    reader.Options.PossibleFormats = new[] { BarcodeFormat.CODE_128 };
-
-                    foreach (var r in found)
+                    using (Mat barcodeRoi = new Mat(img, absRect))
+                    using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(barcodeRoi))
                     {
-                        var absRect = new Rect(r.X + x0, r.Y, r.Width, r.Height);
-                        var color = isLeft ? new Scalar(0, 0, 255) : new Scalar(0, 255, 255);
-                        Cv2.Rectangle(debugImg, absRect, color, 3);
-
-                        using (Mat barcodeRoi = new Mat(img, absRect))
-                        using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(barcodeRoi))
+                        var decodeResult = reader.Decode(bitmap);
+                        if (decodeResult != null)
                         {
-                            var decodeResult = reader.Decode(bitmap);
-                            if (decodeResult != null)
-                            {
-                                results.Add(decodeResult.Text);
-                                Console.WriteLine($"    DECODED: {decodeResult.Text}");
-                            }
+                            results.Add(decodeResult.Text);
+                            Console.WriteLine($"    DECODED: {decodeResult.Text}");
                         }
                     }
                 }
-
-                Cv2.PutText(debugImg, $"Detected: {allRects.Count}", new Point(10, 30),
-                    HersheyFonts.HersheySimplex, 1, new Scalar(0, 0, 255), 2);
-                Cv2.PutText(debugImg, $"Decoded: {results.Count}", new Point((int)imgWidth - 250, 30),
-                    HersheyFonts.HersheySimplex, 1, new Scalar(0, 255, 255), 2);
-
-                Console.WriteLine($"  {(isLeft ? "Left" : "Right")} Barcodes : {allRects.Count}");
-                foreach (var r in allRects)
-                    Console.WriteLine($"    -> [{r.X},{r.Y}] {r.Width}x{r.Height}");
-                if (debug)
-                {
-                    if((isLeft && results.Count < 1) || ( !isLeft && results.Count < 2))
-                    {
-                        using (Mat roi = new Mat(img, roiRect))
-                            DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, true);
-                        Cv2.ImShow($"{(isLeft ? "Left" : "Right")} Detection Result", debugImg);
-                        Cv2.WaitKey(); 
-                    }
-                }
-
-                debugImg.Dispose();
             }
+
+            Cv2.PutText(debugImg, $"Detected: {allRects.Count}", new Point(10, 30),
+                HersheyFonts.HersheySimplex, 1, new Scalar(0, 0, 255), 2);
+            Cv2.PutText(debugImg, $"Decoded: {results.Count}", new Point((int)imgWidth - 250, 30),
+                HersheyFonts.HersheySimplex, 1, new Scalar(0, 255, 255), 2);
+
+            Console.WriteLine($"  {(isLeft ? "Left" : "Right")} Barcodes : {allRects.Count}");
+            foreach (var r in allRects)
+                Console.WriteLine($"    -> [{r.X},{r.Y}] {r.Width}x{r.Height}");
+            if (debug)
+            {
+                if ((isLeft && results.Count < 1) || (!isLeft && results.Count < 2))
+                {
+                    using (Mat roi = new Mat(img, roiRect))
+                        DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, true);
+                    Cv2.ImShow($"{(isLeft ? "Left" : "Right")} Detection Result", debugImg);
+                    Cv2.WaitKey();
+                }
+            }
+
+            debugImg.Dispose();
+
             return results;
         }
 
@@ -917,10 +923,28 @@ namespace screen_file_receiver
         /// </summary>
         public static MetadataResult ReadMetadata(string imageFile, bool debug = false)
         {
+            using (Mat rawImg = Cv2.ImRead(imageFile))
+            {
+                if (rawImg.Empty())
+                    return new MetadataResult();
+                return ReadMetadata(rawImg, debug);
+            }
+        }
+
+        public static MetadataResult ReadMetadata(Bitmap bitmap, bool debug = false)
+        {
+            using (Mat mat = OpenCvSharp.Extensions.BitmapConverter.ToMat(bitmap))
+            {
+                return ReadMetadata(mat, debug);
+            }
+        }
+
+        public static MetadataResult ReadMetadata(Mat image, bool debug = false)
+        {
             var result = new MetadataResult();
 
             // 左侧：元数据条码（$ 开头，Base64 编码）
-            var leftCodes = DetectBarcodes(imageFile, isLeft: true, debug);
+            var leftCodes = DetectBarcodes(image, isLeft: true, debug);
             foreach (var code in leftCodes)
             {
                 if (code.StartsWith("$"))
@@ -955,7 +979,7 @@ namespace screen_file_receiver
             }
 
             // 右侧：文件名条码、时间戳条码（Base64）
-            var rightCodes = DetectBarcodes(imageFile, isLeft: false, debug);
+            var rightCodes = DetectBarcodes(image, isLeft: false, debug);
             if (rightCodes.Count >= 2)
             {
                 var ordered = rightCodes.OrderByDescending(c => c.Length).ToList();

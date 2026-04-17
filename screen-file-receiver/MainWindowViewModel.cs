@@ -167,6 +167,7 @@ namespace screen_file_receiver
         public ICommand BrowseOutputPathCommand => new RelayCommand(_ => BrowseOutputPath(), _ => !IsBusy);
         public ICommand OpenOutputPathCommand => new RelayCommand(_ => OpenOutputPath());
         public ICommand ConvertCommand => new RelayCommand(_ => StartConvert(), _ => !IsBusy && FileItems.Count > 0 && !string.IsNullOrWhiteSpace(OutputFilePath));
+        public ICommand OpenScreenshotToolCommand => new RelayCommand(_ => OpenScreenshotTool(), _ => !IsBusy);
 
         private void AddFiles()
         {
@@ -420,6 +421,12 @@ namespace screen_file_receiver
                 return;
             }
             System.Diagnostics.Process.Start("explorer.exe", path);
+        }
+
+        private void OpenScreenshotTool()
+        {
+            var tool = new ScreenshotToolWindow(this);
+            tool.Show();
         }
 
         private string GetUniqueFilePath(string basePath)
