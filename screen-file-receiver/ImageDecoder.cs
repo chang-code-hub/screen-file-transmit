@@ -6,7 +6,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Windows;
 using Witteborn.ReedSolomon;
 using ZXing;
 using ZXing.Common;
@@ -39,14 +38,12 @@ namespace screen_file_receiver
 
             if (meta?.Metadata == null || meta.Metadata.Length < 4)
             {
-                MessageBox.Show("找不到信息或元数据格式错误: " + fileName);
-                return false;
+                throw new Exception("找不到信息或元数据格式错误: " + fileName);
             }
 
             if (dataBlocks == null || dataBlocks.Count == 0)
             {
-                MessageBox.Show("未解析到任何数据块: " + fileName);
-                return false;
+                throw new Exception("未解析到任何数据块: " + fileName);
             }
 
             if (meta.TotalQrCodeCount > 0)
@@ -54,8 +51,7 @@ namespace screen_file_receiver
                 int actualQrCount = decodeResult.DecodedQrCodeCount;
                 if (actualQrCount < meta.TotalQrCodeCount * 0.8)
                 {
-                    MessageBox.Show($"二维码数量校验失败: 期望 {meta.TotalQrCodeCount} 个，实际解析到 {actualQrCount} 个");
-                    return false;
+                    throw new Exception($"二维码数量校验失败: 期望 {meta.TotalQrCodeCount} 个，实际解析到 {actualQrCount} 个");
                 }
             }
 
@@ -99,8 +95,7 @@ namespace screen_file_receiver
                 var computedCrc = Crc32.ComputeHash(data);
                 if (!crcBytes.SequenceEqual(computedCrc))
                 {
-                    MessageBox.Show($"CRC32 校验失败: 数据块 ({block.row}, {block.col})");
-                    return false;
+                    throw new Exception($"CRC32 校验失败: 数据块 ({block.row}, {block.col})");
                 }
                 fileStream.Write(data, 0, data.Length);
             }

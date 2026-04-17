@@ -511,15 +511,23 @@ namespace screen_file_receiver
                                 continue;
                             }
 
-                            if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
+                            try
                             {
-                                item.Status = "解析失败";
-                                anyFailed = true;
+                                if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
+                                {
+                                    item.Status = "解析失败";
+                                    anyFailed = true;
+                                }
+                                else
+                                {
+                                    item.Status = "完成";
+                                    item.ProgressValue = 100;
+                                }
                             }
-                            else
+                            catch (Exception ex)
                             {
-                                item.Status = "完成";
-                                item.ProgressValue = 100;
+                                item.Status = $"解析失败: {ex.Message}";
+                                anyFailed = true;
                             }
                         }
 
