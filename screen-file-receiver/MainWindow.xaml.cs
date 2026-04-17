@@ -20,6 +20,11 @@ namespace screen_file_receiver
             this.Drop += MainWindow_Drop;
         }
 
+        private void FileDataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            viewModel.SelectedFileItems = FileDataGrid.SelectedItems.Cast<FileItem>().ToList();
+        }
+
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             viewModel.Password = PasswordBox.Password;

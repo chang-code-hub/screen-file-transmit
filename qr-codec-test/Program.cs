@@ -29,9 +29,7 @@ namespace qr_codec_test
         {
             TestDecodeDmPng();
             TestEncodeAndDecode();
-            TestNoisyDecode();
-            // 运行条码区域检测测试
-            //TestBarcodeDetection();
+            TestNoisyDecode(); 
         }
 
         private static void TestDecodeDmPng()
@@ -62,58 +60,25 @@ namespace qr_codec_test
 
                 Console.WriteLine($"图片尺寸: {image.Width}x{image.Height}");
 
-                var reader = new ZXing.Datamatrix.DataMatrixReader();
-                var hints = new Dictionary<DecodeHintType, object>
+                var result = ImageDecoder.TryDecodeDataMatrix(image, true);
+                 
+
+                if (result != null )
                 {
-                    { DecodeHintType.CHARACTER_SET, "ISO-8859-1" },
-                    { DecodeHintType.TRY_HARDER, true }
-                };
+                    Console.WriteLine($"\nDataMatrix 解码成功！");
+                    Console.WriteLine($"文本长度: {result.Length}");
+                    Console.WriteLine($"文本: {result}");
 
-                using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(image))
-                {
-                    var source = new BitmapLuminanceSource(bitmap);
-                    var binarizer = new HybridBinarizer(source);
-                    var binaryBitmap = new BinaryBitmap(binarizer);
-                    var result = reader.decode(binaryBitmap, hints);
-
-                    if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
-                    {
-                        Console.WriteLine($"\nDataMatrix 解码成功！");
-                        Console.WriteLine($"文本长度: {result.Text.Length}");
-                        Console.WriteLine($"文本: {result.Text}");
-
-                        byte[] bytes = Encoding.GetEncoding("ISO-8859-1").GetBytes(result.Text);
-                        Console.WriteLine($"字节: {BitConverter.ToString(bytes.Take(Math.Min(bytes.Length, 64)).ToArray())}");
-                        if (bytes.Length > 64)
-                            Console.WriteLine($"  ... (还有 {bytes.Length - 64} 字节)");
-                    }
-                    else
-                    {
-                        Console.WriteLine("\n错误：无法直接解码 DataMatrix。");
-
-                        // 尝试用 ImageReader 的完整解码流程
-                        Console.WriteLine("尝试使用 ImageReader 完整解码流程...");
-                        try
-                        {
-                            using (var ms = new MemoryStream())
-                            {
-                                bool ok = ImageDecoder.ReadToFile(imageFile, ms, true);
-                                if (ok)
-                                {
-                                    Console.WriteLine($"ImageReader 成功！解码了 {ms.Length} 字节");
-                                }
-                                else
-                                {
-                                    Console.WriteLine("ImageReader 返回 false");
-                                }
-                            }
-                        }
-                        catch (Exception ex2)
-                        {
-                            Console.WriteLine($"ImageReader 失败: {ex2.Message}");
-                        }
-                    }
+                    byte[] bytes = Encoding.GetEncoding("ISO-8859-1").GetBytes(result);
+                    Console.WriteLine($"字节: {BitConverter.ToString(bytes.Take(Math.Min(bytes.Length, 64)).ToArray())}");
+                    if (bytes.Length > 64)
+                        Console.WriteLine($"  ... (还有 {bytes.Length - 64} 字节)");
                 }
+                else
+                {
+                    Console.WriteLine("\n错误：无法直接解码 DataMatrix。"); 
+                }
+               
             }
 
             Console.WriteLine("\n测试完成。");

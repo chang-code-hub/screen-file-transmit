@@ -22,6 +22,7 @@ namespace screen_file_receiver
         private bool _isBusy;
         private BitmapImage _previewImage;
         private FileItem _selectedFileItem;
+        private List<FileItem> _selectedFileItems = new List<FileItem>();
         private bool _isSyncingProperty;
         private string _outputFilePath;
         private readonly AppConfig _appConfig = new AppConfig();
@@ -109,6 +110,17 @@ namespace screen_file_receiver
             }
         }
 
+        public List<FileItem> SelectedFileItems
+        {
+            get => _selectedFileItems;
+            set
+            {
+                _selectedFileItems = value;
+                OnPropertyChanged(nameof(SelectedFileItems));
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
         public string OutputFilePath
         {
             get => _outputFilePath;
@@ -150,7 +162,7 @@ namespace screen_file_receiver
         }
 
         public ICommand AddFileCommand => new RelayCommand(_ => AddFiles(), _ => !IsBusy);
-        public ICommand RemoveFileCommand => new RelayCommand(_ => RemoveFile(), _ => !IsBusy && SelectedFileItem != null && FileItems.Count > 0);
+        public ICommand RemoveFileCommand => new RelayCommand(_ => RemoveFile(), _ => !IsBusy && SelectedFileItems != null && SelectedFileItems.Count > 0 && FileItems.Count > 0);
         public ICommand ClearFilesCommand => new RelayCommand(_ => ClearFiles(), _ => !IsBusy && FileItems.Count > 0);
         public ICommand BrowseOutputPathCommand => new RelayCommand(_ => BrowseOutputPath(), _ => !IsBusy);
         public ICommand OpenOutputPathCommand => new RelayCommand(_ => OpenOutputPath());
@@ -285,17 +297,19 @@ namespace screen_file_receiver
 
         private void RemoveFile()
         {
-            if (SelectedFileItem != null && FileItems.Contains(SelectedFileItem))
+            if (SelectedFileItems == null || SelectedFileItems.Count == 0)
+                return;
+
+            var itemsToRemove = SelectedFileItems.ToList();
+            foreach (var item in itemsToRemove)
             {
-                var index = FileItems.IndexOf(SelectedFileItem);
-                SelectedFileItem.PropertyChanged -= FileItem_PropertyChanged;
-                FileItems.Remove(SelectedFileItem);
-                if (FileItems.Count > 0)
-                    SelectedFileItem = FileItems[Math.Min(index, FileItems.Count - 1)];
-                else
-                    SelectedFileItem = null;
-                CheckFileComplete();
+                if (FileItems.Contains(item))
+                {
+                    item.PropertyChanged -= FileItem_PropertyChanged;
+                    FileItems.Remove(item);
+                }
             }
+            CheckFileComplete();
         }
 
         private void ClearFiles()

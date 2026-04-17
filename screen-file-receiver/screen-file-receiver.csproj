@@ -9,6 +9,7 @@
     <Platforms>x64</Platforms>
     <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <ApplicationIcon>icon.ico</ApplicationIcon>
+	  <LangVersion>Latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
 	  <PackageReference Include="Costura.Fody">

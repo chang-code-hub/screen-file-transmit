@@ -20,8 +20,9 @@ namespace screen_file_receiver
 
     public static class ImageDecoder
     {
-        private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        private static readonly string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         private static readonly Encoding Iso88591 = Encoding.GetEncoding("ISO-8859-1");
+        private static readonly DataMatrixReader reader = new DataMatrixReader();
 
         /// <summary>
         /// 从图片读取文件
@@ -410,14 +411,13 @@ namespace screen_file_receiver
         /// </summary>
         private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours, bool debug = false)
         {
-            var results = new List<(int row, int col, byte[] data)>();
-            var reader = new DataMatrixReader(); 
+            var results = new List<(int row, int col, byte[] data)>(); 
             //reader.Options.TryHarder = true;
             //reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
 
             foreach (var rect in contours)
             {
-                var decoded = DecodeDataMatrixAt(image, rect, reader, debug);
+                var decoded = DecodeDataMatrixAt(image, rect,  debug);
                 if (decoded != null)
                 {
                     results.Add(decoded.Value);
@@ -492,7 +492,7 @@ namespace screen_file_receiver
                     using (Mat bgr = new Mat())
                     {
                         Cv2.CvtColor(binary, bgr, ColorConversionCodes.GRAY2BGR);
-                        string decoded = TryDecodeDataMatrix(bgr, reader);
+                        string decoded = TryDecodeDataMatrix(bgr);
 
                         if (!string.IsNullOrEmpty(decoded) && decoded.Length >= 2)
                         {
@@ -516,7 +516,7 @@ namespace screen_file_receiver
         /// <summary>
         /// 在指定位置解码 DataMatrix（用于黑白模式）
         /// </summary>
-        private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect, DataMatrixReader reader, bool debug )
+        private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect,  bool debug )
         {
             int padding = 5;
             int x = Math.Max(0, rect.X - padding);
@@ -526,7 +526,7 @@ namespace screen_file_receiver
 
             using (Mat roi = new Mat(image, new Rect(x, y, w, h)))
             {
-                string decoded = TryDecodeDataMatrix(roi, reader, debug);
+                string decoded = TryDecodeDataMatrix(roi, debug);
 
                 if (!string.IsNullOrEmpty(decoded) && decoded.Length >= 2)
                 {
@@ -580,7 +580,7 @@ namespace screen_file_receiver
         /// <summary>
         /// 尝试解码 DataMatrix
         /// </summary>
-        private static string TryDecodeDataMatrix(Mat image, DataMatrixReader reader1, bool debug = false, int retryCount = 3)
+        public static string TryDecodeDataMatrix(Mat image, bool debug = false, int retryCount = 10)
         {
             for (int attempt = 0; attempt <= retryCount; attempt++)
             {
@@ -588,7 +588,6 @@ namespace screen_file_receiver
                 {
                     using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(processed))
                     {
-                        var reader = new ZXing.Datamatrix.DataMatrixReader();
                         var source = new BitmapLuminanceSource(bitmap);
                         var binarizer = new HybridBinarizer(source);
                         var binaryBitmap = new BinaryBitmap(binarizer);
@@ -610,6 +609,13 @@ namespace screen_file_receiver
             if (debug)
             {
                 image.SaveImage(Directory.GetCurrentDirectory() + "/dm.png");
+                for (int attempt = 0; attempt <= retryCount; attempt++)
+                {
+                    using (Mat processed = PreprocessForDecode(image, attempt))
+                    {
+                        processed.SaveImage(Directory.GetCurrentDirectory() + $"/dm_{attempt}.png");
+                    }
+                }
                 Cv2.ImShow("DM", image);
                 Cv2.WaitKey();
             }
@@ -698,48 +704,189 @@ namespace screen_file_receiver
         }
         /// <summary>
         /// 解码预处理
-        /// </summary>
+        /// </summary> 
+
         private static Mat PreprocessForDecode(Mat image, int attempt)
         {
-            if (attempt == 0)
-            { 
-                return image.Clone();
-            }
+            // === 1. 统一先放大 ===
+            Mat scaled = new Mat();
+
+            // 根据 attempt 控制放大倍数（逐步增强）
+            double scale = attempt switch
+            {
+                0 => 1,
+                1 => 2,
+                2 => 3,
+                _ => 3
+            };
+
+            Cv2.Resize(image, scaled, new Size(), scale, scale, InterpolationFlags.Cubic);
+
+            // === 2. 灰度 ===
+            Mat gray = new Mat();
+            if (scaled.Channels() == 3)
+                Cv2.CvtColor(scaled, gray, ColorConversionCodes.BGR2GRAY);
+            else
+                gray = scaled.Clone();
 
             Mat result = new Mat();
 
-            if (attempt == 1)
+            // === 3. 多策略处理 ===
+            switch (attempt)
             {
-                Cv2.Resize(image, result, new Size(), 3.0, 3.0, InterpolationFlags.Linear);
-            }
-            else if (attempt == 2)
-            {
-                using (Mat gray = new Mat())
-                {
-                    if (image.Channels() == 3)
-                        Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-                    else
-                        image.CopyTo(gray);
+                case 0:
+                case 1:
+                case 2: 
+                    result = gray.Clone();
+                    break;
 
-                    Cv2.AdaptiveThreshold(gray, result, 255, AdaptiveThresholdTypes.GaussianC,
-                        ThresholdTypes.Binary, 11, 2);
-                }
-            }
-            else
-            {
-                Mat kernel = Mat.FromArray(new float[,]
-                {
-                    { -1, -1, -1 },
-                    { -1, 9, -1 },
-                    { -1, -1, -1 }
-                });
-                Cv2.Filter2D(image, result, -1, kernel);
+                case 3:
+                    // OTSU
+                    Cv2.Threshold(gray, result, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                    break;
+
+                case 4:
+                    // 自适应阈值
+                    Cv2.AdaptiveThreshold(gray, result, 255,
+                        AdaptiveThresholdTypes.GaussianC,
+                        ThresholdTypes.Binary,
+                        11, 2);
+                    break;
+
+                case 5:
+                    // 高斯模糊 + OTSU
+                    using (var blur = new Mat())
+                    {
+                        Cv2.GaussianBlur(gray, blur, new Size(5, 5), 0);
+                        Cv2.Threshold(blur, result, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                    }
+                    break;
+
+                case 6:
+                    // 中值滤波 + 自适应
+                    using (var median = new Mat())
+                    {
+                        Cv2.MedianBlur(gray, median, 5);
+                        Cv2.AdaptiveThreshold(median, result, 255,
+                            AdaptiveThresholdTypes.MeanC,
+                            ThresholdTypes.Binary,
+                            11, 2);
+                    }
+                    break;
+
+                case 7:
+                    // 形态学开（去噪）
+                    using (var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3)))
+                    {
+                        Cv2.MorphologyEx(gray, result, MorphTypes.Open, kernel);
+                    }
+                    break;
+
+                case 8:
+                    // 形态学闭（补断裂）
+                    using (var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3)))
+                    {
+                        Cv2.MorphologyEx(gray, result, MorphTypes.Close, kernel);
+                    }
+                    break;
+
+                case 9:
+                    // 锐化
+                    using (Mat kernelSharpen = Mat.FromArray(new float[,]
+                    {
+                                { -1, -1, -1 },
+                                { -1, 9, -1 },
+                                { -1, -1, -1 }
+                    }))
+                    {
+                        Cv2.Filter2D(gray, result, -1, kernelSharpen);
+                    }
+                    break;
+
+                case 10:
+                    // 反色 + OTSU（应对反色二维码）
+                    using (var binary = new Mat())
+                    {
+                        Cv2.Threshold(gray, binary, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                        Cv2.BitwiseNot(binary, result);
+                    }
+                    break;
+
+                default:
+                    result = gray.Clone();
+                    break;
             }
 
             return result;
         }
-          
-        private static bool IsBase64String(string s)
+    //private static Mat PreprocessForDecode(Mat image, int attempt)
+    //{
+    //    if (attempt == 0)
+    //    {
+    //        return image.Clone();
+    //    }
+
+    //    Mat result = new Mat();
+
+    //    if (attempt <= 2)
+    //    {
+    //        return image.Clone();
+    //        //Cv2.Resize(image, result, new Size(), 1 + attempt, 1 + attempt, InterpolationFlags.Linear);
+    //    }
+
+    //    Mat resize = new Mat();
+    //    Cv2.Resize(image, resize, new Size(), 3, 3, InterpolationFlags.Linear);
+
+    //    if (attempt == 3)
+    //    {
+    //        using (Mat gray = new Mat())
+    //        {
+    //            if (resize.Channels() == 3)
+    //                Cv2.CvtColor(resize, gray, ColorConversionCodes.BGR2GRAY);
+    //            else
+    //                resize.CopyTo(gray);
+
+    //            Cv2.AdaptiveThreshold(gray, result, 256, AdaptiveThresholdTypes.GaussianC,
+    //                ThresholdTypes.Binary, 11, 2);
+    //        }
+    //    }
+    //    else if (attempt == 4)
+    //    {
+    //        Mat kernel = Mat.FromArray(new float[,] {
+    //            { 0, -1, 0 },
+    //            { -1, 5, -1 },
+    //            { 0, -1, 0 }
+    //        });
+    //        Cv2.Filter2D(resize, result, -1, kernel);
+    //    }
+    //    else if (attempt == 5)
+    //    {
+    //        Mat kernel = Mat.FromArray(new float[,]
+    //        {
+    //            { -1, -1, -1 },
+    //            { -1, 9, -1 },
+    //            { -1, -1, -1 }
+    //        });
+    //        Cv2.Filter2D(resize, result, -1, kernel);
+    //    }
+    //    else if (attempt == 6)
+    //    {
+    //        Mat kernel = Mat.FromArray(new float[,]{
+    //            { -1, -1, -1 },
+    //            { -1, 10, -1 },
+    //            { -1, -1, -1 }
+    //        });
+    //        Cv2.Filter2D(resize, result, -1, kernel);
+    //    }
+    //    else
+    //    {
+    //        return image.Clone();
+    //    }
+
+    //    return result; 
+    //}
+
+    private static bool IsBase64String(string s)
         {
             if (string.IsNullOrEmpty(s) || s.Length % 4 != 0)
                 return false;
