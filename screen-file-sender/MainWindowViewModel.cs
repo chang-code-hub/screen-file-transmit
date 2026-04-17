@@ -349,7 +349,7 @@ namespace screen_file_transmit
                 int usableWidth = Math.Max(1, _previewTargetWidth - ShrinkWidth);
                 int usableHeight = Math.Max(1, _previewTargetHeight - ShrinkHeight);
 
-                var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
+                var matrix = ImageEncoder.CalculateScreenDataMatrix(
                     usableWidth, usableHeight, Scale, ErrorCorrectionPercent);
 
                 long totalBytes = _previewStream.Length;
@@ -382,7 +382,7 @@ namespace screen_file_transmit
 
             try
             {
-                long bytesPerPage = DataMatrixEncoder.CalculateScreenDataMatrix(
+                long bytesPerPage = ImageEncoder.CalculateScreenDataMatrix(
                         Math.Max(1, _previewTargetWidth - ShrinkWidth), Math.Max(1, _previewTargetHeight - ShrinkHeight), Scale, ErrorCorrectionPercent)
                     .PageByteCount * ColorDepth * (ColorMode != "黑白" ? 3 : 1);
 
@@ -411,7 +411,7 @@ namespace screen_file_transmit
 
                 if (bitmap != null)
                 {
-                    PreviewImageSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(bitmap);
+                    PreviewImageSource = ImageEncoder.ConvertBitmapToBitmapSource(bitmap);
                     bitmap.Dispose();
                 }
                 else
@@ -612,9 +612,9 @@ namespace screen_file_transmit
                     int usableHeight = Math.Max(1, targetHeight - ShrinkHeight);
 
                     // 计算网格布局（扣除元数据区域高度）
-                    var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
+                    var matrix = ImageEncoder.CalculateScreenDataMatrix(
                         usableWidth, usableHeight, Scale, ErrorCorrectionPercent);
-                    var pageInfo = DataMatrixEncoder.CalculatePageInfo(matrix, Scale);
+                    var pageInfo = ImageEncoder.CalculatePageInfo(matrix, Scale);
 
                     // 计算生成多少页
                     long totalBytes = workStream.Length;
@@ -625,7 +625,7 @@ namespace screen_file_transmit
                     var originalFileName = Path.GetFileNameWithoutExtension(FilePath);
 
                     // 生成会话GUID（去掉横线）
-                    var sessionGuid = DataMatrixEncoder.GenerateFileId();
+                    var sessionGuid = ImageEncoder.GenerateFileId();
                     var timestamp = DateTime.Now.ToString("yyMMddHHmmss");
 
                     for (int page = 0; page < totalPages; page++)
@@ -635,9 +635,9 @@ namespace screen_file_transmit
                         workStream.Seek(page * bytesPerPage, SeekOrigin.Begin);
 
                         // 生成图片
-                        var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(workStream, matrix,
+                        var bitmap = ImageEncoder.GenerateDataMatrixBitmap(workStream, matrix,
                             pageInfo, ColorDepth, ColorMode != "黑白", Scale,
-                            Path.GetFileName(FilePath), page == 0, page + 1, totalPages, "#" + sessionGuid,
+                            Path.GetFileName(FilePath), page == 0, page + 1, totalPages, sessionGuid,
                             !string.IsNullOrEmpty(Password), ErrorCorrectionPercent);
                         if (bitmap == null)
                             continue;
@@ -701,16 +701,16 @@ namespace screen_file_transmit
             // 第一次生成时创建 GUID
             if (string.IsNullOrEmpty(sessionGuid))
             {
-                sessionGuid = DataMatrixEncoder.GenerateFileId();
+                sessionGuid = ImageEncoder.GenerateFileId();
             }
 
             int usableWidth = Math.Max(1, screenWidth - shrinkWidth);
             int usableHeight = Math.Max(1, screenHeight - shrinkHeight);
-            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(usableWidth, usableHeight, scale, errorCorrectionPercent);
-            var pageInfo = DataMatrixEncoder.CalculatePageInfo(matrix, scale);
+            var matrix = ImageEncoder.CalculateScreenDataMatrix(usableWidth, usableHeight, scale, errorCorrectionPercent);
+            var pageInfo = ImageEncoder.CalculatePageInfo(matrix, scale);
 
             // 使用 GenerateDataMatrixBitmap 方法生成图片
-            var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(
+            var bitmap = ImageEncoder.GenerateDataMatrixBitmap(
                 stream, matrix, pageInfo, colorDepth, colorful, scale,
                 fileName, currentPage == 1, currentPage, totalPage, sessionGuid,
                 false, errorCorrectionPercent);

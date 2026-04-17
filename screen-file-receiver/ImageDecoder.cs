@@ -17,7 +17,7 @@ using Size = OpenCvSharp.Size;
 namespace screen_file_receiver
 { 
 
-    public static class ImageReader
+    public static class ImageDecoder
     {
         private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         private static readonly Encoding Iso88591 = Encoding.GetEncoding("ISO-8859-1");
@@ -135,7 +135,7 @@ namespace screen_file_receiver
                     Console.WriteLine("  Failed to load image.");
                     return results;
                 }
-
+ 
                 var img = StretchSideRegion(rawImg, isLeft);
                 Cv2.Rotate(img, img, RotateFlags.Rotate90Counterclockwise);
 
@@ -849,6 +849,8 @@ namespace screen_file_receiver
             using (Mat gray = new Mat())
             {
                 Cv2.CvtColor(roi, gray, ColorConversionCodes.BGR2GRAY);
+                Cv2.MedianBlur(gray, gray, 5);
+                Cv2.GaussianBlur(gray, gray, new Size(7, 7), 0);
 
                 if (debug) Cv2.ImShow($"{label} - 1 Gray", gray);
 

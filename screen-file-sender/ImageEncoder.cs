@@ -19,7 +19,7 @@ using Point = System.Drawing.Point;
 namespace screen_file_transmit
 {
 
-    public class DataMatrixEncoder
+    public class ImageEncoder
     {
         private static string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         private static readonly int META_BARCODE_HEIGHT = 25;
@@ -66,7 +66,7 @@ namespace screen_file_transmit
         // Base128 encoding using ASCII characters (0-127)
         private static char[] Base128Chars = new char[128];
 
-        static DataMatrixEncoder()
+        static ImageEncoder()
         {
             for (int i = 0; i < 128; i++)
             {
@@ -179,9 +179,9 @@ namespace screen_file_transmit
             };
         } 
 
-        private static Bitmap DrawDataMatrix(byte[] cellData, int row, int column, int scale,
+        private static unsafe Bitmap DrawDataMatrix(byte[] cellData, int row, int column, int scale,
             DataMatrixResult matrix,
-            int depth, bool colorful, int payloadLength  )
+            int depth, bool colorful, int payloadLength)
         {
             List<Bitmap> bitmaps = new List<Bitmap>();
             int offset = 0;
@@ -216,60 +216,99 @@ namespace screen_file_transmit
             }
 
             if (bitmaps.Count == 0) return null;
-            var mixedBitmap = new Bitmap(matrix.CodeSize * scale, matrix.CodeSize * scale);
-            if (colorful)
+
+            int w = matrix.CodeSize * scale;
+            int h = matrix.CodeSize * scale;
+            var mixedBitmap = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+            var rect = new Rectangle(0, 0, w, h);
+            var dstData = mixedBitmap.LockBits(rect, ImageLockMode.WriteOnly, mixedBitmap.PixelFormat);
+            try
             {
-                var redImages = bitmaps.Skip(0).Take(depth).ToList();
-                var greenImages = bitmaps.Skip(depth).Take(depth).ToList();
-                var blueImages = bitmaps.Skip(depth * 2).Take(depth).ToList();
-                for (var x = 0; x < mixedBitmap.Width; x++)
+                int dstStride = dstData.Stride;
+                byte* dstPtr = (byte*)dstData.Scan0;
+
+                int layerCount2 = bitmaps.Count;
+                var layerBmps = new Bitmap[layerCount2];
+                var layerDatas = new BitmapData[layerCount2];
+                var layerPtrs = new byte*[layerCount2];
+                var layerStrides = new int[layerCount2];
+                var layerBpps = new int[layerCount2];
+
+                for (int i = 0; i < layerCount2; i++)
                 {
-                    for (var y = 0; y < mixedBitmap.Height; y++)
+                    var bmp = bitmaps[i];
+                    var data = bmp.LockBits(rect, ImageLockMode.ReadOnly, bmp.PixelFormat);
+                    layerBmps[i] = bmp;
+                    layerDatas[i] = data;
+                    layerPtrs[i] = (byte*)data.Scan0;
+                    layerStrides[i] = data.Stride;
+                    layerBpps[i] = Image.GetPixelFormatSize(bmp.PixelFormat) / 8;
+                }
+
+                for (int y = 0; y < h; y++)
+                {
+                    byte* dstRow = dstPtr + y * dstStride;
+                    for (int x = 0; x < w; x++)
                     {
-                        var red = MixColor(redImages, x, y, depth);
-                        var green = MixColor(greenImages, x, y, depth);
-                        var blue = MixColor(blueImages, x, y, depth);
-                        mixedBitmap.SetPixel(x, y, Color.FromArgb(red, green, blue));
+                        byte r = 0xFF, g = 0xFF, b = 0xFF;
+
+                        if (colorful)
+                        {
+                            int riBase = 0;
+                            int giBase = depth;
+                            int biBase = depth * 2;
+
+                            for (int d = 0; d < depth; d++)
+                            {
+                                int idx;
+                                idx = riBase + d;
+                                if (idx < layerCount2 && layerPtrs[idx][y * layerStrides[idx] + x * layerBpps[idx]] == 0)
+                                    r &= (byte)(~(1 << (7 - d)));
+
+                                idx = giBase + d;
+                                if (idx < layerCount2 && layerPtrs[idx][y * layerStrides[idx] + x * layerBpps[idx]] == 0)
+                                    g &= (byte)(~(1 << (7 - d)));
+
+                                idx = biBase + d;
+                                if (idx < layerCount2 && layerPtrs[idx][y * layerStrides[idx] + x * layerBpps[idx]] == 0)
+                                    b &= (byte)(~(1 << (7 - d)));
+                            }
+
+                            if (r != 0xFF) r = (byte)(r & (0xFF << (8 - depth)) & 0xFF);
+                            if (g != 0xFF) g = (byte)(g & (0xFF << (8 - depth)) & 0xFF);
+                            if (b != 0xFF) b = (byte)(b & (0xFF << (8 - depth)) & 0xFF);
+                        }
+                        else
+                        {
+                            for (int d = 0; d < depth && d < layerCount2; d++)
+                            {
+                                if (layerPtrs[d][y * layerStrides[d] + x * layerBpps[d]] == 0)
+                                    r &= (byte)(~(1 << (7 - d)));
+                            }
+                            if (r != 0xFF) r = (byte)(r & (0xFF << (8 - depth)) & 0xFF);
+                            g = b = r;
+                        }
+
+                        dstRow[x * 4 + 0] = b;
+                        dstRow[x * 4 + 1] = g;
+                        dstRow[x * 4 + 2] = r;
+                        dstRow[x * 4 + 3] = 0xFF;
                     }
+                }
+
+                for (int i = 0; i < layerCount2; i++)
+                {
+                    layerBmps[i].UnlockBits(layerDatas[i]);
+                    layerBmps[i].Dispose();
                 }
             }
-            else
+            finally
             {
-                for (var x = 0; x < mixedBitmap.Width; x++)
-                {
-                    for (var y = 0; y < mixedBitmap.Height; y++)
-                    {
-                        var gray = MixColor(bitmaps, x, y, depth);
-                        mixedBitmap.SetPixel(x, y, Color.FromArgb(gray, gray, gray));
-                    }
-                }
+                mixedBitmap.UnlockBits(dstData);
             }
 
             return mixedBitmap;
         }
-
-        private static int MixColor(List<Bitmap> redImages, int x, int y, int depth)
-        {
-            if (redImages.Count == 0) return 0xff;
-            var color = 0xff; // & (0xff<<(9- depth) - 1);
-            for (int ri = 0; ri < redImages.Count; ri++)
-            {
-                var img = redImages[ri];
-                var pixel = img.GetPixel(x, y);
-                if (pixel.R == 0)
-                {
-                    color &= (~(1 << (7 - ri)));
-                }
-            }
-
-            if (color != 0xff)
-            {
-                return color & (0xff << (8 - depth)) & 0xff;
-            }
-
-            return color;
-        }
-         
 
         private static Bitmap GenerateDataMatrix(byte[] content, int size, int scale)
         {
@@ -426,57 +465,59 @@ namespace screen_file_transmit
                 rs = new ReedSolomon(dataShards, parityShards);
             }
 
-            for (int row = 0; !end && row < matrix.MaxRows; row++)
+            using (Graphics g = Graphics.FromImage(bitmap))
+            using (var borderPen = new Pen(Brushes.Black, scale))
             {
-                var top = pageInfo.CellStep * row;
+                g.CompositingMode = CompositingMode.SourceOver;
 
-                for (int column = 0; !end && column < matrix.MaxCols; column++)
+                for (int row = 0; !end && row < matrix.MaxRows; row++)
                 {
-                    var left = pageInfo.CellStep * column + META_INFO_WIDTH_LEFT;
+                    var top = pageInfo.CellStep * row;
 
-                    byte[] cellData = new byte[rawBytesPerDm];
-                    int read = stream.Read(cellData, 0, cellData.Length);
-                    if (read == 0) { end = true; break; }
-                    // 追加 CRC32
-                    if (read < cellData.Length) Array.Resize(ref cellData, read);
-                    var crcBytes = Crc32.ComputeHash(cellData);
-                    int payloadLength = cellData.Length;
-
-                    Array.Resize(ref cellData, cellData.Length + crcBytes.Length);
-                    Array.Copy(crcBytes, 0, cellData, cellData.Length - crcBytes.Length, crcBytes.Length);
-
-                    if (rs != null)
+                    for (int column = 0; !end && column < matrix.MaxCols; column++)
                     {
-                        var shards = rs.ManagedEncode(cellData);
-                        using (var ms = new MemoryStream())
+                        var left = pageInfo.CellStep * column + META_INFO_WIDTH_LEFT;
+
+                        byte[] cellData = new byte[rawBytesPerDm];
+                        int read = stream.Read(cellData, 0, cellData.Length);
+                        if (read == 0) { end = true; break; }
+                        // 追加 CRC32
+                        if (read < cellData.Length) Array.Resize(ref cellData, read);
+                        var crcBytes = Crc32.ComputeHash(cellData);
+                        int payloadLength = cellData.Length;
+
+                        Array.Resize(ref cellData, cellData.Length + crcBytes.Length);
+                        Array.Copy(crcBytes, 0, cellData, cellData.Length - crcBytes.Length, crcBytes.Length);
+
+                        if (rs != null)
                         {
-                            foreach (var shard in shards)
-                                ms.Write(shard, 0, shard.Length);
-                            cellData = ms.ToArray();
+                            var shards = rs.ManagedEncode(cellData);
+                            using (var ms = new MemoryStream())
+                            {
+                                foreach (var shard in shards)
+                                    ms.Write(shard, 0, shard.Length);
+                                cellData = ms.ToArray();
+                            }
                         }
-                    }
 
-                    var bitmapPart = DrawDataMatrix(cellData, row, column, scale, matrix,
-                        colorDepth, colorful, payloadLength);
+                        var bitmapPart = DrawDataMatrix(cellData, row, column, scale, matrix,
+                            colorDepth, colorful, payloadLength);
 
-                    if (bitmapPart != null)
-                    {
-                        count++;
-                        using (Graphics g = Graphics.FromImage(bitmap))
+                        if (bitmapPart != null)
                         {
-                            g.CompositingMode = CompositingMode.SourceOver;
-                            g.DrawRectangle(new Pen(Brushes.Black, scale),
+                            count++;
+                            g.DrawRectangle(borderPen,
                                 new Rectangle(left + scale, top + scale, (matrix.CodeSize + 4) * scale,
                                     (matrix.CodeSize + 4) * scale));
                             g.DrawImage(bitmapPart,
                                 new PointF((float)(left + 3 * scale), (float)(top + 3 * scale)));
-                        }
 
-                        bitmapPart.Dispose();
-                    }
-                    else
-                    {
-                        end = true;
+                            bitmapPart.Dispose();
+                        }
+                        else
+                        {
+                            end = true;
+                        }
                     }
                 }
             }
@@ -629,7 +670,7 @@ namespace screen_file_transmit
                 // ===== 右侧：GUID条码（旋转90度）=====
                 if (!string.IsNullOrEmpty(sessionGuid))
                 {
-                    var guidBitmap = GenerateCode128(sessionGuid, META_BARCODE_HEIGHT, scale);
+                    var guidBitmap = GenerateCode128("#"+sessionGuid, META_BARCODE_HEIGHT, scale);
 
                     // 缩放条码以适应边界（旋转后的高度 = 原始宽度）
                     guidBitmap = ScaleBarcodeToFit(guidBitmap, maxBarcodeHeight);

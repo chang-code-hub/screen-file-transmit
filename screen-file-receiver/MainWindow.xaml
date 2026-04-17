@@ -8,13 +8,14 @@
     Title="屏幕文件接收器"
     Width="900"
     MinWidth="700"
-    MinHeight="500"
+    MinHeight="600"
     AllowDrop="True"
+    ResizeMode="CanResizeWithGrip"
     SizeToContent="Height"
     mc:Ignorable="d">
     <Grid Margin="10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -37,7 +38,6 @@
                 BorderThickness="1">
                 <DataGrid
                     x:Name="FileDataGrid"
-                    Height="200"
                     AutoGenerateColumns="False"
                     CanUserAddRows="False"
                     ItemsSource="{Binding FileItems}"
@@ -59,7 +59,7 @@
                             Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             Header="选择" />-->
                         <DataGridTextColumn
-                            Width="120"
+                            Width="180"
                             Binding="{Binding ImageFileName}"
                             Header="图片文件名"
                             IsReadOnly="True" />
@@ -73,7 +73,7 @@
                             Binding="{Binding SaveFileName}"
                             Header="保存文件名" />
                         <DataGridTextColumn
-                            Width="150"
+                            Width="180"
                             Binding="{Binding MetadataInfo}"
                             Header="元数据信息"
                             IsReadOnly="True" />

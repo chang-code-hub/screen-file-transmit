@@ -216,7 +216,7 @@ namespace screen_file_receiver
         {
             try
             {
-                var meta = ImageReader.ReadMetadata(filePath);
+                var meta = ImageDecoder.ReadMetadata(filePath);
                 var item = new FileItem
                 {
                     FullPath = filePath,
@@ -234,10 +234,16 @@ namespace screen_file_receiver
                     CurrentPage = meta?.CurrentPage ?? 0,
                     TotalPages = meta?.TotalPages ?? 0
                 };
-                //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
-                //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
-                item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " 有密码" : "")}{(item.HasErrorCorrection ? $" RS={item.ErrorCorrectionPercent}%" : "")}";
-
+                if (meta.TotalPages > 0)
+                {
+                    //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
+                    //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
+                    item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " 有密码" : "")}{(item.HasErrorCorrection ? $" RS={item.ErrorCorrectionPercent}%" : "")}";
+                }
+                else
+                {
+                    item.Status = "元数据解析失败";
+                }
                 return item;
             }
             catch (Exception ex)
@@ -490,7 +496,7 @@ namespace screen_file_receiver
                                 continue;
                             }
 
-                            if (!ImageReader.ReadToFile(item.FullPath, encryptedMs, false))
+                            if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
                             {
                                 item.Status = "解析失败";
                                 anyFailed = true;

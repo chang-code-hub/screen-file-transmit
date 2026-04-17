@@ -97,7 +97,7 @@ namespace qr_codec_test
                         {
                             using (var ms = new MemoryStream())
                             {
-                                bool ok = ImageReader.ReadToFile(imageFile, ms, true);
+                                bool ok = ImageDecoder.ReadToFile(imageFile, ms, true);
                                 if (ok)
                                 {
                                     Console.WriteLine($"ImageReader success! Decoded {ms.Length} bytes");
@@ -137,7 +137,7 @@ namespace qr_codec_test
                 }
 
                 Console.WriteLine($"Processing: {Path.GetFileName(imageFile)}");
-                var meta = ImageReader.ReadMetadata(imageFile);
+                var meta = ImageDecoder.ReadMetadata(imageFile);
                 Console.WriteLine($"  Metadata:     {(meta.Metadata != null ? BitConverter.ToString(meta.Metadata) : "null")}");
                 Console.WriteLine($"  MaxRows:      {meta.MaxRows}");
                 Console.WriteLine($"  MaxCols:      {meta.MaxCols}");
@@ -170,6 +170,10 @@ namespace qr_codec_test
 
             // 清理旧文件
             foreach (var file in Directory.GetFiles(outputDir, "*.png"))
+            {
+                File.Delete(file);
+            }
+            foreach (var file in Directory.GetFiles(outputDir, "*.jpg"))
             {
                 File.Delete(file);
             }
@@ -235,7 +239,7 @@ namespace qr_codec_test
             }
 
             // 计算最优 DataMatrix 配置
-            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(ScreenWidth, ScreenHeight, Scale, ErrorCorrectionPercent);
+            var matrix = ImageEncoder.CalculateScreenDataMatrix(ScreenWidth, ScreenHeight, Scale, ErrorCorrectionPercent);
             Console.WriteLine($"Matrix configuration:");
             Console.WriteLine($"  Version: {matrix.BestVersion}");
             Console.WriteLine($"  Grid: {matrix.MaxRows}x{matrix.MaxCols}");
@@ -243,11 +247,11 @@ namespace qr_codec_test
             Console.WriteLine($"  Byte count per code: {matrix.CodeByteCount}");
             Console.WriteLine($"  Page capacity: {matrix.PageByteCount} bytes");
 
-            var pageInfo = DataMatrixEncoder.CalculatePageInfo(matrix, Scale);
+            var pageInfo = ImageEncoder.CalculatePageInfo(matrix, Scale);
             Console.WriteLine($"  Screen size: {ScreenWidth}x{ScreenHeight}");
             Console.WriteLine($"  Image size: {pageInfo.BitmapWidth}x{pageInfo.BitmapHeight}");
             Console.WriteLine();
-            var ts = DataMatrixEncoder.GenerateFileId();
+            var ts = ImageEncoder.GenerateFileId();
 
             using (var fileStream = new FileStream(inputFile, FileMode.Open, FileAccess.Read))
             {
@@ -261,7 +265,7 @@ namespace qr_codec_test
                     pageNumber++;
                     long pageOffset = fileStream.Position;
 
-                    var bitmap = DataMatrixEncoder.GenerateDataMatrixBitmap(
+                    var bitmap = ImageEncoder.GenerateDataMatrixBitmap(
                         fileStream,
                         matrix,
                         pageInfo,
@@ -313,7 +317,7 @@ namespace qr_codec_test
                         Console.WriteLine($"  Processing: {Path.GetFileName(imageFile)}");
 
                         // 解码当前页并直接写入输出流
-                        bool ok = ImageReader.ReadToFile(imageFile, outputStream, debug);
+                        bool ok = ImageDecoder.ReadToFile(imageFile, outputStream, debug);
                         if (!ok)
                         {
                             Console.WriteLine($"    ERROR: Failed to decode {Path.GetFileName(imageFile)}");

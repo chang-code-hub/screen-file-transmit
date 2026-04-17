@@ -76,7 +76,7 @@ namespace screen_file_transmit
 
             //var screenWidth = (int)DisplayGrid.ActualWidth;
             //var screenHeight = (int)DisplayGrid.ActualHeight;
-            var matrix = DataMatrixEncoder.CalculateScreenDataMatrix(
+            var matrix = ImageEncoder.CalculateScreenDataMatrix(
                 physicalWidth, physicalHeight, scale, errorCorrectionPercent);
 
             // 计算生成多少页
@@ -134,7 +134,7 @@ namespace screen_file_transmit
 
             this.Title = $"{fileName ?? "二维码矩阵"} - 第 {currentPage - 1} 页";
 
-            BitmapSource bitmapSource = DataMatrixEncoder.ConvertBitmapToBitmapSource(bitmap);
+            BitmapSource bitmapSource = ImageEncoder.ConvertBitmapToBitmapSource(bitmap);
             DisplayGrid.Content = (new Image()
             {
                 VerticalAlignment = VerticalAlignment.Stretch,
