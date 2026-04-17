@@ -605,6 +605,9 @@ namespace screen_file_transmit
                 meta.Add((byte)(currentPage));
                 meta.Add((byte)(totalPages));
                 meta.Add((byte)(errorCorrectionPercent));
+                int totalQrCodeCount = count * (colorful ? 3 : 1);
+                meta.Add((byte)(totalQrCodeCount >> 8));
+                meta.Add((byte)(totalQrCodeCount & 0xFF));
                 var info = "$" + Convert.ToBase64String(meta.ToArray());
 
                 var infoBitmap = GenerateCode128(info, META_BARCODE_HEIGHT, scale); // 高度20，然后旋转

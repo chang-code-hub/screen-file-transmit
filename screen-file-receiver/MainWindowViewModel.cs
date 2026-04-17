@@ -169,7 +169,7 @@ namespace screen_file_receiver
 
         public void AddFiles(IEnumerable<string> files)
         {
-            foreach (var file in files)
+            foreach (var file in files.OrderBy(c=>c))
             {
                 if (FileItems.Any(f => f.FullPath == file))
                     continue;
@@ -182,7 +182,7 @@ namespace screen_file_receiver
                 }
             }
             if (SelectedFileItem == null && FileItems.Count > 0)
-                SelectedFileItem = FileItems[0];
+                SelectedFileItem = FileItems[0]; 
             CheckFileComplete();
         }
 
@@ -232,13 +232,14 @@ namespace screen_file_receiver
                     ErrorCorrectionPercent = meta?.ErrorCorrectionPercent ?? 0,
                     ColorDepth = meta?.ColorDepth ?? 0,
                     CurrentPage = meta?.CurrentPage ?? 0,
-                    TotalPages = meta?.TotalPages ?? 0
+                    TotalPages = meta?.TotalPages ?? 0,
+                    TotalQrCodeCount = meta?.TotalQrCodeCount ?? 0
                 };
                 if (meta.TotalPages > 0)
                 {
                     //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
                     //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
-                    item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " 有密码" : "")}{(item.HasErrorCorrection ? $" RS={item.ErrorCorrectionPercent}%" : "")}";
+                    item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} DM={item.TotalQrCodeCount} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " 有密码" : "")}{(item.HasErrorCorrection ? $" RS={item.ErrorCorrectionPercent}%" : "")}";
                 }
                 else
                 {

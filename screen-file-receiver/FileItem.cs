@@ -132,6 +132,7 @@ namespace screen_file_receiver
         public int ColorDepth { get; set; }
         public int CurrentPage { get; set; }
         public int TotalPages { get; set; }
+        public int TotalQrCodeCount { get; set; }
 
         //public ICommand DeleteCommand { get; set; }
         //public ICommand RetryCommand { get; set; }

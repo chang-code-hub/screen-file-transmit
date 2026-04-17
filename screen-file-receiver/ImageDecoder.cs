@@ -1,6 +1,7 @@
 ﻿using OpenCvSharp;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -45,6 +46,16 @@ namespace screen_file_receiver
             {
                 MessageBox.Show("未解析到任何数据块: " + fileName);
                 return false;
+            }
+
+            if (meta.TotalQrCodeCount > 0)
+            {
+                int actualQrCount = decodeResult.DecodedQrCodeCount;
+                if (actualQrCount < meta.TotalQrCodeCount * 0.8)
+                {
+                    MessageBox.Show($"二维码数量校验失败: 期望 {meta.TotalQrCodeCount} 个，实际解析到 {actualQrCount} 个");
+                    return false;
+                }
             }
 
             var currentPage = meta.CurrentPage;
@@ -152,7 +163,7 @@ namespace screen_file_receiver
                 var roiRect = new Rect(x0, 0, edgeWidth, (int)imgHeight);
                 using (Mat roi = new Mat(img, roiRect))
                 {
-                    var found = DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, debug);
+                    var found = DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, false);
                     allRects = found;
 
                     var reader = new BarcodeReader();
@@ -188,8 +199,13 @@ namespace screen_file_receiver
                     Console.WriteLine($"    -> [{r.X},{r.Y}] {r.Width}x{r.Height}");
                 if (debug)
                 {
-                    Cv2.ImShow($"{(isLeft ? "Left" : "Right")} Detection Result", debugImg);
-                    Cv2.WaitKey();
+                    if((isLeft && results.Count < 1) || ( !isLeft && results.Count < 2))
+                    {
+                        using (Mat roi = new Mat(img, roiRect))
+                            DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, true);
+                        Cv2.ImShow($"{(isLeft ? "Left" : "Right")} Detection Result", debugImg);
+                        Cv2.WaitKey(); 
+                    }
                 }
 
                 debugImg.Dispose();
@@ -204,6 +220,7 @@ namespace screen_file_receiver
         {
             public List<(int row, int col, byte[] data)> DataBlocks { get; set; } = new List<(int row, int col, byte[] data)>();
             public MetadataResult Metadata { get; set; }
+            public int DecodedQrCodeCount { get; set; }
         }
 
         /// <summary>
@@ -226,12 +243,13 @@ namespace screen_file_receiver
             public int ColorDepth { get; set; }
             public int CurrentPage { get; set; }
             public int TotalPages { get; set; }
+            public int TotalQrCodeCount { get; set; }
         }
 
         /// <summary>
         /// 从图片解码所有数据块（包含元数据）
         /// </summary>
-        private static DecodeResult DecodeImageWithMetadata(string imageFile, bool debug)
+        public static DecodeResult DecodeImageWithMetadata(string imageFile, bool debug)
         {
             var result = new DecodeResult();
 
@@ -249,11 +267,13 @@ namespace screen_file_receiver
                 bool isColorful = result.Metadata?.Colorful ?? false;
                 if (isColorful)
                 {
-                    result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours);
+                    result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours, debug, out int decodedCount);
+                    result.DecodedQrCodeCount = decodedCount;
                 }
                 else
                 {
-                    result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours);
+                    result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours, debug);
+                    result.DecodedQrCodeCount = result.DataBlocks.Count;
                 }
 
                 if (result.Metadata?.HasErrorCorrection == true && result.DataBlocks != null && result.DataBlocks.Count > 0)
@@ -388,7 +408,7 @@ namespace screen_file_receiver
         /// <summary>
         /// 黑白模式解码
         /// </summary>
-        private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours)
+        private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours, bool debug = false)
         {
             var results = new List<(int row, int col, byte[] data)>();
             var reader = new DataMatrixReader(); 
@@ -397,7 +417,7 @@ namespace screen_file_receiver
 
             foreach (var rect in contours)
             {
-                var decoded = DecodeDataMatrixAt(image, rect, reader);
+                var decoded = DecodeDataMatrixAt(image, rect, reader, debug);
                 if (decoded != null)
                 {
                     results.Add(decoded.Value);
@@ -410,7 +430,7 @@ namespace screen_file_receiver
         /// <summary>
         /// 彩色模式解码 - 分离 R/G/B 通道分别解码
         /// </summary>
-        private static List<(int row, int col, byte[] data)> DecodeColorfulMode(Mat image, List<Rect> contours)
+        private static List<(int row, int col, byte[] data)> DecodeColorfulMode(Mat image, List<Rect> contours,bool debug, out int decodedQrCodeCount)
         {
             var results = new List<(int row, int col, byte[] data)>();
             var reader = new DataMatrixReader();
@@ -422,6 +442,7 @@ namespace screen_file_receiver
 
             // OpenCV 分割顺序为 BGR，需重排为 RGB 以匹配发送端 (red, green, blue)
             var rgbChannels = new[] { channels[2], channels[1], channels[0] };
+            decodedQrCodeCount = 0;
 
             foreach (var rect in contours)
             {
@@ -429,7 +450,7 @@ namespace screen_file_receiver
 
                 for (int layer = 0; layer < 3; layer++)
                 {
-                    var decoded = DecodeDataMatrixFromChannel(rgbChannels[layer], rect, reader, layer);
+                    var decoded = DecodeDataMatrixFromChannel(rgbChannels[layer], rect, reader, layer, debug);
                     if (decoded != null)
                     {
                         blockResults.Add((layer, decoded.Value.row, decoded.Value.col, decoded.Value.data));
@@ -438,6 +459,7 @@ namespace screen_file_receiver
 
                 if (blockResults.Count > 0)
                 {
+                    decodedQrCodeCount += blockResults.Count;
                     var merged = MergeLayerData(blockResults);
                     results.Add(merged);
                 }
@@ -452,7 +474,7 @@ namespace screen_file_receiver
         /// 从单通道解码 DataMatrix
         /// </summary>
         private static (int row, int col, byte[] data)? DecodeDataMatrixFromChannel(
-            Mat channel, Rect rect, DataMatrixReader reader, int layer)
+            Mat channel, Rect rect, DataMatrixReader reader, int layer, bool debug= false)
         {
             int padding = 5;
             int x = Math.Max(0, rect.X - padding);
@@ -494,7 +516,7 @@ namespace screen_file_receiver
         /// <summary>
         /// 在指定位置解码 DataMatrix（用于黑白模式）
         /// </summary>
-        private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect, DataMatrixReader reader)
+        private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect, DataMatrixReader reader, bool debug )
         {
             int padding = 5;
             int x = Math.Max(0, rect.X - padding);
@@ -504,7 +526,7 @@ namespace screen_file_receiver
 
             using (Mat roi = new Mat(image, new Rect(x, y, w, h)))
             {
-                string decoded = TryDecodeDataMatrix(roi, reader);
+                string decoded = TryDecodeDataMatrix(roi, reader, debug);
 
                 if (!string.IsNullOrEmpty(decoded) && decoded.Length >= 2)
                 {
@@ -558,16 +580,15 @@ namespace screen_file_receiver
         /// <summary>
         /// 尝试解码 DataMatrix
         /// </summary>
-        private static string TryDecodeDataMatrix(Mat image, DataMatrixReader reader, int retryCount = 3)
+        private static string TryDecodeDataMatrix(Mat image, DataMatrixReader reader1, bool debug = false, int retryCount = 3)
         {
             for (int attempt = 0; attempt <= retryCount; attempt++)
             {
                 using (Mat processed = PreprocessForDecode(image, attempt))
                 {
-                    //Cv2.ImShow("DM", processed);
-                    //Cv2.WaitKey();
                     using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(processed))
                     {
+                        var reader = new ZXing.Datamatrix.DataMatrixReader();
                         var source = new BitmapLuminanceSource(bitmap);
                         var binarizer = new HybridBinarizer(source);
                         var binaryBitmap = new BinaryBitmap(binarizer);
@@ -576,9 +597,6 @@ namespace screen_file_receiver
                             { DecodeHintType.CHARACTER_SET, "ISO-8859-1" },
                             { DecodeHintType.TRY_HARDER, true }
                         };
-
-                        //SaveBinaryBitmapAsImage(binaryBitmap, Directory.GetCurrentDirectory() + "/debug.png");
-
                         var result = reader.decode(binaryBitmap, hints); 
 
                         if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
@@ -589,6 +607,12 @@ namespace screen_file_receiver
                 }
             }
 
+            if (debug)
+            {
+                image.SaveImage(Directory.GetCurrentDirectory() + "/dm.png");
+                Cv2.ImShow("DM", image);
+                Cv2.WaitKey();
+            }
             return null;
         }
 
@@ -678,7 +702,7 @@ namespace screen_file_receiver
         private static Mat PreprocessForDecode(Mat image, int attempt)
         {
             if (attempt == 0)
-            {
+            { 
                 return image.Clone();
             }
 
@@ -777,6 +801,10 @@ namespace screen_file_receiver
                             if (result.Metadata.Length >= 5)
                             {
                                 result.ErrorCorrectionPercent = result.Metadata[4];
+                            }
+                            if (result.Metadata.Length >= 7)
+                            {
+                                result.TotalQrCodeCount = (result.Metadata[5] << 8) | result.Metadata[6];
                             }
                         }
                     }
@@ -909,8 +937,8 @@ namespace screen_file_receiver
                                             rawRects.Add(r);
                                         }
                                     }
-                                    if (debug)
-                                        Cv2.ImShow($"{label} - 6 All Rects", debugRoi);
+                                    //if (debug)
+                                    //    Cv2.ImShow($"{label} - 6 All Rects", debugRoi);
                                     Console.WriteLine($"    {label} rawRects after filter: {rawRects.Count}");
                                     var merged = MergeVerticallyAlignedRects(rawRects, yGapThreshold: 5);
                                     Console.WriteLine($"    {label} merged count: {merged.Count}");

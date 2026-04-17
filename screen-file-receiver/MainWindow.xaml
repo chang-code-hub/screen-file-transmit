@@ -73,7 +73,7 @@
                             Binding="{Binding SaveFileName}"
                             Header="保存文件名" />
                         <DataGridTextColumn
-                            Width="180"
+                            Width="200"
                             Binding="{Binding MetadataInfo}"
                             Header="元数据信息"
                             IsReadOnly="True" />
@@ -141,11 +141,11 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Label VerticalAlignment="Center" Content="预览：" />
+            <Label VerticalAlignment="Top" Content="预览：" />
             <Border
                 Grid.Column="1"
-                Width="128"
-                Height="128"
+                Width="240"
+                Height="135"
                 Background="LightGray"
                 BorderBrush="Gray"
                 BorderThickness="1">

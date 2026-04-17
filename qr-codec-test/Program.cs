@@ -36,7 +36,7 @@ namespace qr_codec_test
 
         private static void TestDecodeDmPng()
         {
-            Console.WriteLine("=== Decode data\\dm.png Test ===\n");
+            Console.WriteLine("=== 解码 data\\dm.png 测试 ===\n");
 
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             string projectRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
@@ -44,23 +44,23 @@ namespace qr_codec_test
 
             if (!File.Exists(imageFile))
             {
-                Console.WriteLine($"ERROR: {imageFile} not found");
+                Console.WriteLine($"错误：找不到文件 {imageFile}");
                 return;
             }
 
-            Console.WriteLine($"Image: {imageFile}");
-             
+            Console.WriteLine($"图片: {imageFile}");
+
 
             // 2. 直接用 ZXing DataMatrixReader 解码
             using (Mat image = Cv2.ImRead(imageFile, ImreadModes.Color))
             {
                 if (image.Empty())
                 {
-                    Console.WriteLine("ERROR: Failed to load image with OpenCV");
+                    Console.WriteLine("错误：OpenCV 加载图片失败");
                     return;
                 }
 
-                Console.WriteLine($"Image size: {image.Width}x{image.Height}");
+                Console.WriteLine($"图片尺寸: {image.Width}x{image.Height}");
 
                 var reader = new ZXing.Datamatrix.DataMatrixReader();
                 var hints = new Dictionary<DecodeHintType, object>
@@ -78,21 +78,21 @@ namespace qr_codec_test
 
                     if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
                     {
-                        Console.WriteLine($"\nDataMatrix decoded successfully!");
-                        Console.WriteLine($"Text length: {result.Text.Length}");
-                        Console.WriteLine($"Text: {result.Text}");
+                        Console.WriteLine($"\nDataMatrix 解码成功！");
+                        Console.WriteLine($"文本长度: {result.Text.Length}");
+                        Console.WriteLine($"文本: {result.Text}");
 
                         byte[] bytes = Encoding.GetEncoding("ISO-8859-1").GetBytes(result.Text);
-                        Console.WriteLine($"Bytes: {BitConverter.ToString(bytes.Take(Math.Min(bytes.Length, 64)).ToArray())}");
+                        Console.WriteLine($"字节: {BitConverter.ToString(bytes.Take(Math.Min(bytes.Length, 64)).ToArray())}");
                         if (bytes.Length > 64)
-                            Console.WriteLine($"  ... ({bytes.Length - 64} more bytes)");
+                            Console.WriteLine($"  ... (还有 {bytes.Length - 64} 字节)");
                     }
                     else
                     {
-                        Console.WriteLine("\nERROR: Could not decode DataMatrix directly.");
+                        Console.WriteLine("\n错误：无法直接解码 DataMatrix。");
 
                         // 尝试用 ImageReader 的完整解码流程
-                        Console.WriteLine("Trying full ImageReader decode flow...");
+                        Console.WriteLine("尝试使用 ImageReader 完整解码流程...");
                         try
                         {
                             using (var ms = new MemoryStream())
@@ -100,28 +100,28 @@ namespace qr_codec_test
                                 bool ok = ImageDecoder.ReadToFile(imageFile, ms, true);
                                 if (ok)
                                 {
-                                    Console.WriteLine($"ImageReader success! Decoded {ms.Length} bytes");
+                                    Console.WriteLine($"ImageReader 成功！解码了 {ms.Length} 字节");
                                 }
                                 else
                                 {
-                                    Console.WriteLine("ImageReader returned false");
+                                    Console.WriteLine("ImageReader 返回 false");
                                 }
                             }
                         }
                         catch (Exception ex2)
                         {
-                            Console.WriteLine($"ImageReader failed: {ex2.Message}");
+                            Console.WriteLine($"ImageReader 失败: {ex2.Message}");
                         }
                     }
                 }
             }
 
-            Console.WriteLine("\nTest completed.");
+            Console.WriteLine("\n测试完成。");
         }
 
         private static void TestBarcodeDetection()
         {
-            Console.WriteLine("=== Barcode Detection Test ===\n");
+            Console.WriteLine("=== 条码检测测试 ===\n");
 
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             string projectRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
@@ -132,31 +132,31 @@ namespace qr_codec_test
                 string imageFile = Path.Combine(dataDir, $"page_{i:D6}.png");
                 if (!File.Exists(imageFile))
                 {
-                    Console.WriteLine($"SKIP: {imageFile} not found");
+                    Console.WriteLine($"跳过：找不到文件 {imageFile}");
                     continue;
                 }
 
-                Console.WriteLine($"Processing: {Path.GetFileName(imageFile)}");
+                Console.WriteLine($"处理中: {Path.GetFileName(imageFile)}");
                 var meta = ImageDecoder.ReadMetadata(imageFile);
-                Console.WriteLine($"  Metadata:     {(meta.Metadata != null ? BitConverter.ToString(meta.Metadata) : "null")}");
-                Console.WriteLine($"  MaxRows:      {meta.MaxRows}");
-                Console.WriteLine($"  MaxCols:      {meta.MaxCols}");
-                Console.WriteLine($"  Colorful:     {meta.Colorful}");
-                Console.WriteLine($"  ColorDepth:   {meta.ColorDepth}");
-                Console.WriteLine($"  CurrentPage:  {meta.CurrentPage}");
-                Console.WriteLine($"  TotalPages:   {meta.TotalPages}");
-                Console.WriteLine($"  FileName:     {meta.FileName}");
-                Console.WriteLine($"  Timestamp:    {meta.FileId}");
+                Console.WriteLine($"  元数据:       {(meta.Metadata != null ? BitConverter.ToString(meta.Metadata) : "null")}");
+                Console.WriteLine($"  最大行数:     {meta.MaxRows}");
+                Console.WriteLine($"  最大列数:     {meta.MaxCols}");
+                Console.WriteLine($"  彩色模式:     {meta.Colorful}");
+                Console.WriteLine($"  色深度:       {meta.ColorDepth}");
+                Console.WriteLine($"  当前页:       {meta.CurrentPage}");
+                Console.WriteLine($"  总页数:       {meta.TotalPages}");
+                Console.WriteLine($"  文件名:       {meta.FileName}");
+                Console.WriteLine($"  文件ID:       {meta.FileId}");
             }
 
-            Console.WriteLine("\nDetection completed. Press any key to exit...");
+            Console.WriteLine("\n检测完成。按任意键退出...");
             Cv2.WaitKey();
             Cv2.DestroyAllWindows();
         }
 
         private static void TestEncodeAndDecode()
         {
-            Console.WriteLine("=== QR File Transfer Codec Test ===\n");
+            Console.WriteLine("=== 二维码文件编解码测试 ===\n");
 
             // 路径配置
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -183,22 +183,22 @@ namespace qr_codec_test
                 File.Delete(decodedFile);
             }
 
-            Console.WriteLine($"Input file: {inputFile}");
-            Console.WriteLine($"Output directory: {outputDir}");
+            Console.WriteLine($"输入文件: {inputFile}");
+            Console.WriteLine($"输出目录: {outputDir}");
             Console.WriteLine();
 
             // 步骤1: 编码文件为二维码图片
-            Console.WriteLine("[Step 1] Encoding file to DataMatrix images...");
+            Console.WriteLine("[步骤1] 将文件编码为 DataMatrix 图片...");
             var encodedImages = EncodeFile(inputFile, outputDir);
             if (encodedImages.Count == 0)
             {
-                Console.WriteLine("ERROR: No images generated!");
-                Console.WriteLine("\nPress any key to exit...");
+                Console.WriteLine("错误：未生成任何图片！");
+                Console.WriteLine("\n按任意键退出...");
                 Console.ReadKey();
                 return;
             }
 
-            Console.WriteLine($"Generated {encodedImages.Count} image(s):");
+            Console.WriteLine($"生成了 {encodedImages.Count} 张图片：");
             foreach (var img in encodedImages)
             {
                 Console.WriteLine($"  - {Path.GetFileName(img)}");
@@ -207,22 +207,22 @@ namespace qr_codec_test
             Console.WriteLine();
 
             // 步骤2: 从二维码图片解码文件
-            Console.WriteLine("[Step 2] Decoding DataMatrix images to file...");
+            Console.WriteLine("[步骤2] 从 DataMatrix 图片解码文件...");
             bool decodeSuccess = DecodeImages(encodedImages, decodedFile);
             Console.WriteLine();
 
             // 步骤3: 验证结果
-            Console.WriteLine("[Step 3] Verifying decoded content...");
+            Console.WriteLine("[步骤3] 验证解码内容...");
             if (decodeSuccess && File.Exists(decodedFile))
             {
                 VerifyFiles(inputFile, decodedFile);
             }
             else
             {
-                Console.WriteLine("ERROR: Decoding failed!");
+                Console.WriteLine("错误：解码失败！");
             }
 
-            Console.WriteLine("\nTest completed.");
+            Console.WriteLine("\n测试完成。");
         }
 
         /// <summary>
@@ -234,22 +234,22 @@ namespace qr_codec_test
 
             if (!File.Exists(inputFile))
             {
-                Console.WriteLine($"ERROR: Input file not found: {inputFile}");
+                Console.WriteLine($"错误：找不到输入文件：{inputFile}");
                 return generatedImages;
             }
 
             // 计算最优 DataMatrix 配置
             var matrix = ImageEncoder.CalculateScreenDataMatrix(ScreenWidth, ScreenHeight, Scale, ErrorCorrectionPercent);
-            Console.WriteLine($"Matrix configuration:");
-            Console.WriteLine($"  Version: {matrix.BestVersion}");
-            Console.WriteLine($"  Grid: {matrix.MaxRows}x{matrix.MaxCols}");
-            Console.WriteLine($"  Code size: {matrix.CodeSize}px");
-            Console.WriteLine($"  Byte count per code: {matrix.CodeByteCount}");
-            Console.WriteLine($"  Page capacity: {matrix.PageByteCount} bytes");
+            Console.WriteLine($"矩阵配置：");
+            Console.WriteLine($"  版本: {matrix.BestVersion}");
+            Console.WriteLine($"  网格: {matrix.MaxRows}x{matrix.MaxCols}");
+            Console.WriteLine($"  二维码尺寸: {matrix.CodeSize} 像素");
+            Console.WriteLine($"  每个二维码字节数: {matrix.CodeByteCount}");
+            Console.WriteLine($"  每页容量: {matrix.PageByteCount} 字节");
 
             var pageInfo = ImageEncoder.CalculatePageInfo(matrix, Scale);
-            Console.WriteLine($"  Screen size: {ScreenWidth}x{ScreenHeight}");
-            Console.WriteLine($"  Image size: {pageInfo.BitmapWidth}x{pageInfo.BitmapHeight}");
+            Console.WriteLine($"  屏幕尺寸: {ScreenWidth}x{ScreenHeight}");
+            Console.WriteLine($"  图片尺寸: {pageInfo.BitmapWidth}x{pageInfo.BitmapHeight}");
             Console.WriteLine();
             var ts = ImageEncoder.GenerateFileId();
 
@@ -289,7 +289,7 @@ namespace qr_codec_test
                         generatedImages.Add(outputPath);
 
                         long bytesEncoded = fileStream.Position - pageOffset;
-                        Console.WriteLine($"  Page {pageNumber}/{totalPages}: {bytesEncoded} bytes encoded");
+                        Console.WriteLine($"  第 {pageNumber}/{totalPages} 页: 编码了 {bytesEncoded} 字节");
                     }
                     else
                     {
@@ -314,23 +314,23 @@ namespace qr_codec_test
 
                     foreach (var imageFile in imageFiles.OrderBy(f => f))
                     {
-                        Console.WriteLine($"  Processing: {Path.GetFileName(imageFile)}");
+                        Console.WriteLine($"  处理中: {Path.GetFileName(imageFile)}");
 
                         // 解码当前页并直接写入输出流
                         bool ok = ImageDecoder.ReadToFile(imageFile, outputStream, debug);
                         if (!ok)
                         {
-                            Console.WriteLine($"    ERROR: Failed to decode {Path.GetFileName(imageFile)}");
+                            Console.WriteLine($"    错误：解码 {Path.GetFileName(imageFile)} 失败");
                             continue;
                         }
 
-                        Console.WriteLine($"    OK - Current output size: {outputStream.Length} bytes");
+                        Console.WriteLine($"    成功 - 当前输出大小: {outputStream.Length} 字节");
                     }
 
-                    Console.WriteLine($"\nDecoded file: {outputFile}");
+                    Console.WriteLine($"\n解码文件: {outputFile}");
                     if (!string.IsNullOrEmpty(detectedFileName))
                     {
-                        Console.WriteLine($"Original name: {detectedFileName}");
+                        Console.WriteLine($"原始文件名: {detectedFileName}");
                     }
                 }
 
@@ -338,7 +338,7 @@ namespace qr_codec_test
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR during decoding: {ex.Message}");
+                Console.WriteLine($"解码过程中发生错误: {ex.Message}");
                 Console.WriteLine(ex.StackTrace);
                 return false;
             }
@@ -349,7 +349,7 @@ namespace qr_codec_test
         /// </summary>
         private static void TestNoisyDecode()
         {
-            Console.WriteLine("\n=== Noisy Decode Test ===\n");
+            Console.WriteLine("\n=== 噪声解码测试 ===\n");
 
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             string projectRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
@@ -358,7 +358,7 @@ namespace qr_codec_test
             var originalImages = Directory.GetFiles(outputDir, "page_*.png").Where(c => !c.Contains("degraded")).OrderBy(f => f).ToList();
             if (originalImages.Count == 0)
             {
-                Console.WriteLine($"SKIP: no page_*.png files found in {outputDir}");
+                Console.WriteLine($"跳过：在 {outputDir} 中找不到 page_*.png 文件");
                 return;
             }
 
@@ -368,7 +368,7 @@ namespace qr_codec_test
             foreach (var originalImage in originalImages)
             {
                 string fileName = Path.GetFileNameWithoutExtension(originalImage);
-                Console.WriteLine($"Processing: {Path.GetFileName(originalImage)}");
+                Console.WriteLine($"处理中: {Path.GetFileName(originalImage)}");
 
                 using (Mat image = Cv2.ImRead(originalImage, ImreadModes.Color))
                 {
@@ -389,10 +389,6 @@ namespace qr_codec_test
                     int h = noisy.Height;
                     int cx = w / 2;
                     int cy = h / 2;
-
-                    // 绘制十字分割线
-                    //Cv2.Line(noisy, new OpenCvSharp.Point(cx, 0), new OpenCvSharp.Point(cx, h), new Scalar(200, 200, 200), 2);
-                    //Cv2.Line(noisy, new OpenCvSharp.Point(0, cy), new OpenCvSharp.Point(w, cy), new Scalar(200, 200, 200), 2);
 
                     // 5 个水印位置
                     var positions = new[]
@@ -421,19 +417,11 @@ namespace qr_codec_test
 
                     degradedImages.Add(degradedPath);
 
-                    //// 从压缩后的图像重新加载并解码
-                    //using (Mat degraded = Cv2.ImRead(degradedPath, ImreadModes.Color))
-                    //{
-                    //    string degradedPng = Path.Combine(outputDir, $"{fileName}_degraded.png");
-                    //    Cv2.ImWrite(degradedPng, degraded);
-                    //    degradedImages.Add(degradedPng);
-                    //}
-
                     noisy.Dispose();
                 }
             }
 
-            Console.WriteLine($"Degraded images saved. Attempting to decode {degradedImages.Count} image(s)...");
+            Console.WriteLine($"降级图片已保存。尝试解码 {degradedImages.Count} 张图片...");
 
             string degradedDecodedFile = Path.Combine(outputDir, "decoded_degraded.zip");
             if (File.Exists(degradedDecodedFile))
@@ -444,14 +432,100 @@ namespace qr_codec_test
             bool decodeSuccess = DecodeImages(degradedImages, degradedDecodedFile, false);
             if (decodeSuccess && File.Exists(degradedDecodedFile))
             {
-                Console.WriteLine($"  Decoded file: {degradedDecodedFile} ({new FileInfo(degradedDecodedFile).Length} bytes)");
+                Console.WriteLine($"  解码文件: {degradedDecodedFile} ({new FileInfo(degradedDecodedFile).Length} 字节)");
             }
             else
             {
-                Console.WriteLine("  FAILED: Decoding degraded images failed.");
+                Console.WriteLine("  失败：降级图片解码失败。");
+            }
+
+            // 与源文件进行逐图片、逐二维码对比
+            Console.WriteLine("\n开始与源文件进行逐图片、逐二维码对比...");
+            CompareDecodeResults(originalImages, degradedImages);
+
+            // 如果生成了解码文件，再与原始文件做字节级对比
+            string originalInputFile = Path.Combine(projectRoot, "data", "sample.zip");
+            if (File.Exists(degradedDecodedFile) && File.Exists(originalInputFile))
+            {
+                Console.WriteLine("\n开始与原始输入文件进行字节级对比...");
+                VerifyFiles(originalInputFile, degradedDecodedFile);
             }
 
             Console.WriteLine();
+        }
+
+        /// <summary>
+        /// 逐图片、逐二维码对比原始图片与降级图片的解码结果
+        /// </summary>
+        private static void CompareDecodeResults(List<string> originalImages, List<string> degradedImages)
+        {
+            bool anyDiff = false;
+            for (int imgIndex = 0; imgIndex < originalImages.Count; imgIndex++)
+            {
+                string origPath = originalImages[imgIndex];
+                string degPath = degradedImages[imgIndex];
+                string degName = Path.GetFileName(degPath);
+
+                ImageDecoder.DecodeResult origResult;
+                ImageDecoder.DecodeResult degResult;
+
+                try
+                {
+                    origResult = ImageDecoder.DecodeImageWithMetadata(origPath, false);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  第 {imgIndex + 1} 张图片 ({degName})：原始图片解析异常: {ex.Message}");
+                    anyDiff = true;
+                    continue;
+                }
+
+                try
+                {
+                    degResult = ImageDecoder.DecodeImageWithMetadata(degPath, false);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  第 {imgIndex + 1} 张图片 ({degName})：降级图片解析异常: {ex.Message}");
+                    anyDiff = true;
+                    continue;
+                }
+
+                var origBlocks = origResult.DataBlocks?.ToDictionary(b => (b.row, b.col), b => b.data) ?? new Dictionary<(int, int), byte[]>();
+                var degBlocks = degResult.DataBlocks?.ToDictionary(b => (b.row, b.col), b => b.data) ?? new Dictionary<(int, int), byte[]>();
+
+                // 检查降级后缺失或数据不一致的二维码
+                foreach (var kvp in origBlocks)
+                {
+                    if (!degBlocks.ContainsKey(kvp.Key))
+                    {
+                        Console.WriteLine($"  第 {imgIndex + 1} 张图片 ({degName})：缺失二维码 ({kvp.Key.row}, {kvp.Key.col})");
+                        ImageDecoder.DecodeImageWithMetadata(degPath, true);
+                        anyDiff = true;
+                    }
+                    else if (!kvp.Value.SequenceEqual(degBlocks[kvp.Key]))
+                    {
+                        Console.WriteLine($"  第 {imgIndex + 1} 张图片 ({degName})：二维码 ({kvp.Key.row}, {kvp.Key.col}) 数据不一致");
+                        ImageDecoder.DecodeImageWithMetadata(degPath, true);
+                        anyDiff = true;
+                    }
+                }
+
+                // 检查降级后多出的二维码
+                foreach (var kvp in degBlocks)
+                {
+                    if (!origBlocks.ContainsKey(kvp.Key))
+                    {
+                        Console.WriteLine($"  第 {imgIndex + 1} 张图片 ({degName})：多出二维码 ({kvp.Key.row}, {kvp.Key.col})");
+                        anyDiff = true;
+                    }
+                }
+            }
+
+            if (!anyDiff)
+            {
+                Console.WriteLine("  所有降级图片的二维码解码结果与原始图片一致。");
+            }
         }
 
         /// <summary>
@@ -461,26 +535,26 @@ namespace qr_codec_test
         {
             if (!File.Exists(originalFile))
             {
-                Console.WriteLine($"ERROR: Original file not found: {originalFile}");
+                Console.WriteLine($"错误：找不到原始文件：{originalFile}");
                 return;
             }
 
             if (!File.Exists(decodedFile))
             {
-                Console.WriteLine($"ERROR: Decoded file not found: {decodedFile}");
+                Console.WriteLine($"错误：找不到解码文件：{decodedFile}");
                 return;
             }
 
             var originalBytes = File.ReadAllBytes(originalFile);
             var decodedBytes = File.ReadAllBytes(decodedFile);
 
-            Console.WriteLine($"Original file size: {originalBytes.Length} bytes");
-            Console.WriteLine($"Decoded file size:  {decodedBytes.Length} bytes");
+            Console.WriteLine($"原始文件大小: {originalBytes.Length} 字节");
+            Console.WriteLine($"解码文件大小:  {decodedBytes.Length} 字节");
             Console.WriteLine();
 
             if (originalBytes.Length != decodedBytes.Length)
             {
-                Console.WriteLine("WARNING: File sizes differ!");
+                Console.WriteLine("警告：文件大小不一致！");
             }
 
             // 逐字节比较
@@ -495,9 +569,9 @@ namespace qr_codec_test
                     differences++;
                     if (differences <= maxDiffToShow)
                     {
-                        Console.WriteLine($"  Difference at byte {i}:");
-                        Console.WriteLine($"    Original: 0x{originalBytes[i]:X2} ({(char)originalBytes[i]})");
-                        Console.WriteLine($"    Decoded:  0x{decodedBytes[i]:X2} ({(char)decodedBytes[i]})");
+                        Console.WriteLine($"  第 {i} 字节处存在差异：");
+                        Console.WriteLine($"    原始: 0x{originalBytes[i]:X2} ({(char)originalBytes[i]})");
+                        Console.WriteLine($"    解码:  0x{decodedBytes[i]:X2} ({(char)decodedBytes[i]})");
                     }
                 }
             }
@@ -506,25 +580,25 @@ namespace qr_codec_test
             if (originalBytes.Length > decodedBytes.Length)
             {
                 int missing = originalBytes.Length - decodedBytes.Length;
-                Console.WriteLine($"  Missing {missing} bytes at end of decoded file");
+                Console.WriteLine($"  解码文件末尾缺少 {missing} 字节");
                 differences += missing;
             }
             else if (decodedBytes.Length > originalBytes.Length)
             {
                 int extra = decodedBytes.Length - originalBytes.Length;
-                Console.WriteLine($"  Extra {extra} bytes at end of decoded file");
+                Console.WriteLine($"  解码文件末尾多出 {extra} 字节");
                 differences += extra;
             }
 
             Console.WriteLine();
             if (differences == 0)
             {
-                Console.WriteLine("SUCCESS: Files are identical!");
-                Console.WriteLine("Encoding and decoding test PASSED.");
+                Console.WriteLine("成功：文件完全一致！");
+                Console.WriteLine("编解码测试通过。");
             }
             else
             {
-                Console.WriteLine($"FAILED: Total {differences} differences found.");
+                Console.WriteLine($"失败：共发现 {differences} 处差异。");
             }
         }
     }
