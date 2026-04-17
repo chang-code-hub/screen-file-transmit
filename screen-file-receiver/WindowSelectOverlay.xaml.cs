@@ -171,7 +171,7 @@ namespace screen_file_receiver
             // 窗口列表重建后，强制下次 MouseMove 重新计算高亮位置
             _hoverHwnd = IntPtr.Zero;
 
-            WriteWindowLog();
+            //WriteWindowLog();
             Trace.WriteLine($"window count {_windowList.Count}");
         }
 
