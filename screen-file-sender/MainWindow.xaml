@@ -22,7 +22,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Grid Margin="10">
+        <Grid x:Name="SettingView" Margin="10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -397,6 +397,7 @@
 
         <!--  Preview Panel  -->
         <Grid
+            x:Name="PreviewView"
             Grid.Row="0"
             Grid.RowSpan="2"
             Margin="5"
@@ -451,7 +452,7 @@
             <ScrollViewer
                 Grid.Row="2"
                 HorizontalScrollBarVisibility="Auto"
-                MouseDown="ScrollViewer_MouseDown"
+                PreviewMouseDown="ScrollViewer_PreviewMouseDown"
                 VerticalScrollBarVisibility="Auto">
                 <Image
                     HorizontalAlignment="Center"

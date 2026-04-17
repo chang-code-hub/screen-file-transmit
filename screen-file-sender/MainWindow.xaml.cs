@@ -21,7 +21,16 @@ namespace screen_file_transmit
             this.DataContext = viewModel;
             this.Loaded += MainWindow_Loaded;
             this.LocationChanged += MainWindow_LocationChanged;
+            this.StateChanged += MainWindow_StateChanged;
             viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        }
+
+        private void MainWindow_StateChanged(object sender, EventArgs e)
+        {
+            if (this.WindowState == WindowState.Maximized)
+            {
+                this.WindowState = WindowState.Normal;
+            }
         }
 
         private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -32,12 +41,18 @@ namespace screen_file_transmit
                 {
                     this.ResizeMode = ResizeMode.CanResize;
                     this.SizeToContent = SizeToContent.WidthAndHeight;
+                    this.Topmost = true;
+                    this.PreviewView.Visibility = Visibility.Visible;
+                    this.SettingView.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
                     this.ResizeMode = ResizeMode.NoResize;
                     this.SizeToContent = SizeToContent.Height;
                     this.Width = 680;
+                    this.Topmost = false;
+                    this.SettingView.Visibility = Visibility.Visible;
+                    this.PreviewView.Visibility = Visibility.Collapsed;
                 }
                 SetWindowPosition();
             }
@@ -149,11 +164,13 @@ namespace screen_file_transmit
             if(e.ChangedButton == MouseButton.Left)
                 this.DragMove();
         }
+         
 
-        private void ScrollViewer_MouseDown(object sender, MouseButtonEventArgs e)
+        private void ScrollViewer_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ChangedButton == MouseButton.Left)
                 this.DragMove();
+
         }
     }
 }
