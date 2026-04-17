@@ -257,6 +257,9 @@ namespace screen_file_receiver
         {
             _selectionBorderWindow?.Close();
             _selectionBorderWindow = null;
+            StopFollowTimer();
+            _selectedHwnd = IntPtr.Zero;
+            _selectedRegion = Rect.Empty;
             var overlay = new WindowSelectOverlay();
             overlay.Closed += (s, args) =>
             {
@@ -270,12 +273,16 @@ namespace screen_file_receiver
                 Focus();
             };
             overlay.Show();
+            overlay.Activate();
         }
 
         private void StartRegionSelection()
         {
             _selectionBorderWindow?.Close();
             _selectionBorderWindow = null;
+            StopFollowTimer();
+            _selectedHwnd = IntPtr.Zero;
+            _selectedRegion = Rect.Empty;
             var overlay = new RegionSelectOverlay();
             overlay.Closed += (s, args) =>
             {
@@ -290,6 +297,7 @@ namespace screen_file_receiver
                 Focus();
             };
             overlay.Show();
+            overlay.Activate();
         }
 
         private void ShowSelectionBorder(Rect region)

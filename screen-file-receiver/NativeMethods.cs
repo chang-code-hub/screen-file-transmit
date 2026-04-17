@@ -80,6 +80,10 @@ namespace screen_file_receiver
         [DllImport("user32.dll")]
         public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetDesktopWindow();
+
+        public const uint GW_CHILD = 5;
         public const uint GW_HWNDNEXT = 2;
         public const uint GW_HWNDPREV = 3;
 
@@ -95,11 +99,76 @@ namespace screen_file_receiver
         public const uint SWP_NOACTIVATE = 0x0010;
         public const uint SWP_SHOWWINDOW = 0x0040;
         public const uint SWP_FRAMECHANGED = 0x0020;
+        public const uint SWP_HIDEWINDOW = 0x0080;
 
         public const uint GA_ROOT = 2;
         public const uint SRCCOPY = 0x00CC0020;
         public const uint PW_RENDERFULLCONTENT = 0x00000002;
         public const uint DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+
+        public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+        public const uint VK_ESCAPE = 0x1B;
+        public const uint VK_LSHIFT = 0xA0;
+        public const uint VK_RSHIFT = 0xA1;
+        public const uint VK_LCONTROL = 0xA2;
+        public const uint VK_RCONTROL = 0xA3;
+        public const uint VK_LMENU = 0xA4;
+        public const uint VK_RMENU = 0xA5;
+        public const uint VK_LWIN = 0x5B;
+        public const uint VK_RWIN = 0x5C;
+
+        public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+        public const int WH_KEYBOARD_LL = 13;
+        public const uint WM_KEYDOWN = 0x0100;
+        public const uint WM_SYSKEYDOWN = 0x0104;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct KBDLLHOOKSTRUCT
+        {
+            public uint vkCode;
+            public uint scanCode;
+            public uint flags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        public const uint EVENT_OBJECT_CREATE = 0x8000;
+        public const uint EVENT_OBJECT_DESTROY = 0x8001;
+        public const uint EVENT_OBJECT_SHOW = 0x8002;
+        public const uint EVENT_OBJECT_HIDE = 0x8003;
+        public const uint EVENT_OBJECT_REORDER = 0x8004;
+        public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
+        public const uint EVENT_SYSTEM_MOVESIZEEND = 0x000A;
+        public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT

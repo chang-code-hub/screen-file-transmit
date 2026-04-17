@@ -22,6 +22,6 @@
                    Stroke="White"
                    StrokeDashArray="4 4"
                    StrokeThickness="1"
-                   Visibility="Collapsed" />
+                   Visibility="Collapsed" Cursor="" />
     </Canvas>
 </Window>

@@ -1,4 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -10,80 +15,321 @@ namespace screen_file_receiver
     {
         private IntPtr _hoverHwnd;
         private IntPtr _selfHwnd;
+        private List<WindowInfo> _windowList;
+        private IntPtr _winEventHook;
+        private NativeMethods.WinEventDelegate _winEventDelegate;
+        private DateTime _lastRebuild;
+        private readonly TimeSpan _rebuildThrottle = TimeSpan.FromMilliseconds(200);
+        private uint _currentPid;
+        private IntPtr _keyboardHook;
+        private NativeMethods.LowLevelKeyboardProc _keyboardProc;
+        private SelectionBorderWindow _borderWindow;
 
         public IntPtr SelectedHwnd { get; private set; }
+
+        private class WindowInfo
+        {
+            public IntPtr Hwnd;
+            public NativeMethods.RECT Rect;
+            public int ZRank;
+            public int Level;
+            public string Title;
+            public string ClassName;
+        }
 
         public WindowSelectOverlay()
         {
             InitializeComponent();
             Loaded += WindowSelectOverlay_Loaded;
+            Closed += WindowSelectOverlay_Closed;
         }
 
         private void WindowSelectOverlay_Loaded(object sender, RoutedEventArgs e)
         {
             _selfHwnd = new WindowInteropHelper(this).Handle;
+            _currentPid = (uint)Process.GetCurrentProcess().Id;
+            BuildWindowList();
             CaptureMouse();
+
+            _borderWindow = new SelectionBorderWindow();
+            _borderWindow.Show();
+
+            _keyboardProc = KeyboardHookCallback;
+            _keyboardHook = NativeMethods.SetWindowsHookEx(
+                NativeMethods.WH_KEYBOARD_LL,
+                _keyboardProc,
+                IntPtr.Zero,
+                0);
+
+            _winEventDelegate = OnWinEvent;
+            _winEventHook = NativeMethods.SetWinEventHook(
+                NativeMethods.EVENT_OBJECT_CREATE,
+                NativeMethods.EVENT_OBJECT_REORDER,
+                IntPtr.Zero,
+                _winEventDelegate,
+                0, 0,
+                NativeMethods.WINEVENT_OUTOFCONTEXT);
+        }
+
+        private void WindowSelectOverlay_Closed(object sender, EventArgs e)
+        {
+            if (_borderWindow != null)
+            {
+                _borderWindow.Close();
+                _borderWindow = null;
+            }
+
+            if (_keyboardHook != IntPtr.Zero)
+            {
+                NativeMethods.UnhookWindowsHookEx(_keyboardHook);
+                _keyboardHook = IntPtr.Zero;
+            }
+
+            if (_winEventHook != IntPtr.Zero)
+            {
+                NativeMethods.UnhookWinEvent(_winEventHook);
+                _winEventHook = IntPtr.Zero;
+            }
+        }
+
+        private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0
+                && (wParam == (IntPtr)NativeMethods.WM_KEYDOWN || wParam == (IntPtr)NativeMethods.WM_SYSKEYDOWN))
+            {
+                var kbd = Marshal.PtrToStructure<NativeMethods.KBDLLHOOKSTRUCT>(lParam);
+                if (kbd.vkCode == NativeMethods.VK_ESCAPE)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (IsVisible)
+                        {
+                            SelectedHwnd = IntPtr.Zero;
+                            ReleaseMouseCapture();
+                            Close();
+                        }
+                    }));
+                }
+            }
+            return NativeMethods.CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
+        }
+
+        private void OnWinEvent(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+        {
+            if (hwnd == _selfHwnd || idObject != 0)
+                return;
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (DateTime.Now - _lastRebuild < _rebuildThrottle)
+                    return;
+
+                _lastRebuild = DateTime.Now;
+                BuildWindowList();
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void BuildWindowList()
+        {
+            _windowList = new List<WindowInfo>();
+
+            // 按 z-order 从高到低枚举顶层可见窗口
+            var desktopHwnd = NativeMethods.GetDesktopWindow();
+            var hwnd = NativeMethods.GetWindow(desktopHwnd, NativeMethods.GW_CHILD);
+
+            int zRank = 0;
+            while (hwnd != IntPtr.Zero)
+            {
+                if (!IsCurrentProcessWindow(hwnd)
+                    && NativeMethods.IsWindow(hwnd)
+                    && NativeMethods.IsWindowVisible(hwnd))
+                {
+                    // 先递归收集该顶层窗口的子窗口和控件（子窗口在上层，排在父窗口前面）
+                    EnumerateChildren(hwnd, _windowList, zRank, 1);
+
+                    NativeMethods.RECT rc;
+                    if (NativeMethods.TryGetExtendedFrameBounds(hwnd, out var dwmRc))
+                        rc = dwmRc;
+                    else
+                        NativeMethods.GetWindowRect(hwnd, out rc);
+
+                    int width = rc.Right - rc.Left;
+                    int height = rc.Bottom - rc.Top;
+                    if (width >= 40 && height >= 40)
+                    {
+                        var info = CreateWindowInfo(hwnd, rc);
+                        info.ZRank = zRank;
+                        info.Level = 0;
+                        _windowList.Add(info);
+                    }
+                }
+
+                zRank++;
+                hwnd = NativeMethods.GetWindow(hwnd, NativeMethods.GW_HWNDNEXT);
+            }
+
+            // 窗口列表重建后，强制下次 MouseMove 重新计算高亮位置
+            _hoverHwnd = IntPtr.Zero;
+
+            WriteWindowLog();
+            Trace.WriteLine($"window count {_windowList.Count}");
+        }
+
+        /// <summary>
+        /// 递归收集 parentHwnd 的所有后代窗口，按 z-order 从高到低加入 list。
+        /// 兄弟窗口之间：z-order 高的先加入；父子之间：子窗口先加入（子在上层）。
+        /// </summary>
+        private void EnumerateChildren(IntPtr parentHwnd, List<WindowInfo> list, int zRank, int level)
+        {
+            var child = NativeMethods.GetWindow(parentHwnd, NativeMethods.GW_CHILD);
+            while (child != IntPtr.Zero)
+            {
+                if (!IsCurrentProcessWindow(child)
+                    && NativeMethods.IsWindow(child)
+                    && NativeMethods.IsWindowVisible(child))
+                {
+                    // 递归收集孙窗口，确保更深的、z-order 更高的子窗口排在前面
+                    EnumerateChildren(child, list, zRank, level + 1);
+
+                    NativeMethods.RECT rc;
+                    if (NativeMethods.TryGetExtendedFrameBounds(child, out var dwmRc))
+                        rc = dwmRc;
+                    else
+                        NativeMethods.GetWindowRect(child, out rc);
+
+                    int width = rc.Right - rc.Left;
+                    int height = rc.Bottom - rc.Top;
+                    if (width >= 40 && height >= 40)
+                    {
+                        var info = CreateWindowInfo(child, rc);
+                        info.ZRank = zRank;
+                        info.Level = level;
+                        list.Add(info);
+                    }
+                }
+
+                child = NativeMethods.GetWindow(child, NativeMethods.GW_HWNDNEXT);
+            }
+        }
+
+        private static WindowInfo CreateWindowInfo(IntPtr hwnd, NativeMethods.RECT rc)
+        {
+            var sbTitle = new StringBuilder(256);
+            var sbClass = new StringBuilder(256);
+            NativeMethods.GetWindowText(hwnd, sbTitle, sbTitle.Capacity);
+            NativeMethods.GetClassName(hwnd, sbClass, sbClass.Capacity);
+
+            return new WindowInfo
+            {
+                Hwnd = hwnd,
+                Rect = rc,
+                ZRank = 0,
+                Level = 0,
+                Title = sbTitle.ToString(),
+                ClassName = sbClass.ToString()
+            };
+        }
+
+        private void WriteWindowLog()
+        {
+            try
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine($"WindowList built at {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}, count={_windowList.Count}");
+                sb.AppendLine(new string('-', 80));
+
+                foreach (var win in _windowList)
+                {
+                    string indent = new string(' ', win.Level * 4);
+                    string kind = win.Level == 0 ? "Top" : "Child";
+                    string title = string.IsNullOrEmpty(win.Title) ? "(no title)" : win.Title;
+                    if (title.Length > 40)
+                        title = title.Substring(0, 37) + "...";
+
+                    sb.AppendLine($"{indent}[Z={win.ZRank:D3} {kind}] HWnd={win.Hwnd:X8} | {win.Rect.Right - win.Rect.Left}x{win.Rect.Bottom - win.Rect.Top} @ ({win.Rect.Left},{win.Rect.Top}) | Class={win.ClassName} | Title={title}");
+                }
+
+                string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "window.log");
+                File.WriteAllText(logPath, sb.ToString(), Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"WriteWindowLog failed: {ex.Message}");
+            }
+        }
+
+        private bool IsCurrentProcessWindow(IntPtr hwnd)
+        {
+            if (hwnd == _selfHwnd)
+                return true;
+
+            NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+            return pid == _currentPid;
         }
 
         private void Window_MouseMove(object sender, MouseEventArgs e)
         {
+            if(_borderWindow==null) return;
             if (!NativeMethods.GetCursorPos(out var pt))
             {
-                HighlightBorder.Visibility = Visibility.Collapsed;
+                HideBorderWindow();
                 _hoverHwnd = IntPtr.Zero;
                 return;
             }
 
-            IntPtr hwnd = NativeMethods.WindowFromPoint(pt);
+            // 在预计算的窗口列表中，按 z-order 从高到低查找包含鼠标坐标的窗口
+            IntPtr matchedHwnd = IntPtr.Zero;
+            NativeMethods.RECT matchedRc = new NativeMethods.RECT();
 
-            if (hwnd == IntPtr.Zero || hwnd == _selfHwnd || !NativeMethods.IsWindow(hwnd) || !NativeMethods.IsWindowVisible(hwnd))
+            foreach (var win in _windowList)
             {
-                HighlightBorder.Visibility = Visibility.Collapsed;
+                if (pt.X >= win.Rect.Left && pt.X < win.Rect.Right
+                    && pt.Y >= win.Rect.Top && pt.Y < win.Rect.Bottom)
+                {
+                    matchedHwnd = win.Hwnd;
+                    matchedRc = win.Rect;
+                    break;
+                }
+            }
+
+            if (matchedHwnd == IntPtr.Zero)
+            {
+                HideBorderWindow();
                 _hoverHwnd = IntPtr.Zero;
                 return;
             }
 
-            NativeMethods.GetWindowRect(hwnd, out var rc);
-            // 优先使用 DWM 扩展帧边界（不含阴影），失败则回退 GetWindowRect
-            if (NativeMethods.TryGetExtendedFrameBounds(hwnd, out var dwmRc))
-            {
-                rc = dwmRc;
-            }
-
-            int width = rc.Right - rc.Left;
-            int height = rc.Bottom - rc.Top;
-            if (width <= 0 || height <= 0)
-            {
-                HighlightBorder.Visibility = Visibility.Collapsed;
-                _hoverHwnd = IntPtr.Zero;
+            // 同一窗口内移动直接跳过
+            if (matchedHwnd == _hoverHwnd)
                 return;
-            }
-
-            // 子窗口/控件过滤：高或宽小于 40 不选
-            IntPtr rootHwnd = NativeMethods.GetAncestor(hwnd, NativeMethods.GA_ROOT);
-            if (rootHwnd != hwnd && (width < 40 || height < 40))
-            {
-                HighlightBorder.Visibility = Visibility.Collapsed;
-                _hoverHwnd = IntPtr.Zero;
-                return;
-            }
 
             const int borderThickness = 2;
-            int left = rc.Left - borderThickness;
-            int top = rc.Top - borderThickness;
-            int right = rc.Right + borderThickness;
-            int bottom = rc.Bottom + borderThickness;
+            int left = matchedRc.Left - borderThickness;
+            int top = matchedRc.Top - borderThickness;
+            int width = matchedRc.Right - matchedRc.Left + borderThickness * 2;
+            int height = matchedRc.Bottom - matchedRc.Top + borderThickness * 2;
 
-            var topLeft = ScreenCaptureHelper.PhysicalToLogical(this, new Point(left, top));
-            var bottomRight = ScreenCaptureHelper.PhysicalToLogical(this, new Point(right, bottom));
+            // 找到被选中窗口的顶层祖先，将其前一个窗口（更高层）作为插入点，
+            // 使红框刚好位于被选中窗口之上、更高层窗口之下
+            var rootHwnd = NativeMethods.GetAncestor(matchedHwnd, NativeMethods.GA_ROOT);
+            var prevHwnd = NativeMethods.GetWindow(rootHwnd, NativeMethods.GW_HWNDPREV);
+            var insertAfter = prevHwnd != IntPtr.Zero ? prevHwnd : NativeMethods.HWND_TOP;
 
-            HighlightBorder.Width = Math.Max(0, bottomRight.X - topLeft.X);
-            HighlightBorder.Height = Math.Max(0, bottomRight.Y - topLeft.Y);
-            Canvas.SetLeft(HighlightBorder, topLeft.X);
-            Canvas.SetTop(HighlightBorder, topLeft.Y);
-            HighlightBorder.Visibility = Visibility.Visible;
+            var borderHwnd = new WindowInteropHelper(_borderWindow).Handle;
+            NativeMethods.SetWindowPos(borderHwnd, insertAfter, left, top, width, height,
+                NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
 
-            _hoverHwnd = hwnd;
+            _hoverHwnd = matchedHwnd;
+        }
+
+        private void HideBorderWindow()
+        {
+            if (_borderWindow != null)
+            {
+                var borderHwnd = new WindowInteropHelper(_borderWindow).Handle;
+                NativeMethods.SetWindowPos(borderHwnd, IntPtr.Zero, 0, 0, 0, 0,
+                    NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_HIDEWINDOW);
+            }
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

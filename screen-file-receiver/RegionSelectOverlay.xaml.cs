@@ -1,7 +1,9 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 
 namespace screen_file_receiver
 {
@@ -9,12 +11,58 @@ namespace screen_file_receiver
     {
         private Point _startPoint;
         private bool _isDragging;
+        private IntPtr _keyboardHook;
+        private NativeMethods.LowLevelKeyboardProc _keyboardProc;
 
         public Rect SelectedRegion { get; private set; }
 
         public RegionSelectOverlay()
         {
             InitializeComponent();
+            Loaded += RegionSelectOverlay_Loaded;
+            Closed += RegionSelectOverlay_Closed;
+        }
+
+        private void RegionSelectOverlay_Loaded(object sender, RoutedEventArgs e)
+        {
+            _keyboardProc = KeyboardHookCallback;
+            _keyboardHook = NativeMethods.SetWindowsHookEx(
+                NativeMethods.WH_KEYBOARD_LL,
+                _keyboardProc,
+                IntPtr.Zero,
+                0);
+        }
+
+        private void RegionSelectOverlay_Closed(object sender, EventArgs e)
+        {
+            if (_keyboardHook != IntPtr.Zero)
+            {
+                NativeMethods.UnhookWindowsHookEx(_keyboardHook);
+                _keyboardHook = IntPtr.Zero;
+            }
+        }
+
+        private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0
+                && (wParam == (IntPtr)NativeMethods.WM_KEYDOWN || wParam == (IntPtr)NativeMethods.WM_SYSKEYDOWN))
+            {
+                var kbd = Marshal.PtrToStructure<NativeMethods.KBDLLHOOKSTRUCT>(lParam);
+                if (kbd.vkCode == NativeMethods.VK_ESCAPE)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (IsVisible)
+                        {
+                            _isDragging = false;
+                            ReleaseMouseCapture();
+                            SelectedRegion = Rect.Empty;
+                            Close();
+                        }
+                    }));
+                }
+            }
+            return NativeMethods.CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

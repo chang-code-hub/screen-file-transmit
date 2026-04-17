@@ -195,7 +195,7 @@
                     ToolTipService.InitialShowDelay="0"
                     ToolTipService.ShowDuration="30000">
                     <Button.ToolTip>
-                        <ToolTip Content="取消选择 (Esc)" />
+                        <ToolTip Content="取消选择 (Esc)" Cursor="" />
                     </Button.ToolTip>
                     <Path
                         HorizontalAlignment="Center"
