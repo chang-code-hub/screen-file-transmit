@@ -34,7 +34,21 @@ namespace screen_file_transmit
     public class MainWindowViewModel : INotifyPropertyChanged
     {
         private Rectangle _screenSize;
-        public string FilePath { get; set; }
+        private string _filePath;
+        private bool _isConverting;
+
+        public string FilePath
+        {
+            get => _filePath;
+            set
+            {
+                _filePath = value;
+                OnPropertyChanged(nameof(FilePath));
+                OnPropertyChanged(nameof(IsConvertButtonEnabled));
+                OnPropertyChanged(nameof(IsPreviewButtonEnabled));
+            }
+        }
+
         public long FileSize { get; set; }
         public string FileSizeStr { get; set; }
         public long FileOffset { get; set; }
@@ -190,11 +204,22 @@ namespace screen_file_transmit
             }
         }
 
-        public bool IsConverting { get; set; }
+        public bool IsConverting
+        {
+            get => _isConverting;
+            set
+            {
+                _isConverting = value;
+                OnPropertyChanged(nameof(IsConverting));
+                OnPropertyChanged(nameof(IsConvertButtonEnabled));
+                OnPropertyChanged(nameof(IsPreviewButtonEnabled));
+            }
+        }
+
         public int ConversionProgress { get; set; }
         public string ConversionStatus { get; set; }
-        public bool IsConvertButtonEnabled { get; set; } = true;
-        public bool IsPreviewButtonEnabled { get; set; } = true;
+        public bool IsConvertButtonEnabled => !IsConverting && !string.IsNullOrEmpty(FilePath) && File.Exists(FilePath);
+        public bool IsPreviewButtonEnabled => !IsConverting && !string.IsNullOrEmpty(FilePath) && File.Exists(FilePath);
         private CancellationTokenSource _cts;
         private readonly AppConfig _appConfig = new AppConfig();
 
@@ -540,8 +565,6 @@ namespace screen_file_transmit
             }
 
             IsConverting = true;
-            IsConvertButtonEnabled = false;
-            IsPreviewButtonEnabled = false;
             ConversionProgress = 0;
             ConversionStatus = "准备中...";
             _cts = new CancellationTokenSource();
@@ -575,8 +598,6 @@ namespace screen_file_transmit
             finally
             {
                 IsConverting = false;
-                IsConvertButtonEnabled = true;
-                IsPreviewButtonEnabled = true;
                 //ConversionProgress = 0;
                 //ConversionStatus = string.Empty;
                 _cts?.Dispose();

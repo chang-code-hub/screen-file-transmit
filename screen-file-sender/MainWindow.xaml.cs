@@ -49,6 +49,13 @@ namespace screen_file_transmit
                     this.Height = viewModel.PreviewImageSource.PixelHeight;
                     SetWindowPosition();
                 }
+                else
+                {
+                    this.ResizeMode = ResizeMode.NoResize;
+                    this.SizeToContent = SizeToContent.Height;
+                    this.Width = 680;
+                    SetWindowPosition();
+                }
             }
         }
         private void SetWindowPosition()

@@ -369,7 +369,7 @@
                     Click="Button_Click"
                     Command="{Binding SaveToFileCommand}"
                     Content="转换..."
-                    Visibility="{Binding IsConvertButtonEnabled, Converter={StaticResource BoolToVis}}" />
+                    IsEnabled="{Binding IsConvertButtonEnabled}" />
                 <Button
                     Grid.Column="1"
                     Width="110"
