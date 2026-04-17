@@ -1,46 +1,291 @@
-<Window x:Class="screen_file_receiver.ScreenshotToolWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="截图工具"
-        WindowStyle="ToolWindow"
-        ResizeMode="NoResize"
-        Topmost="True"
-        ShowInTaskbar="False"
-        Width="600"
-        Height="70"
-        PreviewKeyDown="Window_PreviewKeyDown">
-    <Border Margin="5">
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-            <Button x:Name="BtnSelectWindow"
-                    Content="选择窗口 (Ctrl+F2)"
-                    Width="110"
-                    Height="24"
-                    Margin="3,0"
-                    Click="BtnSelectWindow_Click" />
-            <Button x:Name="BtnSelectRegion"
-                    Content="选择区域 (Ctrl+F3)"
-                    Width="110"
-                    Height="24"
-                    Margin="3,0"
-                    Click="BtnSelectRegion_Click" />
-            <Button x:Name="BtnCapture"
-                    Content="截图 (Ctrl+F4)"
-                    Width="95"
-                    Height="24"
-                    Margin="3,0"
-                    Click="BtnCapture_Click" />
-            <Button x:Name="BtnDecodeTest"
-                    Content="解码测试 (Ctrl+F5)"
-                    Width="110"
-                    Height="24"
-                    Margin="3,0"
-                    Click="BtnDecodeTest_Click" />
-            <Button x:Name="BtnCancelSelection"
-                    Content="取消选择 (Ctrl+F6)"
-                    Width="110"
-                    Height="24"
-                    Margin="3,0"
-                    Click="BtnCancelSelection_Click" />
-        </StackPanel>
+<Window
+    x:Class="screen_file_receiver.ScreenshotToolWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="截图工具"
+    Height="34"
+    AllowsTransparency="True"
+    Background="#F7F7F7"
+    LocationChanged="Window_LocationChanged"
+    MouseEnter="Window_MouseEnter"
+    MouseLeave="Window_MouseLeave"
+    PreviewKeyDown="Window_PreviewKeyDown"
+    ResizeMode="NoResize"
+    ShowInTaskbar="False"
+    SizeToContent="WidthAndHeight"
+    Topmost="True"
+    WindowStyle="None">
+
+    <Window.Resources>
+        <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E5E5E5" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#D0D0D0" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ToolbarToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E5E5E5" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#D0D0D0" />
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="#CCE4FF" />
+                    <Setter Property="BorderBrush" Value="#0078D7" />
+                    <Setter Property="BorderThickness" Value="1" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Border
+        x:Name="RootBorder"
+        Margin="0"
+        Background="#F7F7F7"
+        BorderBrush="#CCCCCC"
+        BorderThickness="1"
+        CornerRadius="0">
+        <Border.Effect>
+            <DropShadowEffect
+                BlurRadius="8"
+                Opacity="0.25"
+                ShadowDepth="0" />
+        </Border.Effect>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!--  Drag grip  -->
+            <Border
+                Grid.Column="0"
+                Width="36"
+                Background="Transparent"
+                Cursor="SizeAll"
+                MouseLeftButtonDown="DragGrip_MouseLeftButtonDown"
+                ToolTipService.InitialShowDelay="0"
+                ToolTipService.ShowDuration="30000">
+                <Border.ToolTip>
+                    <ToolTip Content="拖拽移动" />
+                </Border.ToolTip>
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid.Resources>
+                        <Style TargetType="Ellipse">
+                            <Setter Property="Width" Value="3" />
+                            <Setter Property="Height" Value="3" />
+                            <Setter Property="Fill" Value="#888888" />
+                            <Setter Property="Margin" Value="1" />
+                        </Style>
+                    </Grid.Resources>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Ellipse Grid.Row="0" Grid.Column="0" />
+                    <Ellipse Grid.Row="0" Grid.Column="1" />
+                    <Ellipse Grid.Row="0" Grid.Column="2" />
+                    <Ellipse Grid.Row="1" Grid.Column="0" />
+                    <Ellipse Grid.Row="1" Grid.Column="1" />
+                    <Ellipse Grid.Row="1" Grid.Column="2" />
+                    <Ellipse Grid.Row="2" Grid.Column="0" />
+                    <Ellipse Grid.Row="2" Grid.Column="1" />
+                    <Ellipse Grid.Row="2" Grid.Column="2" />
+                </Grid>
+            </Border>
+
+            <!--  Toolbar buttons  -->
+            <StackPanel
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Orientation="Horizontal">
+                <Button
+                    x:Name="BtnSelectWindow"
+                    Click="BtnSelectWindow_Click"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTipService.InitialShowDelay="0"
+                    ToolTipService.ShowDuration="30000">
+                    <Button.ToolTip>
+                        <ToolTip Content="选择窗口 (Ctrl+F2)" />
+                    </Button.ToolTip>
+                    <Path
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="M1,1 L13,1 L13,11 L1,11 Z M1,4 L13,4"
+                        Stroke="#444444"
+                        StrokeEndLineCap="Round"
+                        StrokeStartLineCap="Round"
+                        StrokeThickness="1.2" />
+                </Button>
+                <Button
+                    x:Name="BtnSelectRegion"
+                    Click="BtnSelectRegion_Click"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTipService.InitialShowDelay="0"
+                    ToolTipService.ShowDuration="30000">
+                    <Button.ToolTip>
+                        <ToolTip Content="选择区域 (Ctrl+F3)" />
+                    </Button.ToolTip>
+                    <Path
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="M1,2 L5,2 M9,2 L13,2 M1,6 L1,10 M13,6 L13,10 M1,14 L5,14 M9,14 L13,14"
+                        Stroke="#444444"
+                        StrokeEndLineCap="Round"
+                        StrokeStartLineCap="Round"
+                        StrokeThickness="1.2" />
+                </Button>
+                <Button
+                    x:Name="BtnCancelSelection"
+                    Click="BtnCancelSelection_Click"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTipService.InitialShowDelay="0"
+                    ToolTipService.ShowDuration="30000">
+                    <Button.ToolTip>
+                        <ToolTip Content="取消选择 (Esc)" />
+                    </Button.ToolTip>
+                    <Path
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="M2,4 L2,2 L4,2 M12,2 L14,2 L14,4 M14,12 L14,14 L12,14 M4,14 L2,14 L2,12"
+                        Stroke="#444444"
+                        StrokeEndLineCap="Round"
+                        StrokeStartLineCap="Round"
+                        StrokeThickness="1.2" />
+                </Button>
+                <Button
+                    x:Name="BtnCapture"
+                    Click="BtnCapture_Click"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTipService.InitialShowDelay="0"
+                    ToolTipService.ShowDuration="30000">
+                    <Button.ToolTip>
+                        <ToolTip Content="截图 (F4)" />
+                    </Button.ToolTip>
+                    <Path
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="M4,4 L6,2 L10,2 L12,4 L14,4 A1,1 0 0 1 15,5 L15,10 A1,1 0 0 1 14,11 L2,11 A1,1 0 0 1 1,10 L1,5 A1,1 0 0 1 2,4 Z M5.5,7.5 A2,2 0 1 0 9.5,7.5 A2,2 0 1 0 5.5,7.5"
+                        Stroke="#444444"
+                        StrokeEndLineCap="Round"
+                        StrokeStartLineCap="Round"
+                        StrokeThickness="1.1" />
+                </Button>
+                <Button
+                    x:Name="BtnDecodeTest"
+                    Click="BtnDecodeTest_Click"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTipService.InitialShowDelay="0"
+                    ToolTipService.ShowDuration="30000">
+                    <Button.ToolTip>
+                        <ToolTip Content="解码测试 (Ctrl+F4)" />
+                    </Button.ToolTip>
+                    <Path
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data=" M-1,2 L3,2 L3,6 L-1,6 Z M7,2 L11,2 L11,6 L7,6 Z M-1,10 L3,10 L3,14 L-1,14 Z  M5,6 L7,6 L7,8 L5,8 Z M3,8 L5,8 L5,10 L3,10 Z M7,10 L9,10 L9,12 L7,12 Z  M1,6 L3,6 L3,8 L1,8 Z M9,6 L11,6 L11,8 L9,8 Z "
+                        Stroke="#444444"
+                        StrokeEndLineCap="Round"
+                        StrokeStartLineCap="Round"
+                        StrokeThickness="1.2" />
+                </Button>
+            </StackPanel>
+
+            <!--  Pin button  -->
+            <ToggleButton
+                x:Name="BtnPin"
+                Grid.Column="2"
+                Checked="BtnPin_CheckedChanged"
+                Style="{StaticResource ToolbarToggleButtonStyle}"
+                ToolTipService.InitialShowDelay="0"
+                ToolTipService.ShowDuration="30000"
+                Unchecked="BtnPin_CheckedChanged">
+                <ToggleButton.ToolTip>
+                    <ToolTip Content="固定位置" />
+                </ToggleButton.ToolTip>
+                <Path
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Data="M3,1 L7,1 L7,6 L9,8 L6,8 L6,12 L4,12 L4,8 L1,8 L3,6 Z"
+                    Fill="#444444"
+                    Stroke="#444444"
+                    StrokeEndLineCap="Round"
+                    StrokeStartLineCap="Round"
+                    StrokeThickness="1" />
+            </ToggleButton>
+
+            <!--  Close button  -->
+            <Button
+                Grid.Column="3"
+                Click="CloseButton_Click"
+                Style="{StaticResource ToolbarButtonStyle}"
+                ToolTipService.InitialShowDelay="0"
+                ToolTipService.ShowDuration="30000">
+                <Button.ToolTip>
+                    <ToolTip Content="关闭 (Esc)" />
+                </Button.ToolTip>
+                <Path
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Data="M2,2 L10,10 M10,2 L2,10"
+                    Stroke="#444444"
+                    StrokeEndLineCap="Round"
+                    StrokeStartLineCap="Round"
+                    StrokeThickness="1.2" />
+            </Button>
+        </Grid>
     </Border>
 </Window>

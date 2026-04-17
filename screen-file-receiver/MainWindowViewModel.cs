@@ -422,11 +422,20 @@ namespace screen_file_receiver
             }
             System.Diagnostics.Process.Start("explorer.exe", path);
         }
-
+         
+        private ScreenshotToolWindow screenshotToolWindow;
         private void OpenScreenshotTool()
         {
-            var tool = new ScreenshotToolWindow(this);
-            tool.Show();
+            if (screenshotToolWindow!=null)
+            {
+                screenshotToolWindow.Close();
+                screenshotToolWindow = null;
+            }
+            else
+            {
+                screenshotToolWindow = new ScreenshotToolWindow(this);
+                screenshotToolWindow.Show();
+            } 
         }
 
         private string GetUniqueFilePath(string basePath)

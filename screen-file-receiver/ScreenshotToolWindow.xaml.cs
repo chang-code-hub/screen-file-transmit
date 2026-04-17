@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -17,48 +18,205 @@ namespace screen_file_receiver
         private Bitmap _lastCapture;
         private SelectionBorderWindow _selectionBorderWindow;
         private DispatcherTimer _followTimer;
+        private DispatcherTimer _expandDelayTimer;
+        private DispatcherTimer _collapseDelayTimer;
+
+        private bool _isCollapsed;
+        private bool _isDragging;
+        private bool _isPinned;
+        private bool _positionInitialized;
+        private const double _dockThreshold = 6;
+        private static readonly TimeSpan ExpandDelay = TimeSpan.FromMilliseconds(250);
+        private static readonly TimeSpan CollapseDelay = TimeSpan.FromSeconds(3);
 
         public ScreenshotToolWindow(MainWindowViewModel mainVm)
         {
             InitializeComponent();
             _mainVm = mainVm;
+            ContentRendered += OnWindowContentRendered;
+
+            _expandDelayTimer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = ExpandDelay };
+            _expandDelayTimer.Tick += (s, e) =>
+            {
+                _expandDelayTimer.Stop();
+                if (_isCollapsed)
+                    ExpandToolbar();
+            };
+
+            _collapseDelayTimer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = CollapseDelay };
+            _collapseDelayTimer.Tick += (s, e) =>
+            {
+                _collapseDelayTimer.Stop();
+                if (!_isCollapsed && !_isPinned)
+                    CheckDockCollapse();
+            };
+        }
+
+        private void OnWindowContentRendered(object sender, EventArgs e)
+        {
+            if (_positionInitialized) return;
+            Left = (SystemParameters.PrimaryScreenWidth - ActualWidth) / 2;
+            Top = 0;
+            _positionInitialized = true;
         }
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Escape)
             {
-                Close();
+                CancelSelection();
+                //Close();
                 e.Handled = true;
                 return;
             }
 
-            if (Keyboard.Modifiers != ModifierKeys.Control)
-                return;
 
             switch (e.Key)
             {
                 case Key.F2:
+                    if (Keyboard.Modifiers != ModifierKeys.Control)
+                        return;
                     StartWindowSelection();
                     e.Handled = true;
                     break;
                 case Key.F3:
+                    if (Keyboard.Modifiers != ModifierKeys.Control)
+                        return;
                     StartRegionSelection();
                     e.Handled = true;
                     break;
                 case Key.F4:
-                    ExecuteCapture();
+                    if (Keyboard.Modifiers == ModifierKeys.Control)
+                        ExecuteDecodeTest();
+                    else 
+                        ExecuteCapture();
                     e.Handled = true;
-                    break;
-                case Key.F5:
-                    ExecuteDecodeTest();
-                    e.Handled = true;
-                    break;
-                case Key.F6:
-                    CancelSelection();
-                    e.Handled = true;
-                    break;
+                    break; 
+                //case Key.F6:
+                //    if (Keyboard.Modifiers != ModifierKeys.Control)
+                //        return;
+                //    CancelSelection();
+                //    e.Handled = true;
+                //    break;
             }
+        }
+
+        private void DragGrip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_isCollapsed)
+            {
+                ExpandToolbar();
+            }
+            _isDragging = true;
+            DragMove();
+            _isDragging = false;
+            StartCollapseDelay();
+        }
+
+        private void Window_LocationChanged(object sender, EventArgs e)
+        {
+            if (!_isDragging)
+                StartCollapseDelay();
+        }
+
+        private void Window_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            _collapseDelayTimer?.Stop();
+            if (_isCollapsed)
+            {
+                _expandDelayTimer?.Start();
+            }
+        }
+
+        private void Window_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            _expandDelayTimer?.Stop();
+            if (!_isCollapsed)
+            {
+                StartCollapseDelay();
+            }
+        }
+
+        private void StartCollapseDelay()
+        {
+            if (_isPinned || _isCollapsed)
+                return;
+            _collapseDelayTimer?.Start();
+        }
+
+        private void BtnPin_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            _isPinned = BtnPin.IsChecked == true;
+            if (_isPinned)
+            {
+                _expandDelayTimer?.Stop();
+                _collapseDelayTimer?.Stop();
+                if (_isCollapsed)
+                    ExpandToolbar();
+                Top = 0;
+            }
+            else
+            {
+                StartCollapseDelay();
+            }
+        }
+
+        private void CheckDockCollapse()
+        {
+            if (_isPinned) return;
+            if (Top <= _dockThreshold && !_isCollapsed)
+            {
+                CollapseToolbar();
+            }
+        }
+
+        private void CollapseToolbar()
+        {
+            //return;
+            if (_isCollapsed) return;
+            _isCollapsed = true;
+            //_expandedHeight = ActualHeight;
+            //_expandedWidth = ActualWidth;
+
+            // Hide content and shadow, remove margin and corner radius for a tight 2px bar
+            ((Grid)(RootBorder.Child)).Height = 2;
+            //RootBorder.Margin = new Thickness(0);
+            //RootBorder.CornerRadius = new CornerRadius(0);
+            //RootBorder.BorderThickness = new Thickness(0, 0, 0, 2);
+            //RootBorder.BorderBrush = System.Windows.Media.Brushes.DodgerBlue;
+            //RootBorder.Effect = null;
+
+            //Width = _expandedWidth;
+            //Height = _collapsedHeight;
+            //Top = 0;
+        }
+
+        private void ExpandToolbar()
+        {
+            if (!_isCollapsed) return;
+            _isCollapsed = false;
+
+            // Restore normal appearance
+            //RootBorder.Child.Visibility = System.Windows.Visibility.Visible;
+            ((Grid)(RootBorder.Child)).Height = double.NaN;
+            //RootBorder.Margin = new Thickness(6);
+            //RootBorder.CornerRadius = new CornerRadius(4);
+            //RootBorder.BorderThickness = new Thickness(1);
+            //RootBorder.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xCC, 0xCC, 0xCC));
+            //RootBorder.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            //{
+            //    ShadowDepth = 0,
+            //    BlurRadius = 8,
+            //    Opacity = 0.25
+            //};
+
+            //Height = _expandedHeight;
+            // Keep width consistent with pre-collapse size
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
         }
 
         private void BtnSelectWindow_Click(object sender, RoutedEventArgs e)
@@ -368,7 +526,7 @@ namespace screen_file_receiver
                     try { File.Delete(tempPath); } catch { }
                 }
 
-                ToastNotification.Show($"{metaInfo}\n{decodeInfo}", "解码测试结果", MessageBoxImage.Information);
+                MessageBox.Show($"{metaInfo}\n{decodeInfo}", "解码测试结果", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -378,6 +536,8 @@ namespace screen_file_receiver
 
         protected override void OnClosed(EventArgs e)
         {
+            _expandDelayTimer?.Stop();
+            _collapseDelayTimer?.Stop();
             _lastCapture?.Dispose();
             _lastCapture = null;
             _selectionBorderWindow?.Close();
