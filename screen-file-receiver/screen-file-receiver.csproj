@@ -12,6 +12,9 @@
 	  <LangVersion>Latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
 	  <PackageReference Include="Costura.Fody">
 	    <PrivateAssets>all</PrivateAssets>
 	    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -28,5 +31,8 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="icon.ico" />
   </ItemGroup> 
 </Project>

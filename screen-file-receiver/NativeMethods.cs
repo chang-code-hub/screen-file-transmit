@@ -23,6 +23,9 @@ namespace screen_file_receiver
         [DllImport("dwmapi.dll")]
         public static extern int DwmGetWindowAttribute(IntPtr hwnd, uint dwAttribute, out RECT pvAttribute, int cbAttribute);
 
+        [DllImport("dwmapi.dll")]
+        public static extern int DwmGetWindowAttribute(IntPtr hwnd, uint dwAttribute, out int pvAttribute, int cbAttribute);
+
         public static bool TryGetExtendedFrameBounds(IntPtr hwnd, out RECT rect)
         {
             rect = new RECT();
@@ -105,6 +108,25 @@ namespace screen_file_receiver
         public const uint SRCCOPY = 0x00CC0020;
         public const uint PW_RENDERFULLCONTENT = 0x00000002;
         public const uint DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+        public const uint DWMWA_CLOAKED = 14;
+
+        public const int GWL_EXSTYLE = -20;
+        public const uint WS_EX_LAYERED = 0x00080000;
+        public const uint LWA_ALPHA = 0x00000002;
+
+         
+        public const int WS_EX_TOOLWINDOW = 0x00000080;
+ 
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetWindowLong(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetLayeredWindowAttributes(IntPtr hwnd, out uint pcrKey, out byte pbAlpha, out uint pdwFlags);
 
         public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 

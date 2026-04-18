@@ -157,7 +157,8 @@
                     Click="BtnSelectWindow_Click"
                     Style="{StaticResource ToolbarButtonStyle}"
                     ToolTipService.InitialShowDelay="0"
-                    ToolTipService.ShowDuration="30000">
+                    ToolTipService.ShowDuration="30000"
+                    ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
                         <ToolTip Content="选择窗口 (Ctrl+F2)" />
                     </Button.ToolTip>
@@ -175,7 +176,8 @@
                     Click="BtnSelectRegion_Click"
                     Style="{StaticResource ToolbarButtonStyle}"
                     ToolTipService.InitialShowDelay="0"
-                    ToolTipService.ShowDuration="30000">
+                    ToolTipService.ShowDuration="30000"
+                    ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
                         <ToolTip Content="选择区域 (Ctrl+F3)" />
                     </Button.ToolTip>
@@ -189,11 +191,33 @@
                         StrokeThickness="1.2" />
                 </Button>
                 <Button
-                    x:Name="BtnCancelSelection"
-                    Click="BtnCancelSelection_Click"
+                    x:Name="BtnEditSelection"
+                    Click="BtnEditSelection_Click"
+                    IsEnabled="False"
                     Style="{StaticResource ToolbarButtonStyle}"
                     ToolTipService.InitialShowDelay="0"
-                    ToolTipService.ShowDuration="30000">
+                    ToolTipService.ShowDuration="30000"
+                    ToolTipService.ShowOnDisabled="True">
+                    <Button.ToolTip>
+                        <ToolTip Content="编辑选区" />
+                    </Button.ToolTip>
+                    <Path
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="M1,4 L1,1 L4,1 M11,1 L14,1 L14,4 M14,11 L14,14 L11,14 M4,14 L1,14 L1,11 M2,2 L13,13"
+                        Stroke="#444444"
+                        StrokeEndLineCap="Round"
+                        StrokeStartLineCap="Round"
+                        StrokeThickness="1.2" />
+                </Button>
+                <Button
+                    x:Name="BtnCancelSelection"
+                    Click="BtnCancelSelection_Click"
+                    IsEnabled="False"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTipService.InitialShowDelay="0"
+                    ToolTipService.ShowDuration="30000"
+                    ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
                         <ToolTip Content="取消选择 (Esc)" Cursor="" />
                     </Button.ToolTip>
@@ -209,9 +233,11 @@
                 <Button
                     x:Name="BtnCapture"
                     Click="BtnCapture_Click"
+                    IsEnabled="False"
                     Style="{StaticResource ToolbarButtonStyle}"
                     ToolTipService.InitialShowDelay="0"
-                    ToolTipService.ShowDuration="30000">
+                    ToolTipService.ShowDuration="30000"
+                    ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
                         <ToolTip Content="截图 (F4)" />
                     </Button.ToolTip>
@@ -227,9 +253,11 @@
                 <Button
                     x:Name="BtnDecodeTest"
                     Click="BtnDecodeTest_Click"
+                    IsEnabled="False"
                     Style="{StaticResource ToolbarButtonStyle}"
                     ToolTipService.InitialShowDelay="0"
-                    ToolTipService.ShowDuration="30000">
+                    ToolTipService.ShowDuration="30000"
+                    ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
                         <ToolTip Content="解码测试 (Ctrl+F4)" />
                     </Button.ToolTip>

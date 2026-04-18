@@ -8,8 +8,15 @@
     ShowActivated="False"
     ShowInTaskbar="False"
     WindowStyle="None">
-    <Border
-        Background="Transparent"
-        BorderBrush="Red"
-        BorderThickness="2" />
+
+    <Grid>
+        <Border
+            x:Name="BorderElement"
+            Background="Transparent"
+            BorderBrush="Red"
+            BorderThickness="2" />
+        <Canvas x:Name="HandleCanvas" Background="Transparent">
+            <!-- 手柄由代码动态创建 -->
+        </Canvas>
+    </Grid>
 </Window>

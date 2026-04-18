@@ -29,6 +29,14 @@ namespace screen_file_receiver
         private static readonly TimeSpan ExpandDelay = TimeSpan.FromMilliseconds(250);
         private static readonly TimeSpan CollapseDelay = TimeSpan.FromSeconds(3);
 
+        // 编辑选区相关
+        private bool _isEditMode;
+        private double _offsetLeftPhys;
+        private double _offsetTopPhys;
+        private double _offsetRightPhys;
+        private double _offsetBottomPhys;
+        private NativeMethods.RECT _offsetBaselineRect;
+
         public ScreenshotToolWindow(MainWindowViewModel mainVm)
         {
             InitializeComponent();
@@ -52,6 +60,19 @@ namespace screen_file_receiver
             };
         }
 
+ 
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            // 获取当前窗口的句柄和扩展样式
+            var helper = new WindowInteropHelper(this);
+            IntPtr hWnd = helper.Handle;
+            int exStyle = (int)NativeMethods.GetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE);
+
+            // 添加 WS_EX_TOOLWINDOW 样式
+            NativeMethods.SetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE, (IntPtr)(exStyle | NativeMethods.WS_EX_TOOLWINDOW));
+        }
         private void OnWindowContentRendered(object sender, EventArgs e)
         {
             if (_positionInitialized) return;
@@ -65,11 +86,9 @@ namespace screen_file_receiver
             if (e.Key == Key.Escape)
             {
                 CancelSelection();
-                //Close();
                 e.Handled = true;
                 return;
             }
-
 
             switch (e.Key)
             {
@@ -88,16 +107,10 @@ namespace screen_file_receiver
                 case Key.F4:
                     if (Keyboard.Modifiers == ModifierKeys.Control)
                         ExecuteDecodeTest();
-                    else 
+                    else
                         ExecuteCapture();
                     e.Handled = true;
-                    break; 
-                //case Key.F6:
-                //    if (Keyboard.Modifiers != ModifierKeys.Control)
-                //        return;
-                //    CancelSelection();
-                //    e.Handled = true;
-                //    break;
+                    break;
             }
         }
 
@@ -172,46 +185,16 @@ namespace screen_file_receiver
 
         private void CollapseToolbar()
         {
-            //return;
             if (_isCollapsed) return;
             _isCollapsed = true;
-            //_expandedHeight = ActualHeight;
-            //_expandedWidth = ActualWidth;
-
-            // Hide content and shadow, remove margin and corner radius for a tight 2px bar
             ((Grid)(RootBorder.Child)).Height = 2;
-            //RootBorder.Margin = new Thickness(0);
-            //RootBorder.CornerRadius = new CornerRadius(0);
-            //RootBorder.BorderThickness = new Thickness(0, 0, 0, 2);
-            //RootBorder.BorderBrush = System.Windows.Media.Brushes.DodgerBlue;
-            //RootBorder.Effect = null;
-
-            //Width = _expandedWidth;
-            //Height = _collapsedHeight;
-            //Top = 0;
         }
 
         private void ExpandToolbar()
         {
             if (!_isCollapsed) return;
             _isCollapsed = false;
-
-            // Restore normal appearance
-            //RootBorder.Child.Visibility = System.Windows.Visibility.Visible;
             ((Grid)(RootBorder.Child)).Height = double.NaN;
-            //RootBorder.Margin = new Thickness(6);
-            //RootBorder.CornerRadius = new CornerRadius(4);
-            //RootBorder.BorderThickness = new Thickness(1);
-            //RootBorder.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xCC, 0xCC, 0xCC));
-            //RootBorder.Effect = new System.Windows.Media.Effects.DropShadowEffect
-            //{
-            //    ShadowDepth = 0,
-            //    BlurRadius = 8,
-            //    Opacity = 0.25
-            //};
-
-            //Height = _expandedHeight;
-            // Keep width consistent with pre-collapse size
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
@@ -244,17 +227,42 @@ namespace screen_file_receiver
             CancelSelection();
         }
 
+        private void BtnEditSelection_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleEditMode();
+        }
+
         private void CancelSelection()
         {
+            if (_selectionBorderWindow != null)
+                _selectionBorderWindow.Resized -= OnSelectionBorderResized;
             _selectedHwnd = IntPtr.Zero;
             _selectedRegion = Rect.Empty;
+            _isEditMode = false;
+            ResetWindowOffsets();
+            UpdateEditButtonState();
             StopFollowTimer();
             _selectionBorderWindow?.Close();
             _selectionBorderWindow = null;
+            UpdateActionButtonState();
+        }
+
+        private void ResetWindowOffsets()
+        {
+            _offsetLeftPhys = 0;
+            _offsetTopPhys = 0;
+            _offsetRightPhys = 0;
+            _offsetBottomPhys = 0;
+            _offsetBaselineRect = new NativeMethods.RECT();
         }
 
         private void StartWindowSelection()
         {
+            _isEditMode = false;
+            ResetWindowOffsets();
+            UpdateEditButtonState();
+            if (_selectionBorderWindow != null)
+                _selectionBorderWindow.Resized -= OnSelectionBorderResized;
             _selectionBorderWindow?.Close();
             _selectionBorderWindow = null;
             StopFollowTimer();
@@ -269,6 +277,8 @@ namespace screen_file_receiver
                     _selectedRegion = Rect.Empty;
                     StartFollowTimer();
                 }
+                UpdateEditButtonState();
+                UpdateActionButtonState();
                 Activate();
                 Focus();
             };
@@ -278,6 +288,11 @@ namespace screen_file_receiver
 
         private void StartRegionSelection()
         {
+            _isEditMode = false;
+            ResetWindowOffsets();
+            UpdateEditButtonState();
+            if (_selectionBorderWindow != null)
+                _selectionBorderWindow.Resized -= OnSelectionBorderResized;
             _selectionBorderWindow?.Close();
             _selectionBorderWindow = null;
             StopFollowTimer();
@@ -293,6 +308,8 @@ namespace screen_file_receiver
                     StopFollowTimer();
                     ShowSelectionBorder(_selectedRegion);
                 }
+                UpdateEditButtonState();
+                UpdateActionButtonState();
                 Activate();
                 Focus();
             };
@@ -307,6 +324,7 @@ namespace screen_file_receiver
             _selectionBorderWindow.Top = region.Y;
             _selectionBorderWindow.Width = region.Width;
             _selectionBorderWindow.Height = region.Height;
+            _selectionBorderWindow.EditMode = _isEditMode;
             _selectionBorderWindow.Show();
         }
 
@@ -315,6 +333,8 @@ namespace screen_file_receiver
             if (_selectionBorderWindow == null)
             {
                 _selectionBorderWindow = new SelectionBorderWindow();
+                if (_isEditMode)
+                    _selectionBorderWindow.Resized += OnSelectionBorderResized;
             }
         }
 
@@ -332,7 +352,12 @@ namespace screen_file_receiver
                 {
                     Interval = TimeSpan.FromMilliseconds(16)
                 };
-                _followTimer.Tick += (s, e) => UpdateSelectionBorderToHwnd();
+                _followTimer.Tick += (s, e) =>
+                {
+                    if (_selectionBorderWindow?.IsResizing == true)
+                        return;
+                    UpdateSelectionBorderToHwnd();
+                };
             }
             _followTimer.Start();
             UpdateSelectionBorderToHwnd();
@@ -348,26 +373,58 @@ namespace screen_file_receiver
             if (_selectedHwnd == IntPtr.Zero)
                 return;
 
+            if (!NativeMethods.IsWindow(_selectedHwnd))
+            {
+                CancelSelection();
+                return;
+            }
+
             NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
             if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
                 rc = dwmRc;
             if (rc.Right <= rc.Left || rc.Bottom <= rc.Top)
                 return;
 
-            const int borderThickness = 2;
-            int left = rc.Left - borderThickness;
-            int top = rc.Top - borderThickness;
-            int width = (rc.Right - rc.Left) + borderThickness * 2;
-            int height = (rc.Bottom - rc.Top) + borderThickness * 2;
+            // 检测窗口大小变化并缩放偏移
+            int prevWidth = _offsetBaselineRect.Right - _offsetBaselineRect.Left;
+            int prevHeight = _offsetBaselineRect.Bottom - _offsetBaselineRect.Top;
+            int currWidth = rc.Right - rc.Left;
+            int currHeight = rc.Bottom - rc.Top;
 
-            var logicalTopLeft = ScreenCaptureHelper.PhysicalToLogical(this, new System.Windows.Point(left, top));
-            var logicalSize = ScreenCaptureHelper.PhysicalToLogical(this, new System.Windows.Point(width, height));
+            if (prevWidth > 0 && prevHeight > 0 && _isEditMode)
+            {
+                if (currWidth != prevWidth || currHeight != prevHeight)
+                {
+                    double scaleX = (double)currWidth / prevWidth;
+                    double scaleY = (double)currHeight / prevHeight;
+                    _offsetLeftPhys *= scaleX;
+                    _offsetTopPhys *= scaleY;
+                    _offsetRightPhys *= scaleX;
+                    _offsetBottomPhys *= scaleY;
+                }
+            }
+
+            if (_isEditMode)
+            {
+                _offsetBaselineRect = rc;
+            }
+
+            const int borderThickness = 2;
+            int physLeft = rc.Left - borderThickness + (int)Math.Round(_offsetLeftPhys);
+            int physTop = rc.Top - borderThickness + (int)Math.Round(_offsetTopPhys);
+            int physRight = rc.Right + borderThickness + (int)Math.Round(_offsetRightPhys);
+            int physBottom = rc.Bottom + borderThickness + (int)Math.Round(_offsetBottomPhys);
+
+            var logicalTopLeft = ScreenCaptureHelper.PhysicalToLogical(this, new System.Windows.Point(physLeft, physTop));
+            var logicalBottomRight = ScreenCaptureHelper.PhysicalToLogical(this, new System.Windows.Point(physRight, physBottom));
 
             EnsureSelectionBorderWindow();
             _selectionBorderWindow.Left = logicalTopLeft.X;
             _selectionBorderWindow.Top = logicalTopLeft.Y;
-            _selectionBorderWindow.Width = logicalSize.X;
-            _selectionBorderWindow.Height = logicalSize.Y;
+            _selectionBorderWindow.Width = Math.Max(4, logicalBottomRight.X - logicalTopLeft.X);
+            _selectionBorderWindow.Height = Math.Max(4, logicalBottomRight.Y - logicalTopLeft.Y);
+            _selectionBorderWindow.EditMode = _isEditMode;
+
             if (!_selectionBorderWindow.IsVisible)
                 _selectionBorderWindow.Show();
 
@@ -406,6 +463,102 @@ namespace screen_file_receiver
             }
         }
 
+        private void ToggleEditMode()
+        {
+            if (_selectedHwnd == IntPtr.Zero && _selectedRegion == Rect.Empty)
+            {
+                _isEditMode = false;
+                UpdateEditButtonState();
+                return;
+            }
+
+            _isEditMode = !_isEditMode;
+            UpdateEditButtonState();
+
+            EnsureSelectionBorderWindow();
+            _selectionBorderWindow.EditMode = _isEditMode;
+
+            if (_isEditMode)
+            {
+                _selectionBorderWindow.Resized -= OnSelectionBorderResized;
+                _selectionBorderWindow.Resized += OnSelectionBorderResized;
+
+                // 初始化基线窗口矩形
+                if (_selectedHwnd != IntPtr.Zero)
+                {
+                    NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
+                    if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
+                        rc = dwmRc;
+                    _offsetBaselineRect = rc;
+                }
+            }
+            else
+            {
+                _selectionBorderWindow.Resized -= OnSelectionBorderResized;
+            }
+        }
+
+        private void UpdateEditButtonState()
+        {
+            if (BtnEditSelection != null)
+            {
+                BtnEditSelection.IsEnabled = _selectedHwnd != IntPtr.Zero || _selectedRegion != Rect.Empty;
+                BtnEditSelection.Background = _isEditMode
+                    ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xCC, 0xE4, 0xFF))
+                    : System.Windows.Media.Brushes.Transparent;
+            }
+        }
+
+        private void UpdateActionButtonState()
+        {
+            bool hasSelection = _selectedHwnd != IntPtr.Zero || _selectedRegion != Rect.Empty;
+            if (BtnCancelSelection != null)
+                BtnCancelSelection.IsEnabled = hasSelection;
+            if (BtnCapture != null)
+                BtnCapture.IsEnabled = hasSelection;
+            if (BtnDecodeTest != null)
+                BtnDecodeTest.IsEnabled = _lastCapture != null;
+        }
+
+        private void OnSelectionBorderResized(object sender, RectChangedEventArgs e)
+        {
+            var newRect = e.NewRect;
+
+            if (_selectedHwnd != IntPtr.Zero)
+            {
+                // 窗口模式：计算新物理偏移
+                NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
+                if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
+                    rc = dwmRc;
+
+                // 新边框逻辑坐标转物理坐标
+                var newPhysTL = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(newRect.Left, newRect.Top));
+                var newPhysBR = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(newRect.Left + newRect.Width, newRect.Top + newRect.Height));
+
+                const int borderThickness = 2;
+                int defaultPhysLeft = rc.Left - borderThickness;
+                int defaultPhysTop = rc.Top - borderThickness;
+                int defaultPhysRight = rc.Right + borderThickness;
+                int defaultPhysBottom = rc.Bottom + borderThickness;
+
+                _offsetLeftPhys = newPhysTL.X - defaultPhysLeft;
+                _offsetTopPhys = newPhysTL.Y - defaultPhysTop;
+                _offsetRightPhys = newPhysBR.X - defaultPhysRight;
+                _offsetBottomPhys = newPhysBR.Y - defaultPhysBottom;
+            }
+            else if (_selectedRegion != Rect.Empty)
+            {
+                // 区域模式：直接更新选区
+                _selectedRegion = newRect;
+            }
+        }
+
+        private bool HasWindowOffset()
+        {
+            return Math.Abs(_offsetLeftPhys) > 0.5 || Math.Abs(_offsetTopPhys) > 0.5
+                || Math.Abs(_offsetRightPhys) > 0.5 || Math.Abs(_offsetBottomPhys) > 0.5;
+        }
+
         private void ExecuteCapture()
         {
             HideSelectionBorder();
@@ -419,7 +572,26 @@ namespace screen_file_receiver
             Bitmap bmp = null;
             if (_selectedHwnd != IntPtr.Zero)
             {
-                bmp = ScreenCaptureHelper.CaptureWindow(_selectedHwnd);
+                if (HasWindowOffset())
+                {
+                    // 存在自定义偏移，按区域从屏幕截图
+                    NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
+                    if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
+                        rc = dwmRc;
+
+                    // 边框内部区域（不含 2px 红色边框）
+                    int x = rc.Left + (int)Math.Round(_offsetLeftPhys);
+                    int y = rc.Top + (int)Math.Round(_offsetTopPhys);
+                    int w = (rc.Right - rc.Left) + (int)Math.Round(_offsetRightPhys - _offsetLeftPhys);
+                    int h = (rc.Bottom - rc.Top) + (int)Math.Round(_offsetBottomPhys - _offsetTopPhys);
+
+                    var region = new Rectangle(x, y, Math.Max(1, w), Math.Max(1, h));
+                    bmp = ScreenCaptureHelper.CaptureRegion(region);
+                }
+                else
+                {
+                    bmp = ScreenCaptureHelper.CaptureWindow(_selectedHwnd);
+                }
             }
             else if (_selectedRegion.Width > 0 && _selectedRegion.Height > 0)
             {
@@ -444,6 +616,7 @@ namespace screen_file_receiver
 
             _lastCapture?.Dispose();
             _lastCapture = bmp;
+            UpdateActionButtonState();
             ShowSelectionBorder();
 
             string fileName = null;
@@ -487,7 +660,7 @@ namespace screen_file_receiver
         {
             if (_lastCapture == null)
             {
-                MessageBox.Show("请先截图", "解码测试", MessageBoxButton.OK,  MessageBoxImage.Information);
+                MessageBox.Show("请先截图", "解码测试", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -548,6 +721,8 @@ namespace screen_file_receiver
             _collapseDelayTimer?.Stop();
             _lastCapture?.Dispose();
             _lastCapture = null;
+            if (_selectionBorderWindow != null)
+                _selectionBorderWindow.Resized -= OnSelectionBorderResized;
             _selectionBorderWindow?.Close();
             _selectionBorderWindow = null;
             base.OnClosed(e);

@@ -23,6 +23,19 @@ namespace screen_file_receiver
             Closed += RegionSelectOverlay_Closed;
         }
 
+ 
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            // 获取当前窗口的句柄和扩展样式
+            var helper = new WindowInteropHelper(this);
+            IntPtr hWnd = helper.Handle;
+            int exStyle = (int)NativeMethods.GetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE);
+
+            // 添加 WS_EX_TOOLWINDOW 样式
+            NativeMethods.SetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE, (IntPtr)(exStyle | NativeMethods.WS_EX_TOOLWINDOW));
+        }
         private void RegionSelectOverlay_Loaded(object sender, RoutedEventArgs e)
         {
             _keyboardProc = KeyboardHookCallback;

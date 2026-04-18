@@ -1,6 +1,9 @@
+using System;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 
 namespace screen_file_receiver
 {
@@ -18,6 +21,12 @@ namespace screen_file_receiver
 
             this.DragOver += MainWindow_DragOver;
             this.Drop += MainWindow_Drop;
+            this.Closed += MainWindow_Closed;
+        }
+
+        private void MainWindow_Closed(object sender, System.EventArgs e)
+        {
+            Environment.Exit(0);
         }
 
         private void FileDataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -43,6 +52,7 @@ namespace screen_file_receiver
             e.Handled = true;
         }
 
+
         private void MainWindow_Drop(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -56,6 +66,25 @@ namespace screen_file_receiver
                 viewModel.AddFiles(imageFiles);
             }
             e.Handled = true;
+        }
+
+        private void Grid_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+                this.DragMove();
+        }
+
+        private void ExitButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
+        private void Window_Closing(object sender, CancelEventArgs e)
+        {
+            if (MessageBox.Show("确定要退出程序吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            {
+                e.Cancel = true;
+            }
         }
     }
 }

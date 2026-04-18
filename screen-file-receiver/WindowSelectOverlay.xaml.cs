@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
@@ -35,6 +36,8 @@ namespace screen_file_receiver
             public int Level;
             public string Title;
             public string ClassName;
+
+            public uint Pid { get; internal set; }
         }
 
         public WindowSelectOverlay()
@@ -44,6 +47,19 @@ namespace screen_file_receiver
             Closed += WindowSelectOverlay_Closed;
         }
 
+ 
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            // 获取当前窗口的句柄和扩展样式
+            var helper = new WindowInteropHelper(this);
+            IntPtr hWnd = helper.Handle;
+            int exStyle = (int)NativeMethods.GetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE);
+
+            // 添加 WS_EX_TOOLWINDOW 样式
+            NativeMethods.SetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE, (IntPtr)(exStyle | NativeMethods.WS_EX_TOOLWINDOW));
+        }
         private void WindowSelectOverlay_Loaded(object sender, RoutedEventArgs e)
         {
             _selfHwnd = new WindowInteropHelper(this).Handle;
@@ -136,13 +152,14 @@ namespace screen_file_receiver
             // 按 z-order 从高到低枚举顶层可见窗口
             var desktopHwnd = NativeMethods.GetDesktopWindow();
             var hwnd = NativeMethods.GetWindow(desktopHwnd, NativeMethods.GW_CHILD);
-
+             
             int zRank = 0;
             while (hwnd != IntPtr.Zero)
             {
                 if (!IsCurrentProcessWindow(hwnd)
                     && NativeMethods.IsWindow(hwnd)
-                    && NativeMethods.IsWindowVisible(hwnd))
+                    && NativeMethods.IsWindowVisible(hwnd)
+                    && !IsTransparentWindow(hwnd))
                 {
                     // 先递归收集该顶层窗口的子窗口和控件（子窗口在上层，排在父窗口前面）
                     EnumerateChildren(hwnd, _windowList, zRank, 1);
@@ -155,7 +172,7 @@ namespace screen_file_receiver
 
                     int width = rc.Right - rc.Left;
                     int height = rc.Bottom - rc.Top;
-                    if (width >= 40 && height >= 40)
+                    if (width >= 100 && height >= 100)
                     {
                         var info = CreateWindowInfo(hwnd, rc);
                         info.ZRank = zRank;
@@ -169,7 +186,10 @@ namespace screen_file_receiver
             }
 
             // 窗口列表重建后，强制下次 MouseMove 重新计算高亮位置
-            _hoverHwnd = IntPtr.Zero;
+            if (!_windowList.Any(c => c.Hwnd == _hoverHwnd))
+            {
+                _hoverHwnd = IntPtr.Zero;
+            }
 
             //WriteWindowLog();
             Trace.WriteLine($"window count {_windowList.Count}");
@@ -186,7 +206,8 @@ namespace screen_file_receiver
             {
                 if (!IsCurrentProcessWindow(child)
                     && NativeMethods.IsWindow(child)
-                    && NativeMethods.IsWindowVisible(child))
+                    && NativeMethods.IsWindowVisible(child)
+                    && !IsTransparentWindow(child))
                 {
                     // 递归收集孙窗口，确保更深的、z-order 更高的子窗口排在前面
                     EnumerateChildren(child, list, zRank, level + 1);
@@ -199,7 +220,7 @@ namespace screen_file_receiver
 
                     int width = rc.Right - rc.Left;
                     int height = rc.Bottom - rc.Top;
-                    if (width >= 40 && height >= 40)
+                    if (width >= 100 && height >= 100)
                     {
                         var info = CreateWindowInfo(child, rc);
                         info.ZRank = zRank;
@@ -219,8 +240,10 @@ namespace screen_file_receiver
             NativeMethods.GetWindowText(hwnd, sbTitle, sbTitle.Capacity);
             NativeMethods.GetClassName(hwnd, sbClass, sbClass.Capacity);
 
+            NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
             return new WindowInfo
             {
+                Pid = pid,
                 Hwnd = hwnd,
                 Rect = rc,
                 ZRank = 0,
@@ -246,7 +269,7 @@ namespace screen_file_receiver
                     if (title.Length > 40)
                         title = title.Substring(0, 37) + "...";
 
-                    sb.AppendLine($"{indent}[Z={win.ZRank:D3} {kind}] HWnd={win.Hwnd:X8} | {win.Rect.Right - win.Rect.Left}x{win.Rect.Bottom - win.Rect.Top} @ ({win.Rect.Left},{win.Rect.Top}) | Class={win.ClassName} | Title={title}");
+                    sb.AppendLine($"{indent}[Z={win.ZRank:D3} {kind}] HWnd={win.Hwnd:X8} Pid={win.Pid} | {win.Rect.Right - win.Rect.Left}x{win.Rect.Bottom - win.Rect.Top} @ ({win.Rect.Left},{win.Rect.Top}) | Class={win.ClassName} | Title={title}");
                 }
 
                 string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "window.log");
@@ -265,6 +288,29 @@ namespace screen_file_receiver
 
             NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
             return pid == _currentPid;
+        }
+
+        private static bool IsTransparentWindow(IntPtr hwnd)
+        {
+            // 检查 DWM cloaked (Windows 8+)
+            if (NativeMethods.DwmGetWindowAttribute(hwnd, NativeMethods.DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0)
+            {
+                if (cloaked != 0)
+                    return true;
+            }
+
+            // 检查 layered window 的透明度
+            int exStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+            if ((exStyle & NativeMethods.WS_EX_LAYERED) != 0)
+            {
+                if (NativeMethods.GetLayeredWindowAttributes(hwnd, out uint _, out byte alpha, out uint flags))
+                {
+                    if ((flags & NativeMethods.LWA_ALPHA) != 0 && alpha < 10)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private void Window_MouseMove(object sender, MouseEventArgs e)
@@ -335,6 +381,7 @@ namespace screen_file_receiver
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             SelectedHwnd = _hoverHwnd;
+            Trace.WriteLine($"SELECT WINDOW {SelectedHwnd}");
             ReleaseMouseCapture();
             Close();
         }
