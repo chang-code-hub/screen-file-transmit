@@ -38,12 +38,12 @@ namespace screen_file_transmit
 
             if (meta?.Metadata == null || meta.Metadata.Length < 4)
             {
-                throw new Exception("找不到信息或元数据格式错误: " + fileName);
+                throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_MetaNotFound"), fileName));
             }
 
             if (dataBlocks == null || dataBlocks.Count == 0)
             {
-                throw new Exception("未解析到任何数据块: " + fileName);
+                throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_NoDataBlocks"), fileName));
             }
 
             if (meta.TotalQrCodeCount > 0)
@@ -51,7 +51,7 @@ namespace screen_file_transmit
                 int actualQrCount = decodeResult.DecodedQrCodeCount;
                 if (actualQrCount < meta.TotalQrCodeCount * 0.8)
                 {
-                    throw new Exception($"二维码数量校验失败: 期望 {meta.TotalQrCodeCount} 个，实际解析到 {actualQrCount} 个");
+                    throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_QrCodeCountMismatch"), meta.TotalQrCodeCount, actualQrCount));
                 }
             }
 
@@ -95,7 +95,7 @@ namespace screen_file_transmit
                 var computedCrc = Crc32.ComputeHash(data);
                 if (!crcBytes.SequenceEqual(computedCrc))
                 {
-                    throw new Exception($"CRC32 校验失败: 数据块 ({block.row}, {block.col})");
+                    throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_Crc32Failed"), block.row, block.col));
                 }
                 fileStream.Write(data, 0, data.Length);
             }
@@ -259,7 +259,7 @@ namespace screen_file_transmit
             {
                 if (image.Empty())
                 {
-                    throw new Exception($"加载图片失败: {imageFile}");
+                    throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_LoadImageFailed"), imageFile));
                 }
 
                 result.Metadata = ReadMetadata(imageFile, debug);

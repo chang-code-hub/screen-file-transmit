@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>画面ファイル受信機</value></data>
+  <data name="BannerTitle" xml:space="preserve"><value>画面ファイル受信機</value></data>
+  <data name="Label_ImageFiles" xml:space="preserve"><value>画像ファイル:</value></data>
+  <data name="Button_Add" xml:space="preserve"><value>追加...</value></data>
+  <data name="Button_Delete" xml:space="preserve"><value>削除</value></data>
+  <data name="Button_Clear" xml:space="preserve"><value>クリア</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>ヒント: 画像ファイルをウィンドウにドラッグ&amp;ドロップできます。</value></data>
+  <data name="Column_ImageFileName" xml:space="preserve"><value>ファイル名</value></data>
+  <data name="Column_FileId" xml:space="preserve"><value>ファイルID</value></data>
+  <data name="Column_SaveFileName" xml:space="preserve"><value>保存ファイル名</value></data>
+  <data name="Column_Metadata" xml:space="preserve"><value>メタデータ</value></data>
+  <data name="Column_Status" xml:space="preserve"><value>状態</value></data>
+  <data name="Column_ParseProgress" xml:space="preserve"><value>解析進捗</value></data>
+  <data name="Label_Preview" xml:space="preserve"><value>プレビュー:</value></data>
+  <data name="Label_Password" xml:space="preserve"><value>パスワード:</value></data>
+  <data name="Label_SavePath" xml:space="preserve"><value>保存パス:</value></data>
+  <data name="Button_Browse" xml:space="preserve"><value>参照...</value></data>
+  <data name="Button_Open" xml:space="preserve"><value>開く</value></data>
+  <data name="Label_Progress" xml:space="preserve"><value>進捗:</value></data>
+  <data name="Button_Convert" xml:space="preserve"><value>変換</value></data>
+  <data name="Button_ScreenshotTool" xml:space="preserve"><value>スクリーンショットツール</value></data>
+  <data name="Button_Exit" xml:space="preserve"><value>終了</value></data>
+  <data name="MsgBox_ConfirmExit" xml:space="preserve"><value>プログラムを終了しますか？</value></data>
+  <data name="MsgBox_Title_Confirm" xml:space="preserve"><value>確認</value></data>
+  <data name="Status_Ready" xml:space="preserve"><value>準備完了</value></data>
+  <data name="FileFilter_ImageFiles" xml:space="preserve"><value>画像ファイル</value></data>
+  <data name="FileFilter_AllFiles" xml:space="preserve"><value>すべてのファイル</value></data>
+  <data name="Unit_B" xml:space="preserve"><value>B</value></data>
+  <data name="Unit_KB" xml:space="preserve"><value>KB</value></data>
+  <data name="Unit_MB" xml:space="preserve"><value>MB</value></data>
+  <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
+  <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
+  <data name="Meta_Colorful" xml:space="preserve"><value>カラー</value></data>
+  <data name="Meta_BlackWhite" xml:space="preserve"><value>白黒</value></data>
+  <data name="Meta_HasPassword" xml:space="preserve"><value>パスワード</value></data>
+  <data name="Meta_ErrorCorrection" xml:space="preserve"><value>RS={0}%</value></data>
+  <data name="Status_MetaParseFailed" xml:space="preserve"><value>メタデータ解析失敗</value></data>
+  <data name="Status_ReadFailed" xml:space="preserve"><value>読み込み失敗: {0}</value></data>
+  <data name="Dialog_SelectSaveFolder" xml:space="preserve"><value>保存フォルダを選択</value></data>
+  <data name="Error_SavePathNotExist" xml:space="preserve"><value>保存パスが存在しません</value></data>
+  <data name="Error_SelectSavePathFirst" xml:space="preserve"><value>先に保存パスを選択してください</value></data>
+  <data name="Error_NoCompleteFiles" xml:space="preserve"><value>変換できる完全なファイルがありません</value></data>
+  <data name="Error_PasswordRequired" xml:space="preserve"><value>パスワードが必要なファイルがあります。入力してください</value></data>
+  <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>未解析のファイルがあります。スキップして続行しますか？</value></data>
+  <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>通知</value></data>
+  <data name="Default_DecodeFileName" xml:space="preserve"><value>decoded_file.bin</value></data>
+  <data name="Status_ParsingFormat" xml:space="preserve"><value>解析中 {0}/{1}</value></data>
+  <data name="Status_EmptyPath" xml:space="preserve"><value>パスが空です</value></data>
+  <data name="Status_ParseFailed" xml:space="preserve"><value>解析失敗</value></data>
+  <data name="Status_Complete" xml:space="preserve"><value>完了</value></data>
+  <data name="Error_ParseFailed" xml:space="preserve"><value>解析失敗: {0}</value></data>
+  <data name="Status_PartialFailed" xml:space="preserve"><value>一部のファイルが失敗しました。解析可能な部分は完了しました</value></data>
+  <data name="Status_ParseSuccess" xml:space="preserve"><value>解析成功</value></data>
+  <data name="Error_Error" xml:space="preserve"><value>エラー: {0}</value></data>
+  <data name="ScreenshotTool_Title" xml:space="preserve"><value>スクリーンショットツール</value></data>
+  <data name="Error_SetSavePathFirst" xml:space="preserve"><value>先に有効な保存パスを設定してください</value></data>
+  <data name="Error_SelectWindowOrRegion" xml:space="preserve"><value>先にウィンドウまたは領域を選択してください</value></data>
+  <data name="Error_ScreenshotFailed" xml:space="preserve"><value>スクリーンショット失敗</value></data>
+  <data name="Screenshot_FileNamePrefix" xml:space="preserve"><value>Screenshot_</value></data>
+  <data name="Toast_SavedTo" xml:space="preserve"><value>保存先: {0}</value></data>
+  <data name="Toast_ScreenshotSuccess" xml:space="preserve"><value>スクリーンショット成功</value></data>
+  <data name="Error_SaveFailed" xml:space="preserve"><value>保存失敗: {0}</value></data>
+  <data name="Error_ScreenshotFirst" xml:space="preserve"><value>先にスクリーンショットを撮影してください</value></data>
+  <data name="DecodeTest_Title" xml:space="preserve"><value>デコードテスト</value></data>
+  <data name="DecodeTest_MetaOk" xml:space="preserve"><value>メタデータOK: {0} ({1}x{2} P={3}/{4})</value></data>
+  <data name="DecodeTest_MetaNotFound" xml:space="preserve"><value>メタデータが認識されません</value></data>
+  <data name="DecodeTest_MetaError" xml:space="preserve"><value>メタデータ異常: {0}</value></data>
+  <data name="DecodeTest_DecodeSuccess" xml:space="preserve"><value>デコード成功、データブロック数: {0}</value></data>
+  <data name="DecodeTest_DecodeFailed" xml:space="preserve"><value>デコード失敗、データブロックが解析されませんでした</value></data>
+  <data name="DecodeTest_DecodeError" xml:space="preserve"><value>デコード異常: {0}</value></data>
+  <data name="MsgBox_Title_DecodeTestResult" xml:space="preserve"><value>テスト結果</value></data>
+  <data name="Error_TestFailed" xml:space="preserve"><value>テスト失敗: {0}</value></data>
+  <data name="Toast_DefaultTitle" xml:space="preserve"><value>通知</value></data>
+  <data name="ToolTip_DragMove" xml:space="preserve"><value>ドラッグして移動</value></data>
+  <data name="ToolTip_SelectWindow" xml:space="preserve"><value>ウィンドウ選択 (Ctrl+F2)</value></data>
+  <data name="ToolTip_SelectRegion" xml:space="preserve"><value>領域選択 (Ctrl+F3)</value></data>
+  <data name="ToolTip_EditSelection" xml:space="preserve"><value>選択範囲を編集</value></data>
+  <data name="ToolTip_CancelSelection" xml:space="preserve"><value>選択をキャンセル (Esc)</value></data>
+  <data name="ToolTip_Capture" xml:space="preserve"><value>撮影 (F4)</value></data>
+  <data name="ToolTip_DecodeTest" xml:space="preserve"><value>デコードテスト (Ctrl+F4)</value></data>
+  <data name="ToolTip_Pin" xml:space="preserve"><value>位置を固定</value></data>
+  <data name="ToolTip_Close" xml:space="preserve"><value>閉じる (Esc)</value></data>
+  <data name="Error_MetaNotFound" xml:space="preserve"><value>メタデータが見つからないか無効な形式です: {0}</value></data>
+  <data name="Error_NoDataBlocks" xml:space="preserve"><value>データブロックが解析されませんでした: {0}</value></data>
+  <data name="Error_QrCodeCountMismatch" xml:space="preserve"><value>QRコード数が一致しません: 予想 {0}、実際 {1}</value></data>
+  <data name="Error_Crc32Failed" xml:space="preserve"><value>CRC32 検証失敗: ブロック ({0}, {1})</value></data>
+  <data name="Error_LoadImageFailed" xml:space="preserve"><value>画像読み込み失敗: {0}</value></data>
+</root>

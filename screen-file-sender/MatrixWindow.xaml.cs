@@ -132,7 +132,7 @@ namespace screen_file_transmit
                 fileName, currentPage, totalPage, ref sessionGuid, shrinkWidth, shrinkHeight,
                 errorCorrectionPercent);
 
-            this.Title = $"{fileName ?? "二维码矩阵"} - 第 {currentPage - 1} 页";
+            this.Title = $"{fileName ?? Properties.Resources.ResourceManager.GetString("MatrixWindowTitle")} - 第 {currentPage - 1} 页";
 
             BitmapSource bitmapSource = ImageEncoder.ConvertBitmapToBitmapSource(bitmap);
             DisplayGrid.Content = (new Image()

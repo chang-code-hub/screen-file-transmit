@@ -17,7 +17,7 @@ namespace screen_file_transmit
     {
         private ObservableCollection<FileItem> _fileItems = new ObservableCollection<FileItem>();
         private string _password;
-        private string _statusText = "就绪";
+        private string _statusText = Properties.Resources.ResourceManager.GetString("Status_Ready");
         private double _progressValue;
         private double _progressMaximum = 100;
         private bool _isBusy;
@@ -150,7 +150,13 @@ namespace screen_file_transmit
 
         private string GetFriendlyFileSize(long bytes)
         {
-            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+            string[] sizes = {
+                Properties.Resources.ResourceManager.GetString("Unit_B"),
+                Properties.Resources.ResourceManager.GetString("Unit_KB"),
+                Properties.Resources.ResourceManager.GetString("Unit_MB"),
+                Properties.Resources.ResourceManager.GetString("Unit_GB"),
+                Properties.Resources.ResourceManager.GetString("Unit_TB")
+            };
             double len = bytes;
             int order = 0;
             while (len >= 1024 && order < sizes.Length - 1)
@@ -174,7 +180,7 @@ namespace screen_file_transmit
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Multiselect = true;
-            openFileDialog.Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp|所有文件|*.*";
+            openFileDialog.Filter = $"{Properties.Resources.ResourceManager.GetString("FileFilter_ImageFiles")}|*.png;*.jpg;*.jpeg;*.bmp|{Properties.Resources.ResourceManager.GetString("FileFilter_AllFiles")}|*.*";
             if (openFileDialog.ShowDialog() ?? false)
             {
                 AddFiles(openFileDialog.FileNames);
@@ -253,11 +259,11 @@ namespace screen_file_transmit
                 {
                     //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
                     //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
-                    item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? "彩色" : "黑白")} D={item.ColorDepth} DM={item.TotalQrCodeCount} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " 有密码" : "")}{(item.HasErrorCorrection ? $" RS={item.ErrorCorrectionPercent}%" : "")}";
+                    item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? Properties.Resources.ResourceManager.GetString("Meta_Colorful") : Properties.Resources.ResourceManager.GetString("Meta_BlackWhite"))} D={item.ColorDepth} DM={item.TotalQrCodeCount} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " " + Properties.Resources.ResourceManager.GetString("Meta_HasPassword") : "")}{(item.HasErrorCorrection ? " " + string.Format(Properties.Resources.ResourceManager.GetString("Meta_ErrorCorrection"), item.ErrorCorrectionPercent) : "")}";
                 }
                 else
                 {
-                    item.Status = "元数据解析失败";
+                    item.Status = Properties.Resources.ResourceManager.GetString("Status_MetaParseFailed");
                 }
                 return item;
             }
@@ -268,7 +274,7 @@ namespace screen_file_transmit
                     FullPath = filePath,
                     ImageFileName = Path.GetFileName(filePath),
                     SaveFileName = Path.GetFileNameWithoutExtension(filePath),
-                    Status = $"读取失败: {ex.Message}"
+                    Status = string.Format(Properties.Resources.ResourceManager.GetString("Status_ReadFailed"), ex.Message)
                 };
                 //errorItem.DeleteCommand = new RelayCommand(_ => DeleteItem(errorItem), _ => !IsBusy);
                 //errorItem.RetryCommand = new RelayCommand(_ => RetryItem(errorItem), _ => !IsBusy);
@@ -401,7 +407,7 @@ namespace screen_file_transmit
         {
             using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
             {
-                dialog.Description = "选择保存文件夹";
+                dialog.Description = Properties.Resources.ResourceManager.GetString("Dialog_SelectSaveFolder");
                 if (!string.IsNullOrWhiteSpace(OutputFilePath))
                 {
                     dialog.SelectedPath = OutputFilePath;
@@ -418,7 +424,7 @@ namespace screen_file_transmit
             var path = OutputFilePath;
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             {
-                MessageBox.Show("保存路径不存在");
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SavePathNotExist"));
                 return;
             }
             System.Diagnostics.Process.Start("explorer.exe", path);
@@ -461,32 +467,32 @@ namespace screen_file_transmit
         {
             if (string.IsNullOrWhiteSpace(OutputFilePath))
             {
-                MessageBox.Show("请先选择保存路径");
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SelectSavePathFirst"));
                 return;
             }
 
             if (!Directory.Exists(OutputFilePath))
             {
-                MessageBox.Show("保存路径不存在");
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SavePathNotExist"));
                 return;
             }
             var completeItems = FileItems.Where(f => f.IsComplete).ToList();
             if (completeItems.Count == 0)
             {
-                MessageBox.Show("没有可转换的完整文件");
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_NoCompleteFiles"));
                 return;
             }
 
             if (completeItems.Any(f => f.HasPassword && string.IsNullOrEmpty(Password)))
             {
-                MessageBox.Show("存在需要密码的文件，请先输入密码");
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_PasswordRequired"));
                 return;
             }
 
             var incompleteItems = FileItems.Where(f => !f.IsComplete).ToList();
             if (incompleteItems.Count > 0)
             {
-                var result = MessageBox.Show("存在未解析完成的文件，是否跳过这些文件继续转换？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                var result = MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_SkipIncompleteFiles"), Properties.Resources.ResourceManager.GetString("MsgBox_Title_Prompt"), MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (result == MessageBoxResult.No)
                     return;
             }
@@ -510,7 +516,7 @@ namespace screen_file_transmit
                     {
                         string outputFileName = group.Key.SaveFileName;
                         if (string.IsNullOrWhiteSpace(outputFileName))
-                            outputFileName = "解码文件.bin";
+                            outputFileName = Properties.Resources.ResourceManager.GetString("Default_DecodeFileName");
 
                         string outputPath = Path.Combine(OutputFilePath, outputFileName);
                         outputPath = GetUniqueFilePath(outputPath);
@@ -524,14 +530,14 @@ namespace screen_file_transmit
 
                                 dispatcher.Invoke(() =>
                                 {
-                                    item.Status = $"正在解析 {processedCount}/{completeItems.Count}";
+                                    item.Status = string.Format(Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"), processedCount, completeItems.Count);
                                     item.ProgressValue = 0;
                                     ProgressValue = processedCount;
                                 });
 
                                 if (string.IsNullOrEmpty(item.FullPath))
                                 {
-                                    dispatcher.Invoke(() => item.Status = "路径为空");
+                                    dispatcher.Invoke(() => item.Status = Properties.Resources.ResourceManager.GetString("Status_EmptyPath"));
                                     failed = true;
                                     continue;
                                 }
@@ -540,21 +546,21 @@ namespace screen_file_transmit
                                 {
                                     if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
                                     {
-                                        dispatcher.Invoke(() => item.Status = "解析失败");
+                                        dispatcher.Invoke(() => item.Status = Properties.Resources.ResourceManager.GetString("Status_ParseFailed"));
                                         failed = true;
                                     }
                                     else
                                     {
                                         dispatcher.Invoke(() =>
                                         {
-                                            item.Status = "完成";
+                                            item.Status = Properties.Resources.ResourceManager.GetString("Status_Complete");
                                             item.ProgressValue = 100;
                                         });
                                     }
                                 }
                                 catch (Exception ex)
                                 {
-                                    dispatcher.Invoke(() => item.Status = $"解析失败: {ex.Message}");
+                                    dispatcher.Invoke(() => item.Status = string.Format(Properties.Resources.ResourceManager.GetString("Error_ParseFailed"), ex.Message));
                                     failed = true;
                                 }
                             }
@@ -579,19 +585,19 @@ namespace screen_file_transmit
 
                 if (anyFailed)
                 {
-                    StatusText = "部分文件解析失败，已完成可解析部分";
+                    StatusText = Properties.Resources.ResourceManager.GetString("Status_PartialFailed");
                     SystemSounds.Exclamation.Play();
                 }
                 else
                 {
-                    StatusText = "解析成功";
+                    StatusText = Properties.Resources.ResourceManager.GetString("Status_ParseSuccess");
                     SystemSounds.Asterisk.Play();
                 }
             }
             catch (Exception e)
             {
                 MessageBox.Show(e.Message);
-                StatusText = $"错误: {e.Message}";
+                StatusText = string.Format(Properties.Resources.ResourceManager.GetString("Error_Error"), e.Message);
             }
             finally
             {

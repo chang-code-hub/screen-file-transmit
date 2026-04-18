@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>Émetteur de fichiers par écran</value></data>
+  <data name="BannerTitle" xml:space="preserve"><value>Émetteur de fichiers par écran</value></data>
+  <data name="Label_SelectFile" xml:space="preserve"><value>Sélectionner un fichier :</value></data>
+  <data name="Button_Browse" xml:space="preserve"><value>Parcourir...</value></data>
+  <data name="Label_EncodingScale" xml:space="preserve"><value>Échelle d'encodage :</value></data>
+  <data name="Label_Resolution" xml:space="preserve"><value>Résolution :</value></data>
+  <data name="Label_CustomSize" xml:space="preserve"><value>Taille personnalisée :</value></data>
+  <data name="Label_WidthShrink" xml:space="preserve"><value>Réduction largeur :</value></data>
+  <data name="Label_HeightShrink" xml:space="preserve"><value>Réduction hauteur :</value></data>
+  <data name="Label_ErrorCorrection" xml:space="preserve"><value>Niveau de correction :</value></data>
+  <data name="Label_Password" xml:space="preserve"><value>Mot de passe :</value></data>
+  <data name="Label_SavePath" xml:space="preserve"><value>Chemin de sauvegarde :</value></data>
+  <data name="Button_Open" xml:space="preserve"><value>Ouvrir</value></data>
+  <data name="Label_SaveProgress" xml:space="preserve"><value>Progression :</value></data>
+  <data name="Button_Convert" xml:space="preserve"><value>Convertir</value></data>
+  <data name="Button_Cancel" xml:space="preserve"><value>Annuler</value></data>
+  <data name="Button_Preview" xml:space="preserve"><value>Aperçu</value></data>
+  <data name="Button_Exit" xml:space="preserve"><value>Quitter</value></data>
+  <data name="Button_PreviousPage" xml:space="preserve"><value>Précédent</value></data>
+  <data name="Button_NextPage" xml:space="preserve"><value>Suivant</value></data>
+  <data name="Button_Back" xml:space="preserve"><value>Retour</value></data>
+  <data name="Text_Loading" xml:space="preserve"><value>Chargement...</value></data>
+  <data name="MsgBox_ConfirmExitDuringConvert" xml:space="preserve"><value>La conversion est en cours. Voulez-vous vraiment quitter ?</value></data>
+  <data name="MsgBox_ConfirmExitDuringPreview" xml:space="preserve"><value>L'aperçu est en cours. Voulez-vous vraiment quitter ?</value></data>
+  <data name="MsgBox_ConfirmExit" xml:space="preserve"><value>Voulez-vous vraiment quitter ?</value></data>
+  <data name="MsgBox_Title_Confirm" xml:space="preserve"><value>Confirmer</value></data>
+  <data name="ColorMode_BlackWhite" xml:space="preserve"><value>Noir et blanc</value></data>
+  <data name="ColorMode_Color" xml:space="preserve"><value>Couleur (Haute qualité)</value></data>
+  <data name="Resolution_CurrentScreen" xml:space="preserve"><value>Écran actuel</value></data>
+  <data name="Resolution_FullHD" xml:space="preserve"><value>1920 x 1080 (Full HD)</value></data>
+  <data name="Resolution_2K" xml:space="preserve"><value>2560 x 1440 (2K)</value></data>
+  <data name="Resolution_4K" xml:space="preserve"><value>3840 x 2160 (4K)</value></data>
+  <data name="Resolution_HD" xml:space="preserve"><value>1280 x 720 (HD)</value></data>
+  <data name="Resolution_Laptop" xml:space="preserve"><value>1366 x 768 (Portable)</value></data>
+  <data name="Resolution_1600x900" xml:space="preserve"><value>1600 x 900</value></data>
+  <data name="Resolution_1440x900" xml:space="preserve"><value>1440 x 900</value></data>
+  <data name="Resolution_1680x1050" xml:space="preserve"><value>1680 x 1050</value></data>
+  <data name="Resolution_Ultrawide1" xml:space="preserve"><value>2560 x 1080 (Ultrawide)</value></data>
+  <data name="Resolution_Ultrawide2" xml:space="preserve"><value>3440 x 1440 (Ultrawide)</value></data>
+  <data name="Resolution_Custom" xml:space="preserve"><value>Personnalisé</value></data>
+  <data name="Label_Current" xml:space="preserve"><value>Actuel</value></data>
+  <data name="Unit_B" xml:space="preserve"><value>B</value></data>
+  <data name="Unit_KB" xml:space="preserve"><value>KB</value></data>
+  <data name="Unit_MB" xml:space="preserve"><value>MB</value></data>
+  <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
+  <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
+  <data name="Error_SelectFileFirst" xml:space="preserve"><value>Veuillez d'abord sélectionner un fichier à encoder</value></data>
+  <data name="Error_PreviewFailed" xml:space="preserve"><value>Échec de l'aperçu : {0}</value></data>
+  <data name="Error_GeneratePreviewFailed" xml:space="preserve"><value>Échec de la génération de l'aperçu : {0}</value></data>
+  <data name="Error_SavePathNotExist" xml:space="preserve"><value>Le chemin de sauvegarde n'existe pas</value></data>
+  <data name="Dialog_SelectSaveFolder" xml:space="preserve"><value>Sélectionnez le dossier de sauvegarde</value></data>
+  <data name="Status_Preparing" xml:space="preserve"><value>Préparation...</value></data>
+  <data name="Status_Success" xml:space="preserve"><value>Génération réussie</value></data>
+  <data name="Status_Failed" xml:space="preserve"><value>Génération échouée</value></data>
+  <data name="Error_SaveFailed" xml:space="preserve"><value>Échec de la sauvegarde : {0}</value></data>
+  <data name="Status_GeneratingPage" xml:space="preserve"><value>Génération de la page {0}/{1}...</value></data>
+  <data name="Preview_TitleFormat" xml:space="preserve"><value>{0} - Page {1}/{2}</value></data>
+  <data name="MatrixWindowTitle" xml:space="preserve"><value>Matrice de codes QR</value></data>
+</root>

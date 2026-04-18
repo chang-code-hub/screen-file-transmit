@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using System.Globalization;
+using System.Threading;
+using System.Windows;
 
 namespace screen_file_transmit
 {
@@ -7,5 +9,9 @@ namespace screen_file_transmit
     /// </summary>
     public partial class App : Application
     {
+        public App()
+        {
+            Thread.CurrentThread.CurrentUICulture = CultureInfo.CurrentUICulture;
+        }
     }
 }

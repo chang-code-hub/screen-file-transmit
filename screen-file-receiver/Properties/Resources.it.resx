@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>Ricevitore file schermo</value></data>
+  <data name="BannerTitle" xml:space="preserve"><value>Ricevitore file schermo</value></data>
+  <data name="Label_ImageFiles" xml:space="preserve"><value>File immagine:</value></data>
+  <data name="Button_Add" xml:space="preserve"><value>Aggiungi...</value></data>
+  <data name="Button_Delete" xml:space="preserve"><value>Elimina</value></data>
+  <data name="Button_Clear" xml:space="preserve"><value>Svuota</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>Suggerimento: trascina i file immagine nella finestra per aggiungerli.</value></data>
+  <data name="Column_ImageFileName" xml:space="preserve"><value>Nome file</value></data>
+  <data name="Column_FileId" xml:space="preserve"><value>ID file</value></data>
+  <data name="Column_SaveFileName" xml:space="preserve"><value>Nome salvataggio</value></data>
+  <data name="Column_Metadata" xml:space="preserve"><value>Metadati</value></data>
+  <data name="Column_Status" xml:space="preserve"><value>Stato</value></data>
+  <data name="Column_ParseProgress" xml:space="preserve"><value>Progresso analisi</value></data>
+  <data name="Label_Preview" xml:space="preserve"><value>Anteprima:</value></data>
+  <data name="Label_Password" xml:space="preserve"><value>Password:</value></data>
+  <data name="Label_SavePath" xml:space="preserve"><value>Percorso salvataggio:</value></data>
+  <data name="Button_Browse" xml:space="preserve"><value>Sfoglia...</value></data>
+  <data name="Button_Open" xml:space="preserve"><value>Apri</value></data>
+  <data name="Label_Progress" xml:space="preserve"><value>Progresso:</value></data>
+  <data name="Button_Convert" xml:space="preserve"><value>Converti</value></data>
+  <data name="Button_ScreenshotTool" xml:space="preserve"><value>Strumento screenshot</value></data>
+  <data name="Button_Exit" xml:space="preserve"><value>Esci</value></data>
+  <data name="MsgBox_ConfirmExit" xml:space="preserve"><value>Uscire dal programma?</value></data>
+  <data name="MsgBox_Title_Confirm" xml:space="preserve"><value>Conferma</value></data>
+  <data name="Status_Ready" xml:space="preserve"><value>Pronto</value></data>
+  <data name="FileFilter_ImageFiles" xml:space="preserve"><value>File immagine</value></data>
+  <data name="FileFilter_AllFiles" xml:space="preserve"><value>Tutti i file</value></data>
+  <data name="Unit_B" xml:space="preserve"><value>B</value></data>
+  <data name="Unit_KB" xml:space="preserve"><value>KB</value></data>
+  <data name="Unit_MB" xml:space="preserve"><value>MB</value></data>
+  <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
+  <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
+  <data name="Meta_Colorful" xml:space="preserve"><value>Colore</value></data>
+  <data name="Meta_BlackWhite" xml:space="preserve"><value>B/N</value></data>
+  <data name="Meta_HasPassword" xml:space="preserve"><value>Password</value></data>
+  <data name="Meta_ErrorCorrection" xml:space="preserve"><value>RS={0}%</value></data>
+  <data name="Status_MetaParseFailed" xml:space="preserve"><value>Analisi metadati fallita</value></data>
+  <data name="Status_ReadFailed" xml:space="preserve"><value>Lettura fallita: {0}</value></data>
+  <data name="Dialog_SelectSaveFolder" xml:space="preserve"><value>Seleziona cartella di salvataggio</value></data>
+  <data name="Error_SavePathNotExist" xml:space="preserve"><value>Il percorso di salvataggio non esiste</value></data>
+  <data name="Error_SelectSavePathFirst" xml:space="preserve"><value>Seleziona prima il percorso di salvataggio</value></data>
+  <data name="Error_NoCompleteFiles" xml:space="preserve"><value>Nessun file completo da convertire</value></data>
+  <data name="Error_PasswordRequired" xml:space="preserve"><value>Alcuni file richiedono una password. Inseriscila</value></data>
+  <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>Ci sono file incompleti. Saltarli e continuare?</value></data>
+  <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>Avviso</value></data>
+  <data name="Default_DecodeFileName" xml:space="preserve"><value>file_decodificato.bin</value></data>
+  <data name="Status_ParsingFormat" xml:space="preserve"><value>Analisi {0}/{1}</value></data>
+  <data name="Status_EmptyPath" xml:space="preserve"><value>Percorso vuoto</value></data>
+  <data name="Status_ParseFailed" xml:space="preserve"><value>Analisi fallita</value></data>
+  <data name="Status_Complete" xml:space="preserve"><value>Completato</value></data>
+  <data name="Error_ParseFailed" xml:space="preserve"><value>Analisi fallita: {0}</value></data>
+  <data name="Status_PartialFailed" xml:space="preserve"><value>Alcuni file falliti. Parti analizzabili completate</value></data>
+  <data name="Status_ParseSuccess" xml:space="preserve"><value>Analisi riuscita</value></data>
+  <data name="Error_Error" xml:space="preserve"><value>Errore: {0}</value></data>
+  <data name="ScreenshotTool_Title" xml:space="preserve"><value>Strumento screenshot</value></data>
+  <data name="Error_SetSavePathFirst" xml:space="preserve"><value>Imposta prima un percorso di salvataggio valido</value></data>
+  <data name="Error_SelectWindowOrRegion" xml:space="preserve"><value>Seleziona prima una finestra o un'area</value></data>
+  <data name="Error_ScreenshotFailed" xml:space="preserve"><value>Screenshot fallito</value></data>
+  <data name="Screenshot_FileNamePrefix" xml:space="preserve"><value>Screenshot_</value></data>
+  <data name="Toast_SavedTo" xml:space="preserve"><value>Salvato in: {0}</value></data>
+  <data name="Toast_ScreenshotSuccess" xml:space="preserve"><value>Screenshot riuscito</value></data>
+  <data name="Error_SaveFailed" xml:space="preserve"><value>Salvataggio fallito: {0}</value></data>
+  <data name="Error_ScreenshotFirst" xml:space="preserve"><value>Esegui prima uno screenshot</value></data>
+  <data name="DecodeTest_Title" xml:space="preserve"><value>Test decodifica</value></data>
+  <data name="DecodeTest_MetaOk" xml:space="preserve"><value>Metadati OK: {0} ({1}x{2} P={3}/{4})</value></data>
+  <data name="DecodeTest_MetaNotFound" xml:space="preserve"><value>Metadati non riconosciuti</value></data>
+  <data name="DecodeTest_MetaError" xml:space="preserve"><value>Errore metadati: {0}</value></data>
+  <data name="DecodeTest_DecodeSuccess" xml:space="preserve"><value>Decodifica riuscita, blocchi dati: {0}</value></data>
+  <data name="DecodeTest_DecodeFailed" xml:space="preserve"><value>Decodifica fallita, nessun blocco analizzato</value></data>
+  <data name="DecodeTest_DecodeError" xml:space="preserve"><value>Errore decodifica: {0}</value></data>
+  <data name="MsgBox_Title_DecodeTestResult" xml:space="preserve"><value>Risultato test</value></data>
+  <data name="Error_TestFailed" xml:space="preserve"><value>Test fallito: {0}</value></data>
+  <data name="Toast_DefaultTitle" xml:space="preserve"><value>Notifica</value></data>
+  <data name="ToolTip_DragMove" xml:space="preserve"><value>Trascina per spostare</value></data>
+  <data name="ToolTip_SelectWindow" xml:space="preserve"><value>Seleziona finestra (Ctrl+F2)</value></data>
+  <data name="ToolTip_SelectRegion" xml:space="preserve"><value>Seleziona area (Ctrl+F3)</value></data>
+  <data name="ToolTip_EditSelection" xml:space="preserve"><value>Modifica selezione</value></data>
+  <data name="ToolTip_CancelSelection" xml:space="preserve"><value>Annulla selezione (Esc)</value></data>
+  <data name="ToolTip_Capture" xml:space="preserve"><value>Cattura (F4)</value></data>
+  <data name="ToolTip_DecodeTest" xml:space="preserve"><value>Test decodifica (Ctrl+F4)</value></data>
+  <data name="ToolTip_Pin" xml:space="preserve"><value>Fissa posizione</value></data>
+  <data name="ToolTip_Close" xml:space="preserve"><value>Chiudi (Esc)</value></data>
+  <data name="Error_MetaNotFound" xml:space="preserve"><value>Metadati non trovati o formato non valido: {0}</value></data>
+  <data name="Error_NoDataBlocks" xml:space="preserve"><value>Nessun blocco dati analizzato: {0}</value></data>
+  <data name="Error_QrCodeCountMismatch" xml:space="preserve"><value>Numero QR Code non corrispondente: atteso {0}, attuale {1}</value></data>
+  <data name="Error_Crc32Failed" xml:space="preserve"><value>Verifica CRC32 fallita: blocco ({0}, {1})</value></data>
+  <data name="Error_LoadImageFailed" xml:space="preserve"><value>Caricamento immagine fallito: {0}</value></data>
+</root>

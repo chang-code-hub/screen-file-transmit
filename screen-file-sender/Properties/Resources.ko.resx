@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>화면 파일 송신기</value></data>
+  <data name="BannerTitle" xml:space="preserve"><value>화면 파일 송신기</value></data>
+  <data name="Label_SelectFile" xml:space="preserve"><value>파일 선택:</value></data>
+  <data name="Button_Browse" xml:space="preserve"><value>찾아보기...</value></data>
+  <data name="Label_EncodingScale" xml:space="preserve"><value>인코딩 비율:</value></data>
+  <data name="Label_Resolution" xml:space="preserve"><value>해상도:</value></data>
+  <data name="Label_CustomSize" xml:space="preserve"><value>사용자 지정 크기:</value></data>
+  <data name="Label_WidthShrink" xml:space="preserve"><value>가로 축소:</value></data>
+  <data name="Label_HeightShrink" xml:space="preserve"><value>세로 축소:</value></data>
+  <data name="Label_ErrorCorrection" xml:space="preserve"><value>오류 수정 수준:</value></data>
+  <data name="Label_Password" xml:space="preserve"><value>비밀번호:</value></data>
+  <data name="Label_SavePath" xml:space="preserve"><value>저장 경로:</value></data>
+  <data name="Button_Open" xml:space="preserve"><value>열기</value></data>
+  <data name="Label_SaveProgress" xml:space="preserve"><value>저장 진행:</value></data>
+  <data name="Button_Convert" xml:space="preserve"><value>변환</value></data>
+  <data name="Button_Cancel" xml:space="preserve"><value>취소</value></data>
+  <data name="Button_Preview" xml:space="preserve"><value>미리보기</value></data>
+  <data name="Button_Exit" xml:space="preserve"><value>종료</value></data>
+  <data name="Button_PreviousPage" xml:space="preserve"><value>이전</value></data>
+  <data name="Button_NextPage" xml:space="preserve"><value>다음</value></data>
+  <data name="Button_Back" xml:space="preserve"><value>뒤로</value></data>
+  <data name="Text_Loading" xml:space="preserve"><value>로딩 중...</value></data>
+  <data name="MsgBox_ConfirmExitDuringConvert" xml:space="preserve"><value>변환 중입니다. 종료하시겠습니까?</value></data>
+  <data name="MsgBox_ConfirmExitDuringPreview" xml:space="preserve"><value>미리보기 중입니다. 종료하시겠습니까?</value></data>
+  <data name="MsgBox_ConfirmExit" xml:space="preserve"><value>프로그램을 종료하시겠습니까?</value></data>
+  <data name="MsgBox_Title_Confirm" xml:space="preserve"><value>확인</value></data>
+  <data name="ColorMode_BlackWhite" xml:space="preserve"><value>흑백</value></data>
+  <data name="ColorMode_Color" xml:space="preserve"><value>컬러 (고품질)</value></data>
+  <data name="Resolution_CurrentScreen" xml:space="preserve"><value>현재 화면</value></data>
+  <data name="Resolution_FullHD" xml:space="preserve"><value>1920 x 1080 (풀HD)</value></data>
+  <data name="Resolution_2K" xml:space="preserve"><value>2560 x 1440 (2K)</value></data>
+  <data name="Resolution_4K" xml:space="preserve"><value>3840 x 2160 (4K)</value></data>
+  <data name="Resolution_HD" xml:space="preserve"><value>1280 x 720 (HD)</value></data>
+  <data name="Resolution_Laptop" xml:space="preserve"><value>1366 x 768 (노트북)</value></data>
+  <data name="Resolution_1600x900" xml:space="preserve"><value>1600 x 900</value></data>
+  <data name="Resolution_1440x900" xml:space="preserve"><value>1440 x 900</value></data>
+  <data name="Resolution_1680x1050" xml:space="preserve"><value>1680 x 1050</value></data>
+  <data name="Resolution_Ultrawide1" xml:space="preserve"><value>2560 x 1080 (울트라와이드)</value></data>
+  <data name="Resolution_Ultrawide2" xml:space="preserve"><value>3440 x 1440 (울트라와이드)</value></data>
+  <data name="Resolution_Custom" xml:space="preserve"><value>사용자 지정</value></data>
+  <data name="Label_Current" xml:space="preserve"><value>현재</value></data>
+  <data name="Unit_B" xml:space="preserve"><value>B</value></data>
+  <data name="Unit_KB" xml:space="preserve"><value>KB</value></data>
+  <data name="Unit_MB" xml:space="preserve"><value>MB</value></data>
+  <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
+  <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
+  <data name="Error_SelectFileFirst" xml:space="preserve"><value>먼저 인코딩할 파일을 선택하세요</value></data>
+  <data name="Error_PreviewFailed" xml:space="preserve"><value>미리보기 실패: {0}</value></data>
+  <data name="Error_GeneratePreviewFailed" xml:space="preserve"><value>미리보기 생성 실패: {0}</value></data>
+  <data name="Error_SavePathNotExist" xml:space="preserve"><value>저장 경로가 존재하지 않습니다</value></data>
+  <data name="Dialog_SelectSaveFolder" xml:space="preserve"><value>이미지 저장 폳더 선택</value></data>
+  <data name="Status_Preparing" xml:space="preserve"><value>준비 중...</value></data>
+  <data name="Status_Success" xml:space="preserve"><value>생성 성공</value></data>
+  <data name="Status_Failed" xml:space="preserve"><value>생성 실패</value></data>
+  <data name="Error_SaveFailed" xml:space="preserve"><value>저장 실패: {0}</value></data>
+  <data name="Status_GeneratingPage" xml:space="preserve"><value>페이지 {0}/{1} 생성 중...</value></data>
+  <data name="Preview_TitleFormat" xml:space="preserve"><value>{0} - 페이지 {1}/{2}</value></data>
+  <data name="MatrixWindowTitle" xml:space="preserve"><value>QR 코드 매트릭스</value></data>
+</root>

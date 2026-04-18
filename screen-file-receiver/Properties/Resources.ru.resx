@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>Приемник файлов экрана</value></data>
+  <data name="BannerTitle" xml:space="preserve"><value>Приемник файлов экрана</value></data>
+  <data name="Label_ImageFiles" xml:space="preserve"><value>Файлы изображений:</value></data>
+  <data name="Button_Add" xml:space="preserve"><value>Добавить...</value></data>
+  <data name="Button_Delete" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Button_Clear" xml:space="preserve"><value>Очистить</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>Подсказка: перетащите файлы изображений в окно для добавления.</value></data>
+  <data name="Column_ImageFileName" xml:space="preserve"><value>Имя файла</value></data>
+  <data name="Column_FileId" xml:space="preserve"><value>ID файла</value></data>
+  <data name="Column_SaveFileName" xml:space="preserve"><value>Имя сохранения</value></data>
+  <data name="Column_Metadata" xml:space="preserve"><value>Метаданные</value></data>
+  <data name="Column_Status" xml:space="preserve"><value>Статус</value></data>
+  <data name="Column_ParseProgress" xml:space="preserve"><value>Прогресс анализа</value></data>
+  <data name="Label_Preview" xml:space="preserve"><value>Предпросмотр:</value></data>
+  <data name="Label_Password" xml:space="preserve"><value>Пароль:</value></data>
+  <data name="Label_SavePath" xml:space="preserve"><value>Путь сохранения:</value></data>
+  <data name="Button_Browse" xml:space="preserve"><value>Обзор...</value></data>
+  <data name="Button_Open" xml:space="preserve"><value>Открыть</value></data>
+  <data name="Label_Progress" xml:space="preserve"><value>Прогресс:</value></data>
+  <data name="Button_Convert" xml:space="preserve"><value>Преобразовать</value></data>
+  <data name="Button_ScreenshotTool" xml:space="preserve"><value>Скриншот</value></data>
+  <data name="Button_Exit" xml:space="preserve"><value>Выход</value></data>
+  <data name="MsgBox_ConfirmExit" xml:space="preserve"><value>Выйти из программы?</value></data>
+  <data name="MsgBox_Title_Confirm" xml:space="preserve"><value>Подтверждение</value></data>
+  <data name="Status_Ready" xml:space="preserve"><value>Готово</value></data>
+  <data name="FileFilter_ImageFiles" xml:space="preserve"><value>Файлы изображений</value></data>
+  <data name="FileFilter_AllFiles" xml:space="preserve"><value>Все файлы</value></data>
+  <data name="Unit_B" xml:space="preserve"><value>Б</value></data>
+  <data name="Unit_KB" xml:space="preserve"><value>КБ</value></data>
+  <data name="Unit_MB" xml:space="preserve"><value>МБ</value></data>
+  <data name="Unit_GB" xml:space="preserve"><value>ГБ</value></data>
+  <data name="Unit_TB" xml:space="preserve"><value>ТБ</value></data>
+  <data name="Meta_Colorful" xml:space="preserve"><value>Цвет</value></data>
+  <data name="Meta_BlackWhite" xml:space="preserve"><value>Ч/Б</value></data>
+  <data name="Meta_HasPassword" xml:space="preserve"><value>Пароль</value></data>
+  <data name="Meta_ErrorCorrection" xml:space="preserve"><value>RS={0}%</value></data>
+  <data name="Status_MetaParseFailed" xml:space="preserve"><value>Ошибка анализа метаданных</value></data>
+  <data name="Status_ReadFailed" xml:space="preserve"><value>Ошибка чтения: {0}</value></data>
+  <data name="Dialog_SelectSaveFolder" xml:space="preserve"><value>Выберите папку для сохранения</value></data>
+  <data name="Error_SavePathNotExist" xml:space="preserve"><value>Путь сохранения не существует</value></data>
+  <data name="Error_SelectSavePathFirst" xml:space="preserve"><value>Сначала выберите путь сохранения</value></data>
+  <data name="Error_NoCompleteFiles" xml:space="preserve"><value>Нет полных файлов для преобразования</value></data>
+  <data name="Error_PasswordRequired" xml:space="preserve"><value>Некоторые файлы требуют пароль. Введите его</value></data>
+  <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>Есть неполные файлы. Пропустить их и продолжить?</value></data>
+  <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>Уведомление</value></data>
+  <data name="Default_DecodeFileName" xml:space="preserve"><value>декодированный_файл.bin</value></data>
+  <data name="Status_ParsingFormat" xml:space="preserve"><value>Анализ {0}/{1}</value></data>
+  <data name="Status_EmptyPath" xml:space="preserve"><value>Пустой путь</value></data>
+  <data name="Status_ParseFailed" xml:space="preserve"><value>Ошибка анализа</value></data>
+  <data name="Status_Complete" xml:space="preserve"><value>Завершено</value></data>
+  <data name="Error_ParseFailed" xml:space="preserve"><value>Ошибка анализа: {0}</value></data>
+  <data name="Status_PartialFailed" xml:space="preserve"><value>Некоторые файлы не удались. Анализируемые части завершены</value></data>
+  <data name="Status_ParseSuccess" xml:space="preserve"><value>Анализ успешен</value></data>
+  <data name="Error_Error" xml:space="preserve"><value>Ошибка: {0}</value></data>
+  <data name="ScreenshotTool_Title" xml:space="preserve"><value>Скриншот</value></data>
+  <data name="Error_SetSavePathFirst" xml:space="preserve"><value>Сначала установите действительный путь сохранения</value></data>
+  <data name="Error_SelectWindowOrRegion" xml:space="preserve"><value>Сначала выберите окно или область</value></data>
+  <data name="Error_ScreenshotFailed" xml:space="preserve"><value>Ошибка скриншота</value></data>
+  <data name="Screenshot_FileNamePrefix" xml:space="preserve"><value>Скриншот_</value></data>
+  <data name="Toast_SavedTo" xml:space="preserve"><value>Сохранено в: {0}</value></data>
+  <data name="Toast_ScreenshotSuccess" xml:space="preserve"><value>Скриншот успешен</value></data>
+  <data name="Error_SaveFailed" xml:space="preserve"><value>Ошибка сохранения: {0}</value></data>
+  <data name="Error_ScreenshotFirst" xml:space="preserve"><value>Сначала сделайте скриншот</value></data>
+  <data name="DecodeTest_Title" xml:space="preserve"><value>Тест декодирования</value></data>
+  <data name="DecodeTest_MetaOk" xml:space="preserve"><value>Метаданные OK: {0} ({1}x{2} P={3}/{4})</value></data>
+  <data name="DecodeTest_MetaNotFound" xml:space="preserve"><value>Метаданные не распознаны</value></data>
+  <data name="DecodeTest_MetaError" xml:space="preserve"><value>Ошибка метаданных: {0}</value></data>
+  <data name="DecodeTest_DecodeSuccess" xml:space="preserve"><value>Декодирование успешно, блоков данных: {0}</value></data>
+  <data name="DecodeTest_DecodeFailed" xml:space="preserve"><value>Декодирование не удалось, блоков не найдено</value></data>
+  <data name="DecodeTest_DecodeError" xml:space="preserve"><value>Ошибка декодирования: {0}</value></data>
+  <data name="MsgBox_Title_DecodeTestResult" xml:space="preserve"><value>Результат теста</value></data>
+  <data name="Error_TestFailed" xml:space="preserve"><value>Тест не удался: {0}</value></data>
+  <data name="Toast_DefaultTitle" xml:space="preserve"><value>Уведомление</value></data>
+  <data name="ToolTip_DragMove" xml:space="preserve"><value>Перетащить для перемещения</value></data>
+  <data name="ToolTip_SelectWindow" xml:space="preserve"><value>Выбрать окно (Ctrl+F2)</value></data>
+  <data name="ToolTip_SelectRegion" xml:space="preserve"><value>Выбрать область (Ctrl+F3)</value></data>
+  <data name="ToolTip_EditSelection" xml:space="preserve"><value>Изменить выделение</value></data>
+  <data name="ToolTip_CancelSelection" xml:space="preserve"><value>Отменить выделение (Esc)</value></data>
+  <data name="ToolTip_Capture" xml:space="preserve"><value>Сделать скриншот (F4)</value></data>
+  <data name="ToolTip_DecodeTest" xml:space="preserve"><value>Тест декодирования (Ctrl+F4)</value></data>
+  <data name="ToolTip_Pin" xml:space="preserve"><value>Закрепить позицию</value></data>
+  <data name="ToolTip_Close" xml:space="preserve"><value>Закрыть (Esc)</value></data>
+  <data name="Error_MetaNotFound" xml:space="preserve"><value>Метаданные не найдены или неверный формат: {0}</value></data>
+  <data name="Error_NoDataBlocks" xml:space="preserve"><value>Блоки данных не проанализированы: {0}</value></data>
+  <data name="Error_QrCodeCountMismatch" xml:space="preserve"><value>Несоответствие количества QR-кодов: ожидалось {0}, найдено {1}</value></data>
+  <data name="Error_Crc32Failed" xml:space="preserve"><value>Ошибка проверки CRC32: блок ({0}, {1})</value></data>
+  <data name="Error_LoadImageFailed" xml:space="preserve"><value>Ошибка загрузки изображения: {0}</value></data>
+</root>

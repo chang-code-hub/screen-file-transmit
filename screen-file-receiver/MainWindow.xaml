@@ -4,8 +4,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:screen_file_transmit"
+    xmlns:loc="clr-namespace:screen_file_transmit.Properties"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="屏幕文件接收器"
+    Title="{loc:Loc WindowTitle}"
     Width="980"
     MinHeight="600"
     AllowDrop="True"
@@ -59,7 +60,7 @@
                     FontSize="20"
                     FontWeight="Bold"
                     Foreground="White"
-                    Text="屏幕文件接收器" />
+                    Text="{loc:Loc BannerTitle}" />
             </Grid>
         </Border>
 
@@ -70,7 +71,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <Label VerticalAlignment="Top" Content="图片文件：" />
+            <Label VerticalAlignment="Top" Content="{loc:Loc Label_ImageFiles}" />
             <StackPanel
                 Grid.Column="2"
                 Margin="0,0,0,0"
@@ -80,23 +81,23 @@
                     Width="80"
                     Margin="0,0,0,0"
                     Command="{Binding AddFileCommand}"
-                    Content="添加..." />
+                    Content="{loc:Loc Button_Add}" />
                 <Button
                     Width="80"
                     Margin="5,0,0,0"
                     Command="{Binding RemoveFileCommand}"
-                    Content="删除" />
+                    Content="{loc:Loc Button_Delete}" />
                 <Button
                     Width="80"
                     Margin="5,0,0,0"
                     Command="{Binding ClearFilesCommand}"
-                    Content="清空" />
+                    Content="{loc:Loc Button_Clear}" />
 
                 <TextBlock
                     Margin="10,0,0,0"
                     VerticalAlignment="Center"
                     Foreground="Gray"
-                    Text="提示：可以直接将图片文件拖放到窗口中进行添加。"
+                    Text="{loc:Loc Hint_DragDrop}"
                     TextWrapping="Wrap" />
             </StackPanel>
         </Grid>
@@ -131,28 +132,28 @@
                     <DataGridTextColumn
                         Width="180"
                         Binding="{Binding ImageFileName}"
-                        Header="图片文件名"
+                        Header="{loc:Loc Column_ImageFileName}"
                         IsReadOnly="True" />
                     <DataGridTextColumn
                         Width="100"
                         Binding="{Binding FileId}"
-                        Header="文件ID"
+                        Header="{loc:Loc Column_FileId}"
                         IsReadOnly="True" />
                     <DataGridTextColumn
                         Width="120"
                         Binding="{Binding SaveFileName}"
-                        Header="保存文件名" />
+                        Header="{loc:Loc Column_SaveFileName}" />
                     <DataGridTextColumn
                         Width="220"
                         Binding="{Binding MetadataInfo}"
-                        Header="元数据信息"
+                        Header="{loc:Loc Column_Metadata}"
                         IsReadOnly="True" />
                     <DataGridTextColumn
                         MinWidth="80"
                         Binding="{Binding Status}"
-                        Header="状态"
+                        Header="{loc:Loc Column_Status}"
                         IsReadOnly="True" />
-                    <DataGridTemplateColumn Width="120" Header="解析进度">
+                    <DataGridTemplateColumn Width="120" Header="{loc:Loc Column_ParseProgress}">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <ProgressBar
@@ -191,7 +192,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Label VerticalAlignment="Top" Content="预览：" />
+            <Label VerticalAlignment="Top" Content="{loc:Loc Label_Preview}" />
             <Border
                 Grid.Column="1"
                 Width="240"
@@ -216,7 +217,7 @@
             <Label
                 Grid.Column="0"
                 VerticalAlignment="Center"
-                Content="密码：" />
+                Content="{loc:Loc Label_Password}" />
             <PasswordBox
                 x:Name="PasswordBox"
                 Grid.Column="1"
@@ -234,7 +235,7 @@
             <Label
                 Grid.Column="0"
                 VerticalAlignment="Center"
-                Content="保存路径：" />
+                Content="{loc:Loc Label_SavePath}" />
             <TextBox
                 Grid.Column="1"
                 Margin="0,0,5,0"
@@ -245,12 +246,12 @@
                 Width="80"
                 Margin="0,0,5,0"
                 Command="{Binding BrowseOutputPathCommand}"
-                Content="浏览..." />
+                Content="{loc:Loc Button_Browse}" />
             <Button
                 Grid.Column="3"
                 Width="80"
                 Command="{Binding OpenOutputPathCommand}"
-                Content="打开" />
+                Content="{loc:Loc Button_Open}" />
         </Grid>
 
         <!--  Status  -->
@@ -263,7 +264,7 @@
             <Label
                 Grid.Column="0"
                 VerticalAlignment="Center"
-                Content="进度：" />
+                Content="{loc:Loc Label_Progress}" />
             <ProgressBar
                 Grid.Column="1"
                 Height="16"
@@ -284,18 +285,18 @@
                     Margin="0,0,10,0"
                     Click="Button_Click"
                     Command="{Binding ConvertCommand}"
-                    Content="转换" />
+                    Content="{loc:Loc Button_Convert}" />
                 <Button
                     Width="110"
                     Height="24"
                     Margin="0,0,10,0"
                     Command="{Binding OpenScreenshotToolCommand}"
-                    Content="截图工具" />
+                    Content="{loc:Loc Button_ScreenshotTool}" />
                 <Button
                     Width="110"
                     Height="24"
                     Click="ExitButton_Click"
-                    Content="退出" />
+                    Content="{loc:Loc Button_Exit}" />
             </StackPanel>
         </Grid>
     </Grid>

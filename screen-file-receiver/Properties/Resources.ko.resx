@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>화면 파일 수신기</value></data>
+  <data name="BannerTitle" xml:space="preserve"><value>화면 파일 수신기</value></data>
+  <data name="Label_ImageFiles" xml:space="preserve"><value>이미지 파일:</value></data>
+  <data name="Button_Add" xml:space="preserve"><value>추가...</value></data>
+  <data name="Button_Delete" xml:space="preserve"><value>삭제</value></data>
+  <data name="Button_Clear" xml:space="preserve"><value>지우기</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>팁: 이미지 파일을 창에 끌어다 놓을 수 있습니다.</value></data>
+  <data name="Column_ImageFileName" xml:space="preserve"><value>파일명</value></data>
+  <data name="Column_FileId" xml:space="preserve"><value>파일 ID</value></data>
+  <data name="Column_SaveFileName" xml:space="preserve"><value>저장 파일명</value></data>
+  <data name="Column_Metadata" xml:space="preserve"><value>메타데이터</value></data>
+  <data name="Column_Status" xml:space="preserve"><value>상태</value></data>
+  <data name="Column_ParseProgress" xml:space="preserve"><value>분석 진행</value></data>
+  <data name="Label_Preview" xml:space="preserve"><value>미리보기:</value></data>
+  <data name="Label_Password" xml:space="preserve"><value>비밀번호:</value></data>
+  <data name="Label_SavePath" xml:space="preserve"><value>저장 경로:</value></data>
+  <data name="Button_Browse" xml:space="preserve"><value>찾아보기...</value></data>
+  <data name="Button_Open" xml:space="preserve"><value>열기</value></data>
+  <data name="Label_Progress" xml:space="preserve"><value>진행:</value></data>
+  <data name="Button_Convert" xml:space="preserve"><value>변환</value></data>
+  <data name="Button_ScreenshotTool" xml:space="preserve"><value>스크린샷 도구</value></data>
+  <data name="Button_Exit" xml:space="preserve"><value>종료</value></data>
+  <data name="MsgBox_ConfirmExit" xml:space="preserve"><value>프로그램을 종료하시겠습니까?</value></data>
+  <data name="MsgBox_Title_Confirm" xml:space="preserve"><value>확인</value></data>
+  <data name="Status_Ready" xml:space="preserve"><value>준비 완료</value></data>
+  <data name="FileFilter_ImageFiles" xml:space="preserve"><value>이미지 파일</value></data>
+  <data name="FileFilter_AllFiles" xml:space="preserve"><value>모든 파일</value></data>
+  <data name="Unit_B" xml:space="preserve"><value>B</value></data>
+  <data name="Unit_KB" xml:space="preserve"><value>KB</value></data>
+  <data name="Unit_MB" xml:space="preserve"><value>MB</value></data>
+  <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
+  <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
+  <data name="Meta_Colorful" xml:space="preserve"><value>컬러</value></data>
+  <data name="Meta_BlackWhite" xml:space="preserve"><value>흑백</value></data>
+  <data name="Meta_HasPassword" xml:space="preserve"><value>비밀번호</value></data>
+  <data name="Meta_ErrorCorrection" xml:space="preserve"><value>RS={0}%</value></data>
+  <data name="Status_MetaParseFailed" xml:space="preserve"><value>메타데이터 분석 실패</value></data>
+  <data name="Status_ReadFailed" xml:space="preserve"><value>읽기 실패: {0}</value></data>
+  <data name="Dialog_SelectSaveFolder" xml:space="preserve"><value>저장 폳더 선택</value></data>
+  <data name="Error_SavePathNotExist" xml:space="preserve"><value>저장 경로가 존재하지 않습니다</value></data>
+  <data name="Error_SelectSavePathFirst" xml:space="preserve"><value>먼저 저장 경로를 선택하세요</value></data>
+  <data name="Error_NoCompleteFiles" xml:space="preserve"><value>변환할 완전한 파일이 없습니다</value></data>
+  <data name="Error_PasswordRequired" xml:space="preserve"><value>비밀번호가 필요한 파일이 있습니다. 입력하세요</value></data>
+  <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>미완성 파일이 있습니다. 건너뛰고 계속하시겠습니까?</value></data>
+  <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>알림</value></data>
+  <data name="Default_DecodeFileName" xml:space="preserve"><value>decoded_file.bin</value></data>
+  <data name="Status_ParsingFormat" xml:space="preserve"><value>분석 중 {0}/{1}</value></data>
+  <data name="Status_EmptyPath" xml:space="preserve"><value>빈 경로</value></data>
+  <data name="Status_ParseFailed" xml:space="preserve"><value>분석 실패</value></data>
+  <data name="Status_Complete" xml:space="preserve"><value>완료</value></data>
+  <data name="Error_ParseFailed" xml:space="preserve"><value>분석 실패: {0}</value></data>
+  <data name="Status_PartialFailed" xml:space="preserve"><value>일부 파일 실패. 분석 가능한 부분 완료</value></data>
+  <data name="Status_ParseSuccess" xml:space="preserve"><value>분석 성공</value></data>
+  <data name="Error_Error" xml:space="preserve"><value>오류: {0}</value></data>
+  <data name="ScreenshotTool_Title" xml:space="preserve"><value>스크린샷 도구</value></data>
+  <data name="Error_SetSavePathFirst" xml:space="preserve"><value>먼저 유효한 저장 경로를 설정하세요</value></data>
+  <data name="Error_SelectWindowOrRegion" xml:space="preserve"><value>먼저 창이나 영역을 선택하세요</value></data>
+  <data name="Error_ScreenshotFailed" xml:space="preserve"><value>스크린샷 실패</value></data>
+  <data name="Screenshot_FileNamePrefix" xml:space="preserve"><value>Screenshot_</value></data>
+  <data name="Toast_SavedTo" xml:space="preserve"><value>저장 위치: {0}</value></data>
+  <data name="Toast_ScreenshotSuccess" xml:space="preserve"><value>스크린샷 성공</value></data>
+  <data name="Error_SaveFailed" xml:space="preserve"><value>저장 실패: {0}</value></data>
+  <data name="Error_ScreenshotFirst" xml:space="preserve"><value>먼저 스크린샷을 촬영하세요</value></data>
+  <data name="DecodeTest_Title" xml:space="preserve"><value>디코딩 테스트</value></data>
+  <data name="DecodeTest_MetaOk" xml:space="preserve"><value>메타데이터 OK: {0} ({1}x{2} P={3}/{4})</value></data>
+  <data name="DecodeTest_MetaNotFound" xml:space="preserve"><value>메타데이터를 인식하지 못함</value></data>
+  <data name="DecodeTest_MetaError" xml:space="preserve"><value>메타데이터 오류: {0}</value></data>
+  <data name="DecodeTest_DecodeSuccess" xml:space="preserve"><value>디코딩 성공, 데이터 블록: {0}</value></data>
+  <data name="DecodeTest_DecodeFailed" xml:space="preserve"><value>디코딩 실패, 데이터 블록을 분석하지 못함</value></data>
+  <data name="DecodeTest_DecodeError" xml:space="preserve"><value>디코딩 오류: {0}</value></data>
+  <data name="MsgBox_Title_DecodeTestResult" xml:space="preserve"><value>테스트 결과</value></data>
+  <data name="Error_TestFailed" xml:space="preserve"><value>테스트 실패: {0}</value></data>
+  <data name="Toast_DefaultTitle" xml:space="preserve"><value>알림</value></data>
+  <data name="ToolTip_DragMove" xml:space="preserve"><value>드래그하여 이동</value></data>
+  <data name="ToolTip_SelectWindow" xml:space="preserve"><value>창 선택 (Ctrl+F2)</value></data>
+  <data name="ToolTip_SelectRegion" xml:space="preserve"><value>영역 선택 (Ctrl+F3)</value></data>
+  <data name="ToolTip_EditSelection" xml:space="preserve"><value>선택 영역 편집</value></data>
+  <data name="ToolTip_CancelSelection" xml:space="preserve"><value>선택 취소 (Esc)</value></data>
+  <data name="ToolTip_Capture" xml:space="preserve"><value>촬영 (F4)</value></data>
+  <data name="ToolTip_DecodeTest" xml:space="preserve"><value>디코딩 테스트 (Ctrl+F4)</value></data>
+  <data name="ToolTip_Pin" xml:space="preserve"><value>위치 고정</value></data>
+  <data name="ToolTip_Close" xml:space="preserve"><value>닫기 (Esc)</value></data>
+  <data name="Error_MetaNotFound" xml:space="preserve"><value>메타데이터를 찾을 수 없거나 잘못된 형식: {0}</value></data>
+  <data name="Error_NoDataBlocks" xml:space="preserve"><value>분석된 데이터 블록 없음: {0}</value></data>
+  <data name="Error_QrCodeCountMismatch" xml:space="preserve"><value>QR 코드 수량 불일치: 예상 {0}, 실제 {1}</value></data>
+  <data name="Error_Crc32Failed" xml:space="preserve"><value>CRC32 검증 실패: 블록 ({0}, {1})</value></data>
+  <data name="Error_LoadImageFailed" xml:space="preserve"><value>이미지 로드 실패: {0}</value></data>
+</root>

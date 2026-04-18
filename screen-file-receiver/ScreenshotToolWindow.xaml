@@ -2,7 +2,8 @@
     x:Class="screen_file_transmit.ScreenshotToolWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="截图工具"
+    xmlns:loc="clr-namespace:screen_file_transmit.Properties"
+    Title="{loc:Loc ScreenshotTool_Title}"
     Height="34"
     AllowsTransparency="True"
     Background="#F7F7F7"
@@ -113,7 +114,7 @@
                 ToolTipService.InitialShowDelay="0"
                 ToolTipService.ShowDuration="30000">
                 <Border.ToolTip>
-                    <ToolTip Content="拖拽移动" />
+                    <ToolTip Content="{loc:Loc ToolTip_DragMove}" />
                 </Border.ToolTip>
                 <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Grid.Resources>
@@ -160,7 +161,7 @@
                     ToolTipService.ShowDuration="30000"
                     ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
-                        <ToolTip Content="选择窗口 (Ctrl+F2)" />
+                        <ToolTip Content="{loc:Loc ToolTip_SelectWindow}" />
                     </Button.ToolTip>
                     <Path
                         HorizontalAlignment="Center"
@@ -179,7 +180,7 @@
                     ToolTipService.ShowDuration="30000"
                     ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
-                        <ToolTip Content="选择区域 (Ctrl+F3)" />
+                        <ToolTip Content="{loc:Loc ToolTip_SelectRegion}" />
                     </Button.ToolTip>
                     <Path
                         HorizontalAlignment="Center"
@@ -199,7 +200,7 @@
                     ToolTipService.ShowDuration="30000"
                     ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
-                        <ToolTip Content="编辑选区" />
+                        <ToolTip Content="{loc:Loc ToolTip_EditSelection}" />
                     </Button.ToolTip>
                     <Path
                         HorizontalAlignment="Center"
@@ -219,7 +220,7 @@
                     ToolTipService.ShowDuration="30000"
                     ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
-                        <ToolTip Content="取消选择 (Esc)" Cursor="" />
+                        <ToolTip Content="{loc:Loc ToolTip_CancelSelection}" Cursor="" />
                     </Button.ToolTip>
                     <Path
                         HorizontalAlignment="Center"
@@ -239,7 +240,7 @@
                     ToolTipService.ShowDuration="30000"
                     ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
-                        <ToolTip Content="截图 (F4)" />
+                        <ToolTip Content="{loc:Loc ToolTip_Capture}" />
                     </Button.ToolTip>
                     <Path
                         HorizontalAlignment="Center"
@@ -259,7 +260,7 @@
                     ToolTipService.ShowDuration="30000"
                     ToolTipService.ShowOnDisabled="True">
                     <Button.ToolTip>
-                        <ToolTip Content="解码测试 (Ctrl+F4)" />
+                        <ToolTip Content="{loc:Loc ToolTip_DecodeTest}" />
                     </Button.ToolTip>
                     <Path
                         HorizontalAlignment="Center"
@@ -282,7 +283,7 @@
                 ToolTipService.ShowDuration="30000"
                 Unchecked="BtnPin_CheckedChanged">
                 <ToggleButton.ToolTip>
-                    <ToolTip Content="固定位置" />
+                    <ToolTip Content="{loc:Loc ToolTip_Pin}" />
                 </ToggleButton.ToolTip>
                 <Path
                     HorizontalAlignment="Center"
@@ -303,7 +304,7 @@
                 ToolTipService.InitialShowDelay="0"
                 ToolTipService.ShowDuration="30000">
                 <Button.ToolTip>
-                    <ToolTip Content="关闭 (Esc)" />
+                    <ToolTip Content="{loc:Loc ToolTip_Close}" />
                 </Button.ToolTip>
                 <Path
                     HorizontalAlignment="Center"

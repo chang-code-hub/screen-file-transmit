@@ -3,12 +3,17 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net48</TargetFramework>
-    <RootNamespace>qr_codec_test</RootNamespace>
+    <RootNamespace>codec_test</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
     <UseWPF>false</UseWPF>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Remove="C:\Users\chang\.nuget\packages\opencvsharp4.runtime.win\4.13.0.20260302\build\netstandard\..\..\runtimes\win-x64\native\OpenCvSharpExtern.dll" />
+    <Content Remove="C:\Users\chang\.nuget\packages\opencvsharp4.runtime.win\4.13.0.20260302\build\netstandard\..\..\runtimes\win-x64\native\opencv_videoio_ffmpeg4130_64.dll" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="OpenCvSharp4" />

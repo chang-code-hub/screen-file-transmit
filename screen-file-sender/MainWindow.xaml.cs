@@ -134,7 +134,7 @@ namespace screen_file_transmit
         {
             if (viewModel.IsConverting)
             {
-                if (System.Windows.MessageBox.Show("转换正在进行中，确定要退出吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                if (System.Windows.MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_ConfirmExitDuringConvert"), Properties.Resources.ResourceManager.GetString("MsgBox_Title_Confirm"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 {
                     e.Cancel = true;
                     return;
@@ -142,7 +142,7 @@ namespace screen_file_transmit
             }
             else if (viewModel.IsPreviewMode)
             {
-                if (System.Windows.MessageBox.Show("预览正在进行中，确定要退出吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                if (System.Windows.MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_ConfirmExitDuringPreview"), Properties.Resources.ResourceManager.GetString("MsgBox_Title_Confirm"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 {
                     e.Cancel = true;
                     return;
@@ -150,7 +150,7 @@ namespace screen_file_transmit
             }
             else
             {
-                if (System.Windows.MessageBox.Show("确定要退出程序吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                if (System.Windows.MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_ConfirmExit"), Properties.Resources.ResourceManager.GetString("MsgBox_Title_Confirm"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 {
                     e.Cancel = true;
                     return;

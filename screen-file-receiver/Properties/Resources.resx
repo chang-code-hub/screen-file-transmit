@@ -1,84 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
-    Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
-    associated with the data types.
-    
-    Example:
-    
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
-    name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
-    mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
-    extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
-    read any of the formats listed below.
-    
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
-            : System.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-    
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="metadata">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="assembly">
-            <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
@@ -90,28 +15,99 @@
               <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
             </xsd:complexType>
           </xsd:element>
-          <xsd:element name="resheader">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
         </xsd:choice>
       </xsd:complexType>
     </xsd:element>
   </xsd:schema>
-  <resheader name="resmimetype">
-    <value>text/microsoft-resx</value>
-  </resheader>
-  <resheader name="version">
-    <value>2.0</value>
-  </resheader>
-  <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-  <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>屏幕文件接收器</value></data>
+  <data name="BannerTitle" xml:space="preserve"><value>屏幕文件接收器</value></data>
+  <data name="Label_ImageFiles" xml:space="preserve"><value>图片文件：</value></data>
+  <data name="Button_Add" xml:space="preserve"><value>添加...</value></data>
+  <data name="Button_Delete" xml:space="preserve"><value>删除</value></data>
+  <data name="Button_Clear" xml:space="preserve"><value>清空</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>提示：可以直接将图片文件拖放到窗口中进行添加。</value></data>
+  <data name="Column_ImageFileName" xml:space="preserve"><value>图片文件名</value></data>
+  <data name="Column_FileId" xml:space="preserve"><value>文件ID</value></data>
+  <data name="Column_SaveFileName" xml:space="preserve"><value>保存文件名</value></data>
+  <data name="Column_Metadata" xml:space="preserve"><value>元数据信息</value></data>
+  <data name="Column_Status" xml:space="preserve"><value>状态</value></data>
+  <data name="Column_ParseProgress" xml:space="preserve"><value>解析进度</value></data>
+  <data name="Label_Preview" xml:space="preserve"><value>预览：</value></data>
+  <data name="Label_Password" xml:space="preserve"><value>密码：</value></data>
+  <data name="Label_SavePath" xml:space="preserve"><value>保存路径：</value></data>
+  <data name="Button_Browse" xml:space="preserve"><value>浏览...</value></data>
+  <data name="Button_Open" xml:space="preserve"><value>打开</value></data>
+  <data name="Label_Progress" xml:space="preserve"><value>进度：</value></data>
+  <data name="Button_Convert" xml:space="preserve"><value>转换</value></data>
+  <data name="Button_ScreenshotTool" xml:space="preserve"><value>截图工具</value></data>
+  <data name="Button_Exit" xml:space="preserve"><value>退出</value></data>
+  <data name="MsgBox_ConfirmExit" xml:space="preserve"><value>确定要退出程序吗？</value></data>
+  <data name="MsgBox_Title_Confirm" xml:space="preserve"><value>确认</value></data>
+  <data name="Status_Ready" xml:space="preserve"><value>就绪</value></data>
+  <data name="FileFilter_ImageFiles" xml:space="preserve"><value>图片文件</value></data>
+  <data name="FileFilter_AllFiles" xml:space="preserve"><value>所有文件</value></data>
+  <data name="Unit_B" xml:space="preserve"><value>B</value></data>
+  <data name="Unit_KB" xml:space="preserve"><value>KB</value></data>
+  <data name="Unit_MB" xml:space="preserve"><value>MB</value></data>
+  <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
+  <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
+  <data name="Meta_Colorful" xml:space="preserve"><value>彩色</value></data>
+  <data name="Meta_BlackWhite" xml:space="preserve"><value>黑白</value></data>
+  <data name="Meta_HasPassword" xml:space="preserve"><value>有密码</value></data>
+  <data name="Meta_ErrorCorrection" xml:space="preserve"><value>RS={0}%</value></data>
+  <data name="Status_MetaParseFailed" xml:space="preserve"><value>元数据解析失败</value></data>
+  <data name="Status_ReadFailed" xml:space="preserve"><value>读取失败: {0}</value></data>
+  <data name="Dialog_SelectSaveFolder" xml:space="preserve"><value>选择保存文件夹</value></data>
+  <data name="Error_SavePathNotExist" xml:space="preserve"><value>保存路径不存在</value></data>
+  <data name="Error_SelectSavePathFirst" xml:space="preserve"><value>请先选择保存路径</value></data>
+  <data name="Error_NoCompleteFiles" xml:space="preserve"><value>没有可转换的完整文件</value></data>
+  <data name="Error_PasswordRequired" xml:space="preserve"><value>存在需要密码的文件，请先输入密码</value></data>
+  <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>存在未解析完成的文件，是否跳过这些文件继续转换？</value></data>
+  <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>提示</value></data>
+  <data name="Default_DecodeFileName" xml:space="preserve"><value>解码文件.bin</value></data>
+  <data name="Status_ParsingFormat" xml:space="preserve"><value>正在解析 {0}/{1}</value></data>
+  <data name="Status_EmptyPath" xml:space="preserve"><value>路径为空</value></data>
+  <data name="Status_ParseFailed" xml:space="preserve"><value>解析失败</value></data>
+  <data name="Status_Complete" xml:space="preserve"><value>完成</value></data>
+  <data name="Error_ParseFailed" xml:space="preserve"><value>解析失败: {0}</value></data>
+  <data name="Status_PartialFailed" xml:space="preserve"><value>部分文件解析失败，已完成可解析部分</value></data>
+  <data name="Status_ParseSuccess" xml:space="preserve"><value>解析成功</value></data>
+  <data name="Error_Error" xml:space="preserve"><value>错误: {0}</value></data>
+  <data name="ScreenshotTool_Title" xml:space="preserve"><value>截图工具</value></data>
+  <data name="Error_SetSavePathFirst" xml:space="preserve"><value>请先设置有效的保存路径</value></data>
+  <data name="Error_SelectWindowOrRegion" xml:space="preserve"><value>请先选择窗口或区域</value></data>
+  <data name="Error_ScreenshotFailed" xml:space="preserve"><value>截图失败</value></data>
+  <data name="Screenshot_FileNamePrefix" xml:space="preserve"><value>Screenshot_</value></data>
+  <data name="Toast_SavedTo" xml:space="preserve"><value>已保存到: {0}</value></data>
+  <data name="Toast_ScreenshotSuccess" xml:space="preserve"><value>截图成功</value></data>
+  <data name="Error_SaveFailed" xml:space="preserve"><value>保存失败: {0}</value></data>
+  <data name="Error_ScreenshotFirst" xml:space="preserve"><value>请先截图</value></data>
+  <data name="DecodeTest_Title" xml:space="preserve"><value>解码测试</value></data>
+  <data name="DecodeTest_MetaOk" xml:space="preserve"><value>元数据OK: {0} ({1}x{2} P={3}/{4})</value></data>
+  <data name="DecodeTest_MetaNotFound" xml:space="preserve"><value>未识别到元数据</value></data>
+  <data name="DecodeTest_MetaError" xml:space="preserve"><value>元数据异常: {0}</value></data>
+  <data name="DecodeTest_DecodeSuccess" xml:space="preserve"><value>解码成功，数据块数: {0}</value></data>
+  <data name="DecodeTest_DecodeFailed" xml:space="preserve"><value>解码失败，未解析到数据块</value></data>
+  <data name="DecodeTest_DecodeError" xml:space="preserve"><value>解码异常: {0}</value></data>
+  <data name="MsgBox_Title_DecodeTestResult" xml:space="preserve"><value>解码测试结果</value></data>
+  <data name="Error_TestFailed" xml:space="preserve"><value>测试失败: {0}</value></data>
+  <data name="Toast_DefaultTitle" xml:space="preserve"><value>提示</value></data>
+  <data name="ToolTip_DragMove" xml:space="preserve"><value>拖拽移动</value></data>
+  <data name="ToolTip_SelectWindow" xml:space="preserve"><value>选择窗口 (Ctrl+F2)</value></data>
+  <data name="ToolTip_SelectRegion" xml:space="preserve"><value>选择区域 (Ctrl+F3)</value></data>
+  <data name="ToolTip_EditSelection" xml:space="preserve"><value>编辑选区</value></data>
+  <data name="ToolTip_CancelSelection" xml:space="preserve"><value>取消选择 (Esc)</value></data>
+  <data name="ToolTip_Capture" xml:space="preserve"><value>截图 (F4)</value></data>
+  <data name="ToolTip_DecodeTest" xml:space="preserve"><value>解码测试 (Ctrl+F4)</value></data>
+  <data name="ToolTip_Pin" xml:space="preserve"><value>固定位置</value></data>
+  <data name="ToolTip_Close" xml:space="preserve"><value>关闭 (Esc)</value></data>
+  <data name="Error_MetaNotFound" xml:space="preserve"><value>找不到信息或元数据格式错误: {0}</value></data>
+  <data name="Error_NoDataBlocks" xml:space="preserve"><value>未解析到任何数据块: {0}</value></data>
+  <data name="Error_QrCodeCountMismatch" xml:space="preserve"><value>二维码数量校验失败: 期望 {0} 个，实际解析到 {1} 个</value></data>
+  <data name="Error_Crc32Failed" xml:space="preserve"><value>CRC32 校验失败: 数据块 ({0}, {1})</value></data>
+  <data name="Error_LoadImageFailed" xml:space="preserve"><value>加载图片失败: {0}</value></data>
 </root>

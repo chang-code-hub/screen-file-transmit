@@ -3,8 +3,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:loc="clr-namespace:screen_file_transmit.Properties"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="屏幕文件发送器"
+    Title="{loc:Loc WindowTitle}"
     Width="680"
     MinWidth="680"
     AllowsTransparency="True"
@@ -74,7 +75,7 @@
                         FontSize="20"
                         FontWeight="Bold"
                         Foreground="White"
-                        Text="屏幕文件发送器" />
+                        Text="{loc:Loc BannerTitle}" />
                 </Grid>
             </Border>
 
@@ -97,7 +98,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Label VerticalAlignment="Center" Content="选择文件：" />
+                <Label VerticalAlignment="Center" Content="{loc:Loc Label_SelectFile}" />
                 <TextBox
                     x:Name="FilePathTextBox"
                     Grid.Column="1"
@@ -114,7 +115,7 @@
                     Grid.Column="3"
                     Width="80"
                     Command="{Binding BrowseFileCommand}"
-                    Content="浏览..." />
+                    Content="{loc:Loc Button_Browse}" />
             </Grid>
 
             <!--  Color Mode Selection  -->
@@ -139,7 +140,7 @@
                 <Label
                     Grid.Column="0"
                     VerticalAlignment="Center"
-                    Content="编码比例：" />
+                    Content="{loc:Loc Label_EncodingScale}" />
                 <ComboBox
                     x:Name="ScaleComboBox"
                     Grid.Column="1"
@@ -150,7 +151,7 @@
                 <Label
                     Grid.Column="2"
                     VerticalAlignment="Center"
-                    Content="分辨率：" />
+                    Content="{loc:Loc Label_Resolution}" />
                 <ComboBox
                     x:Name="ResolutionComboBox"
                     Grid.Column="3"
@@ -185,7 +186,7 @@
                 <Label
                     Grid.Column="0"
                     VerticalAlignment="Center"
-                    Content="自定义尺寸：" />
+                    Content="{loc:Loc Label_CustomSize}" />
                 <TextBox
                     Grid.Column="1"
                     VerticalContentAlignment="Center"
@@ -222,7 +223,7 @@
                 <Label
                     Grid.Column="0"
                     VerticalAlignment="Center"
-                    Content="宽度收缩：" />
+                    Content="{loc:Loc Label_WidthShrink}" />
                 <TextBox
                     Grid.Column="1"
                     VerticalContentAlignment="Center"
@@ -230,7 +231,7 @@
                 <Label
                     Grid.Column="2"
                     VerticalAlignment="Center"
-                    Content="高度收缩：" />
+                    Content="{loc:Loc Label_HeightShrink}" />
                 <TextBox
                     Grid.Column="3"
                     VerticalContentAlignment="Center"
@@ -257,7 +258,7 @@
                 <Label
                     Grid.Column="0"
                     VerticalAlignment="Center"
-                    Content="纠错级别：" />
+                    Content="{loc:Loc Label_ErrorCorrection}" />
                 <ComboBox
                     Grid.Column="1"
                     VerticalContentAlignment="Center"
@@ -266,7 +267,7 @@
                 <Label
                     Grid.Column="2"
                     VerticalAlignment="Center"
-                    Content="密码：" />
+                    Content="{loc:Loc Label_Password}" />
                 <PasswordBox
                     x:Name="PasswordBox"
                     Grid.Column="3"
@@ -291,7 +292,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Label VerticalAlignment="Center" Content="保存路径：" />
+                <Label VerticalAlignment="Center" Content="{loc:Loc Label_SavePath}" />
                 <TextBox
                     Grid.Column="1"
                     Margin="0,0,5,0"
@@ -302,12 +303,12 @@
                     Width="80"
                     Margin="0,0,5,0"
                     Command="{Binding BrowseSaveDirectoryCommand}"
-                    Content="浏览..." />
+                    Content="{loc:Loc Button_Browse}" />
                 <Button
                     Grid.Column="3"
                     Width="80"
                     Command="{Binding OpenSaveDirectoryCommand}"
-                    Content="打开" />
+                    Content="{loc:Loc Button_Open}" />
             </Grid>
 
             <!--  Progress  -->
@@ -327,7 +328,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="175" />
                 </Grid.ColumnDefinitions>
-                <Label>保存进度：</Label>
+                <Label>{loc:Loc Label_SaveProgress}</Label>
                 <ProgressBar
                     Grid.Column="1"
                     Height="20"
@@ -368,14 +369,14 @@
                     Height="24"
                     Click="Button_Click"
                     Command="{Binding SaveToFileCommand}"
-                    Content="转换"
+                    Content="{loc:Loc Button_Convert}"
                     IsEnabled="{Binding IsConvertButtonEnabled}" />
                 <Button
                     Grid.Column="1"
                     Width="110"
                     Height="24"
                     Command="{Binding CancelCommand}"
-                    Content="取消"
+                    Content="{loc:Loc Button_Cancel}"
                     Visibility="{Binding IsConverting, Converter={StaticResource BoolToVis}}" />
                 <Button
                     Grid.Column="3"
@@ -383,14 +384,14 @@
                     Height="24"
                     Click="Button_Click"
                     Command="{Binding PreviewCommand}"
-                    Content="预览"
+                    Content="{loc:Loc Button_Preview}"
                     IsEnabled="{Binding IsPreviewButtonEnabled}" />
                 <Button
                     Grid.Column="5"
                     Width="110"
                     Height="24"
                     Click="ExitButton_Click"
-                    Content="退出" />
+                    Content="{loc:Loc Button_Exit}" />
             </Grid>
 
         </Grid>
@@ -427,22 +428,22 @@
                         Width="80"
                         Margin="5,0"
                         Command="{Binding PreviewPreviousPageCommand}"
-                        Content="上一页" />
+                        Content="{loc:Loc Button_PreviousPage}" />
                     <Button
                         Width="80"
                         Margin="5,0"
                         Command="{Binding PreviewNextPageCommand}"
-                        Content="下一页" />
+                        Content="{loc:Loc Button_NextPage}" />
                     <Button
                         Width="80"
                         Margin="5,0"
                         Command="{Binding PreviewBackCommand}"
-                        Content="返回" />
+                        Content="{loc:Loc Button_Back}" />
                     <Button
                         Width="80"
                         Margin="5,0"
                         Click="ExitButton_Click"
-                        Content="退出" />
+                        Content="{loc:Loc Button_Exit}" />
                 </StackPanel>
             </Grid>
             <!--<TextBlock
@@ -479,7 +480,7 @@
                         Margin="0,10,0,0"
                         HorizontalAlignment="Center"
                         FontSize="14"
-                        Text="加载中..." />
+                        Text="{loc:Loc Text_Loading}" />
                 </StackPanel>
             </Grid>
         </Grid>

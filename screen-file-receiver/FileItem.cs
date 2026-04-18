@@ -12,7 +12,7 @@ namespace screen_file_transmit
         private string _fileId;
         private string _saveFileName;
         private string _metadataInfo;
-        private string _status = "就绪";
+        private string _status = Properties.Resources.ResourceManager.GetString("Status_Ready");
         private double _progressValue;
         private double _progressMaximum = 100;
         private bool _isComplete;

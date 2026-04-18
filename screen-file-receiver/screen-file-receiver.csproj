@@ -13,6 +13,10 @@
 	  <LangVersion>Latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Content Remove="C:\Users\chang\.nuget\packages\opencvsharp4.runtime.win\4.13.0.20260302\build\netstandard\..\..\runtimes\win-x64\native\OpenCvSharpExtern.dll" />
+    <Content Remove="C:\Users\chang\.nuget\packages\opencvsharp4.runtime.win\4.13.0.20260302\build\netstandard\..\..\runtimes\win-x64\native\opencv_videoio_ffmpeg4130_64.dll" />
+  </ItemGroup>
+  <ItemGroup>
     <None Remove="icon.ico" />
   </ItemGroup>
   <ItemGroup>

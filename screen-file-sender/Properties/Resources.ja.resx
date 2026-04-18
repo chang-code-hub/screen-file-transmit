@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>画面ファイル送信機</value></data>
+  <data name="BannerTitle" xml:space="preserve"><value>画面ファイル送信機</value></data>
+  <data name="Label_SelectFile" xml:space="preserve"><value>ファイル選択:</value></data>
+  <data name="Button_Browse" xml:space="preserve"><value>参照...</value></data>
+  <data name="Label_EncodingScale" xml:space="preserve"><value>エンコード倍率:</value></data>
+  <data name="Label_Resolution" xml:space="preserve"><value>解像度:</value></data>
+  <data name="Label_CustomSize" xml:space="preserve"><value>カスタムサイズ:</value></data>
+  <data name="Label_WidthShrink" xml:space="preserve"><value>幅縮小:</value></data>
+  <data name="Label_HeightShrink" xml:space="preserve"><value>高さ縮小:</value></data>
+  <data name="Label_ErrorCorrection" xml:space="preserve"><value>誤り訂正レベル:</value></data>
+  <data name="Label_Password" xml:space="preserve"><value>パスワード:</value></data>
+  <data name="Label_SavePath" xml:space="preserve"><value>保存パス:</value></data>
+  <data name="Button_Open" xml:space="preserve"><value>開く</value></data>
+  <data name="Label_SaveProgress" xml:space="preserve"><value>保存進捗:</value></data>
+  <data name="Button_Convert" xml:space="preserve"><value>変換</value></data>
+  <data name="Button_Cancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="Button_Preview" xml:space="preserve"><value>プレビュー</value></data>
+  <data name="Button_Exit" xml:space="preserve"><value>終了</value></data>
+  <data name="Button_PreviousPage" xml:space="preserve"><value>前へ</value></data>
+  <data name="Button_NextPage" xml:space="preserve"><value>次へ</value></data>
+  <data name="Button_Back" xml:space="preserve"><value>戻る</value></data>
+  <data name="Text_Loading" xml:space="preserve"><value>読み込み中...</value></data>
+  <data name="MsgBox_ConfirmExitDuringConvert" xml:space="preserve"><value>変換中です。終了しますか？</value></data>
+  <data name="MsgBox_ConfirmExitDuringPreview" xml:space="preserve"><value>プレビュー中です。終了しますか？</value></data>
+  <data name="MsgBox_ConfirmExit" xml:space="preserve"><value>プログラムを終了しますか？</value></data>
+  <data name="MsgBox_Title_Confirm" xml:space="preserve"><value>確認</value></data>
+  <data name="ColorMode_BlackWhite" xml:space="preserve"><value>白黒</value></data>
+  <data name="ColorMode_Color" xml:space="preserve"><value>カラー (高品質)</value></data>
+  <data name="Resolution_CurrentScreen" xml:space="preserve"><value>現在の画面</value></data>
+  <data name="Resolution_FullHD" xml:space="preserve"><value>1920 x 1080 (フルHD)</value></data>
+  <data name="Resolution_2K" xml:space="preserve"><value>2560 x 1440 (2K)</value></data>
+  <data name="Resolution_4K" xml:space="preserve"><value>3840 x 2160 (4K)</value></data>
+  <data name="Resolution_HD" xml:space="preserve"><value>1280 x 720 (HD)</value></data>
+  <data name="Resolution_Laptop" xml:space="preserve"><value>1366 x 768 (ノートPC)</value></data>
+  <data name="Resolution_1600x900" xml:space="preserve"><value>1600 x 900</value></data>
+  <data name="Resolution_1440x900" xml:space="preserve"><value>1440 x 900</value></data>
+  <data name="Resolution_1680x1050" xml:space="preserve"><value>1680 x 1050</value></data>
+  <data name="Resolution_Ultrawide1" xml:space="preserve"><value>2560 x 1080 (ウルトラワイド)</value></data>
+  <data name="Resolution_Ultrawide2" xml:space="preserve"><value>3440 x 1440 (ウルトラワイド)</value></data>
+  <data name="Resolution_Custom" xml:space="preserve"><value>カスタム</value></data>
+  <data name="Label_Current" xml:space="preserve"><value>現在</value></data>
+  <data name="Unit_B" xml:space="preserve"><value>B</value></data>
+  <data name="Unit_KB" xml:space="preserve"><value>KB</value></data>
+  <data name="Unit_MB" xml:space="preserve"><value>MB</value></data>
+  <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
+  <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
+  <data name="Error_SelectFileFirst" xml:space="preserve"><value>先にエンコードするファイルを選択してください</value></data>
+  <data name="Error_PreviewFailed" xml:space="preserve"><value>プレビュー失敗: {0}</value></data>
+  <data name="Error_GeneratePreviewFailed" xml:space="preserve"><value>プレビュー生成失敗: {0}</value></data>
+  <data name="Error_SavePathNotExist" xml:space="preserve"><value>保存パスが存在しません</value></data>
+  <data name="Dialog_SelectSaveFolder" xml:space="preserve"><value>画像保存フォルダを選択</value></data>
+  <data name="Status_Preparing" xml:space="preserve"><value>準備中...</value></data>
+  <data name="Status_Success" xml:space="preserve"><value>生成成功</value></data>
+  <data name="Status_Failed" xml:space="preserve"><value>生成失敗</value></data>
+  <data name="Error_SaveFailed" xml:space="preserve"><value>保存失敗: {0}</value></data>
+  <data name="Status_GeneratingPage" xml:space="preserve"><value>ページ {0}/{1} を生成中...</value></data>
+  <data name="Preview_TitleFormat" xml:space="preserve"><value>{0} - ページ {1}/{2}</value></data>
+  <data name="MatrixWindowTitle" xml:space="preserve"><value>QRコードマトリックス</value></data>
+</root>

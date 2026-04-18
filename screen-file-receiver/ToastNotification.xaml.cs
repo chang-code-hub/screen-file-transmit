@@ -64,7 +64,7 @@ namespace screen_file_transmit
 
         public static void Show(string message)
         {
-            Show(message, "提示", MessageBoxImage.None);
+            Show(message, Properties.Resources.ResourceManager.GetString("Toast_DefaultTitle"), MessageBoxImage.None);
         }
 
         public static void Show(string message, string title)

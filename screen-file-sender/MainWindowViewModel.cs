@@ -305,7 +305,13 @@ namespace screen_file_transmit
 
         private string GetFriendlyFileSize(long bytes)
         {
-            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+            string[] sizes = {
+                Properties.Resources.ResourceManager.GetString("Unit_B"),
+                Properties.Resources.ResourceManager.GetString("Unit_KB"),
+                Properties.Resources.ResourceManager.GetString("Unit_MB"),
+                Properties.Resources.ResourceManager.GetString("Unit_GB"),
+                Properties.Resources.ResourceManager.GetString("Unit_TB")
+            };
             double len = bytes;
             int order = 0;
             while (len >= 1024 && order < sizes.Length - 1)
@@ -344,7 +350,7 @@ namespace screen_file_transmit
         {
             if (string.IsNullOrEmpty(FilePath) || !File.Exists(FilePath))
             {
-                MessageBox.Show("请先选择要编码的文件");
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SelectFileFirst"));
                 return;
             }
 
@@ -389,7 +395,7 @@ namespace screen_file_transmit
             }
             catch (Exception e)
             {
-                MessageBox.Show($"预览失败: {e.Message}");
+                MessageBox.Show(string.Format(Properties.Resources.ResourceManager.GetString("Error_PreviewFailed"), e.Message));
                 ExitPreview();
             }
         }
@@ -445,7 +451,7 @@ namespace screen_file_transmit
                 }
 
                 PreviewCurrentPage = page;
-                PreviewInfoText = $"{Path.GetFileName(FilePath)} - 第 {page}/{PreviewTotalPages} 页";
+                PreviewInfoText = string.Format(Properties.Resources.ResourceManager.GetString("Preview_TitleFormat"), Path.GetFileName(FilePath), page, PreviewTotalPages);
             }
             catch (OperationCanceledException)
             {
@@ -453,7 +459,7 @@ namespace screen_file_transmit
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"生成预览失败: {ex.Message}");
+                MessageBox.Show(string.Format(Properties.Resources.ResourceManager.GetString("Error_GeneratePreviewFailed"), ex.Message));
             }
             finally
             {
@@ -521,7 +527,7 @@ namespace screen_file_transmit
         {
             var dialog = new System.Windows.Forms.FolderBrowserDialog
             {
-                Description = "选择保存图片的文件夹"
+                Description = Properties.Resources.ResourceManager.GetString("Dialog_SelectSaveFolder")
             };
 
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
@@ -535,7 +541,7 @@ namespace screen_file_transmit
             var path = SaveDirectory;
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             {
-                MessageBox.Show("保存路径不存在");
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SavePathNotExist"));
                 return;
             }
             System.Diagnostics.Process.Start("explorer.exe", path);
@@ -545,7 +551,7 @@ namespace screen_file_transmit
         {
             if (string.IsNullOrEmpty(FilePath) || !File.Exists(FilePath))
             {
-                MessageBox.Show("请先选择要编码的文件");
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SelectFileFirst"));
                 return;
             }
 
@@ -554,7 +560,7 @@ namespace screen_file_transmit
             {
                 var dialog = new System.Windows.Forms.FolderBrowserDialog
                 {
-                    Description = "选择保存图片的文件夹"
+                    Description = Properties.Resources.ResourceManager.GetString("Dialog_SelectSaveFolder")
                 };
 
                 if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
@@ -566,7 +572,7 @@ namespace screen_file_transmit
 
             IsConverting = true;
             ConversionProgress = 0;
-            ConversionStatus = "准备中...";
+            ConversionStatus = Properties.Resources.ResourceManager.GetString("Status_Preparing");
             _cts = new CancellationTokenSource();
 
             var progress = new Progress<(int progress, string status)>(report =>
@@ -578,7 +584,7 @@ namespace screen_file_transmit
             try
             {
                 int totalPages = await Task.Run(() => SaveToFileCore(saveDir, progress, _cts.Token), _cts.Token);
-                ConversionStatus = $"生成成功";
+                ConversionStatus = Properties.Resources.ResourceManager.GetString("Status_Success");
                 SystemSounds.Asterisk.Play();
                 //MessageBox.Show($"成功生成 {totalPages} 张图片到:\n{saveDir}");
             }
@@ -588,11 +594,11 @@ namespace screen_file_transmit
             }
             catch (Exception e)
             {
-                ConversionStatus = $"生成失败";
+                ConversionStatus = Properties.Resources.ResourceManager.GetString("Status_Failed");
                 SystemSounds.Exclamation.Play();
                 Application.Current.MainWindow.Dispatcher.Invoke(() =>
                 {
-                    MessageBox.Show($"保存失败: {e.Message}");
+                    MessageBox.Show(string.Format(Properties.Resources.ResourceManager.GetString("Error_SaveFailed"), e.Message));
                 });
             }
             finally
@@ -671,7 +677,7 @@ namespace screen_file_transmit
                         bitmap.Save(fullPath, ImageFormat.Png);
                         bitmap.Dispose();
 
-                        progress?.Report(((int)((page + 1) * 100.0 / totalPages), $"正在生成第 {page + 1}/{totalPages} 页..."));
+                        progress?.Report(((int)((page + 1) * 100.0 / totalPages), string.Format(Properties.Resources.ResourceManager.GetString("Status_GeneratingPage"), page + 1, totalPages)));
                     }
                 }
                 finally

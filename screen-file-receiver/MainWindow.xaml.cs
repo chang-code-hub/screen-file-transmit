@@ -81,7 +81,7 @@ namespace screen_file_transmit
 
         private void Window_Closing(object sender, CancelEventArgs e)
         {
-            if (MessageBox.Show("确定要退出程序吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_ConfirmExit"), Properties.Resources.ResourceManager.GetString("MsgBox_Title_Confirm"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             {
                 e.Cancel = true;
             }

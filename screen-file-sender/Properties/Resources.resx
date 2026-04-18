@@ -1,84 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
-    Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
-    associated with the data types.
-    
-    Example:
-    
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
-    name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
-    mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
-    extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
-    read any of the formats listed below.
-    
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
-            : System.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-    
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="metadata">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="assembly">
-            <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
@@ -90,28 +15,70 @@
               <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
             </xsd:complexType>
           </xsd:element>
-          <xsd:element name="resheader">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
         </xsd:choice>
       </xsd:complexType>
     </xsd:element>
   </xsd:schema>
-  <resheader name="resmimetype">
-    <value>text/microsoft-resx</value>
-  </resheader>
-  <resheader name="version">
-    <value>2.0</value>
-  </resheader>
-  <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-  <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="WindowTitle" xml:space="preserve"><value>屏幕文件发送器</value></data>
+  <data name="BannerTitle" xml:space="preserve"><value>屏幕文件发送器</value></data>
+  <data name="Label_SelectFile" xml:space="preserve"><value>选择文件：</value></data>
+  <data name="Button_Browse" xml:space="preserve"><value>浏览...</value></data>
+  <data name="Label_EncodingScale" xml:space="preserve"><value>编码比例：</value></data>
+  <data name="Label_Resolution" xml:space="preserve"><value>分辨率：</value></data>
+  <data name="Label_CustomSize" xml:space="preserve"><value>自定义尺寸：</value></data>
+  <data name="Label_WidthShrink" xml:space="preserve"><value>宽度收缩：</value></data>
+  <data name="Label_HeightShrink" xml:space="preserve"><value>高度收缩：</value></data>
+  <data name="Label_ErrorCorrection" xml:space="preserve"><value>纠错级别：</value></data>
+  <data name="Label_Password" xml:space="preserve"><value>密码：</value></data>
+  <data name="Label_SavePath" xml:space="preserve"><value>保存路径：</value></data>
+  <data name="Button_Open" xml:space="preserve"><value>打开</value></data>
+  <data name="Label_SaveProgress" xml:space="preserve"><value>保存进度：</value></data>
+  <data name="Button_Convert" xml:space="preserve"><value>转换</value></data>
+  <data name="Button_Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Button_Preview" xml:space="preserve"><value>预览</value></data>
+  <data name="Button_Exit" xml:space="preserve"><value>退出</value></data>
+  <data name="Button_PreviousPage" xml:space="preserve"><value>上一页</value></data>
+  <data name="Button_NextPage" xml:space="preserve"><value>下一页</value></data>
+  <data name="Button_Back" xml:space="preserve"><value>返回</value></data>
+  <data name="Text_Loading" xml:space="preserve"><value>加载中...</value></data>
+  <data name="MsgBox_ConfirmExitDuringConvert" xml:space="preserve"><value>转换正在进行中，确定要退出吗？</value></data>
+  <data name="MsgBox_ConfirmExitDuringPreview" xml:space="preserve"><value>预览正在进行中，确定要退出吗？</value></data>
+  <data name="MsgBox_ConfirmExit" xml:space="preserve"><value>确定要退出程序吗？</value></data>
+  <data name="MsgBox_Title_Confirm" xml:space="preserve"><value>确认</value></data>
+  <data name="ColorMode_BlackWhite" xml:space="preserve"><value>黑白</value></data>
+  <data name="ColorMode_Color" xml:space="preserve"><value>彩色（高质量传输）</value></data>
+  <data name="Resolution_CurrentScreen" xml:space="preserve"><value>当前屏幕</value></data>
+  <data name="Resolution_FullHD" xml:space="preserve"><value>1920 x 1080 (全高清)</value></data>
+  <data name="Resolution_2K" xml:space="preserve"><value>2560 x 1440 (2K)</value></data>
+  <data name="Resolution_4K" xml:space="preserve"><value>3840 x 2160 (4K)</value></data>
+  <data name="Resolution_HD" xml:space="preserve"><value>1280 x 720 (高清)</value></data>
+  <data name="Resolution_Laptop" xml:space="preserve"><value>1366 x 768 (笔记本)</value></data>
+  <data name="Resolution_1600x900" xml:space="preserve"><value>1600 x 900</value></data>
+  <data name="Resolution_1440x900" xml:space="preserve"><value>1440 x 900</value></data>
+  <data name="Resolution_1680x1050" xml:space="preserve"><value>1680 x 1050</value></data>
+  <data name="Resolution_Ultrawide1" xml:space="preserve"><value>2560 x 1080 (超宽)</value></data>
+  <data name="Resolution_Ultrawide2" xml:space="preserve"><value>3440 x 1440 (超宽)</value></data>
+  <data name="Resolution_Custom" xml:space="preserve"><value>自定义</value></data>
+  <data name="Label_Current" xml:space="preserve"><value>当前</value></data>
+  <data name="Unit_B" xml:space="preserve"><value>B</value></data>
+  <data name="Unit_KB" xml:space="preserve"><value>KB</value></data>
+  <data name="Unit_MB" xml:space="preserve"><value>MB</value></data>
+  <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
+  <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
+  <data name="Error_SelectFileFirst" xml:space="preserve"><value>请先选择要编码的文件</value></data>
+  <data name="Error_PreviewFailed" xml:space="preserve"><value>预览失败: {0}</value></data>
+  <data name="Error_GeneratePreviewFailed" xml:space="preserve"><value>生成预览失败: {0}</value></data>
+  <data name="Error_SavePathNotExist" xml:space="preserve"><value>保存路径不存在</value></data>
+  <data name="Dialog_SelectSaveFolder" xml:space="preserve"><value>选择保存图片的文件夹</value></data>
+  <data name="Status_Preparing" xml:space="preserve"><value>准备中...</value></data>
+  <data name="Status_Success" xml:space="preserve"><value>生成成功</value></data>
+  <data name="Status_Failed" xml:space="preserve"><value>生成失败</value></data>
+  <data name="Error_SaveFailed" xml:space="preserve"><value>保存失败: {0}</value></data>
+  <data name="Status_GeneratingPage" xml:space="preserve"><value>正在生成第 {0}/{1} 页...</value></data>
+  <data name="Preview_TitleFormat" xml:space="preserve"><value>{0} - 第 {1}/{2} 页</value></data>
+  <data name="MatrixWindowTitle" xml:space="preserve"><value>二维码矩阵</value></data>
 </root>

@@ -565,7 +565,7 @@ namespace screen_file_transmit
             string outputDir = _mainVm?.OutputFilePath;
             if (string.IsNullOrWhiteSpace(outputDir) || !Directory.Exists(outputDir))
             {
-                MessageBox.Show("请先设置有效的保存路径", "截图工具", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -604,13 +604,13 @@ namespace screen_file_transmit
             }
             else
             {
-                MessageBox.Show("请先选择窗口或区域", "截图工具", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SelectWindowOrRegion"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             if (bmp == null)
             {
-                MessageBox.Show("截图失败", "截图工具", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_ScreenshotFailed"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -633,7 +633,7 @@ namespace screen_file_transmit
 
             if (string.IsNullOrWhiteSpace(fileName))
             {
-                fileName = $"Screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+                fileName = $"{Properties.Resources.ResourceManager.GetString("Screenshot_FileNamePrefix")}{DateTime.Now:yyyyMMdd_HHmmss}.png";
             }
             else
             {
@@ -647,12 +647,12 @@ namespace screen_file_transmit
             {
                 var bitmapSource = ScreenCaptureHelper.ToBitmapSource(bmp);
                 ScreenCaptureHelper.SavePng(bitmapSource, fullPath);
-                ToastNotification.Show($"已保存到: {fullPath}", "截图成功", MessageBoxImage.Information);
+                ToastNotification.Show(string.Format(Properties.Resources.ResourceManager.GetString("Toast_SavedTo"), fullPath), Properties.Resources.ResourceManager.GetString("Toast_ScreenshotSuccess"), MessageBoxImage.Information);
                 _mainVm?.AddFiles(new[] { fullPath });
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"保存失败: {ex.Message}", "截图工具", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Format(Properties.Resources.ResourceManager.GetString("Error_SaveFailed"), ex.Message), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -660,7 +660,7 @@ namespace screen_file_transmit
         {
             if (_lastCapture == null)
             {
-                MessageBox.Show("请先截图", "解码测试", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_ScreenshotFirst"), Properties.Resources.ResourceManager.GetString("DecodeTest_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -673,13 +673,13 @@ namespace screen_file_transmit
                     {
                         var meta = ImageDecoder.ReadMetadata(metaBmp);
                         metaInfo = meta?.Metadata != null && meta.Metadata.Length >= 4
-                            ? $"元数据OK: {meta.FileName} ({meta.MaxRows}x{meta.MaxCols} P={meta.CurrentPage}/{meta.TotalPages})"
-                            : "未识别到元数据";
+                            ? string.Format(Properties.Resources.ResourceManager.GetString("DecodeTest_MetaOk"), meta.FileName, meta.MaxRows, meta.MaxCols, meta.CurrentPage, meta.TotalPages)
+                            : Properties.Resources.ResourceManager.GetString("DecodeTest_MetaNotFound");
                     }
                 }
                 catch (Exception ex)
                 {
-                    metaInfo = $"元数据异常: {ex.Message}";
+                    metaInfo = string.Format(Properties.Resources.ResourceManager.GetString("DecodeTest_MetaError"), ex.Message);
                 }
 
                 string tempPath = Path.Combine(Path.GetTempPath(), $"scrtmp_{Guid.NewGuid()}.png");
@@ -695,23 +695,23 @@ namespace screen_file_transmit
                     var decodeResult = ImageDecoder.DecodeImageWithMetadata(tempPath, false);
                     bool decodeOk = decodeResult?.DataBlocks?.Count > 0;
                     decodeInfo = decodeOk
-                        ? $"解码成功，数据块数: {decodeResult.DataBlocks.Count}"
-                        : "解码失败，未解析到数据块";
+                        ? string.Format(Properties.Resources.ResourceManager.GetString("DecodeTest_DecodeSuccess"), decodeResult.DataBlocks.Count)
+                        : Properties.Resources.ResourceManager.GetString("DecodeTest_DecodeFailed");
                 }
                 catch (Exception ex)
                 {
-                    decodeInfo = $"解码异常: {ex.Message}";
+                    decodeInfo = string.Format(Properties.Resources.ResourceManager.GetString("DecodeTest_DecodeError"), ex.Message);
                 }
                 finally
                 {
                     try { File.Delete(tempPath); } catch { }
                 }
 
-                MessageBox.Show($"{metaInfo}\n{decodeInfo}", "解码测试结果", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"{metaInfo}\n{decodeInfo}", Properties.Resources.ResourceManager.GetString("MsgBox_Title_DecodeTestResult"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"测试失败: {ex.Message}", "解码测试", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Format(Properties.Resources.ResourceManager.GetString("Error_TestFailed"), ex.Message), Properties.Resources.ResourceManager.GetString("DecodeTest_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

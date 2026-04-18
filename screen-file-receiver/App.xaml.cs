@@ -1,14 +1,21 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Windows;
 
 namespace screen_file_transmit
 {
     public partial class App : Application
     {
+        public App()
+        {
+            Thread.CurrentThread.CurrentUICulture = CultureInfo.CurrentUICulture;
+        }
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
