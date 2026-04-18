@@ -29,6 +29,13 @@ namespace screen_file_transmit
         private static readonly TimeSpan ExpandDelay = TimeSpan.FromMilliseconds(250);
         private static readonly TimeSpan CollapseDelay = TimeSpan.FromSeconds(3);
 
+        // 自动翻页相关
+        private DispatcherTimer _autoFlipTimer;
+        private bool _isAutoFlipping;
+        private int _lastProcessedPage = -1;
+        private int _autoFlipTotalPages;
+        private string _autoFlipFileName;
+
         // 编辑选区相关
         private bool _isEditMode;
         private double _offsetLeftPhys;
@@ -234,6 +241,11 @@ namespace screen_file_transmit
 
         private void CancelSelection()
         {
+            if (_isAutoFlipping)
+            {
+                StopAutoFlip();
+                BtnAutoFlip.IsChecked = false;
+            }
             if (_selectionBorderWindow != null)
                 _selectionBorderWindow.Resized -= OnSelectionBorderResized;
             _selectedHwnd = IntPtr.Zero;
@@ -518,6 +530,8 @@ namespace screen_file_transmit
                 BtnCapture.IsEnabled = hasSelection;
             if (BtnDecodeTest != null)
                 BtnDecodeTest.IsEnabled = _lastCapture != null;
+            if (BtnAutoFlip != null)
+                BtnAutoFlip.IsEnabled = hasSelection;
         }
 
         private void OnSelectionBorderResized(object sender, RectChangedEventArgs e)
@@ -715,8 +729,284 @@ namespace screen_file_transmit
             }
         }
 
+        private Bitmap CaptureSelection(bool hideBorder)
+        {
+            if (hideBorder)
+                HideSelectionBorder();
+
+            Bitmap bmp = null;
+            if (_selectedHwnd != IntPtr.Zero)
+            {
+                if (HasWindowOffset())
+                {
+                    NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
+                    if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
+                        rc = dwmRc;
+
+                    int x = rc.Left + (int)Math.Round(_offsetLeftPhys);
+                    int y = rc.Top + (int)Math.Round(_offsetTopPhys);
+                    int w = (rc.Right - rc.Left) + (int)Math.Round(_offsetRightPhys - _offsetLeftPhys);
+                    int h = (rc.Bottom - rc.Top) + (int)Math.Round(_offsetBottomPhys - _offsetTopPhys);
+
+                    var region = new Rectangle(x, y, Math.Max(1, w), Math.Max(1, h));
+                    bmp = ScreenCaptureHelper.CaptureRegion(region);
+                }
+                else
+                {
+                    bmp = ScreenCaptureHelper.CaptureWindow(_selectedHwnd);
+                }
+            }
+            else if (_selectedRegion.Width > 0 && _selectedRegion.Height > 0)
+            {
+                var rc = new Rectangle(
+                    (int)_selectedRegion.X,
+                    (int)_selectedRegion.Y,
+                    (int)_selectedRegion.Width,
+                    (int)_selectedRegion.Height);
+                bmp = ScreenCaptureHelper.CaptureRegion(rc);
+            }
+
+            return bmp;
+        }
+
+        private void SaveCapture(Bitmap bmp, ImageDecoder.MetadataResult meta)
+        {
+            string outputDir = _mainVm?.OutputFilePath;
+            if (string.IsNullOrWhiteSpace(outputDir) || !Directory.Exists(outputDir))
+            {
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string fileName = null;
+            if (meta != null && !string.IsNullOrWhiteSpace(meta.FileName))
+                fileName = Path.GetFileNameWithoutExtension($"{meta.FileName}" )+$"_{meta.FileId}_{meta.CurrentPage:0000}.png";
+
+            if (string.IsNullOrWhiteSpace(fileName))
+                fileName = $"{Properties.Resources.ResourceManager.GetString("Screenshot_FileNamePrefix")}{DateTime.Now:yyyyMMdd_HHmmss}.png";
+
+            string fullPath = Path.Combine(outputDir, fileName);
+            fullPath = ScreenCaptureHelper.GetUniqueFilePath(fullPath);
+
+            try
+            {
+                var bitmapSource = ScreenCaptureHelper.ToBitmapSource(bmp);
+                ScreenCaptureHelper.SavePng(bitmapSource, fullPath);
+                //string toastTitle = string.Format(Properties.Resources.ResourceManager.GetString("Toast_AutoFlipPageSaved"), meta?.CurrentPage ?? 0, _autoFlipTotalPages);
+                //ToastNotification.Show(string.Format(Properties.Resources.ResourceManager.GetString("Toast_SavedTo"), fullPath), toastTitle, MessageBoxImage.Information);
+                _mainVm?.AddFiles(new[] { fullPath });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Properties.Resources.ResourceManager.GetString("Error_SaveFailed"), ex.Message), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnAutoFlip_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (BtnAutoFlip.IsChecked == true)
+                StartAutoFlip();
+            else
+                StopAutoFlip();
+        }
+
+        private void StartAutoFlip()
+        {
+            bool hasSelection = _selectedHwnd != IntPtr.Zero || _selectedRegion != Rect.Empty;
+            if (!hasSelection)
+            {
+                BtnAutoFlip.IsChecked = false;
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SelectWindowOrRegion"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            string outputDir = _mainVm?.OutputFilePath;
+            if (string.IsNullOrWhiteSpace(outputDir) || !Directory.Exists(outputDir))
+            {
+                BtnAutoFlip.IsChecked = false;
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            Bitmap bmp = CaptureSelection(true);
+            if (bmp == null)
+            {
+                BtnAutoFlip.IsChecked = false;
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_ScreenshotFailed"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            _lastCapture?.Dispose();
+            _lastCapture = bmp;
+            UpdateActionButtonState();
+
+            ImageDecoder.MetadataResult meta = null;
+            bool decodeOk = false;
+            try
+            {
+                using (var metaBmp = new Bitmap(bmp))
+                {
+                    meta = ImageDecoder.ReadMetadata(metaBmp);
+                }
+
+                string tempPath = Path.Combine(Path.GetTempPath(), $"scrtmp_{Guid.NewGuid()}.png");
+                try
+                {
+                    using (var tempBmp = new Bitmap(bmp))
+                    {
+                        var source = ScreenCaptureHelper.ToBitmapSource(tempBmp);
+                        ScreenCaptureHelper.SavePng(source, tempPath);
+                    }
+
+                    var decodeResult = ImageDecoder.DecodeImageWithMetadata(tempPath, false);
+                    decodeOk = decodeResult?.DataBlocks?.Count > 0;
+                }
+                finally
+                {
+                    try { File.Delete(tempPath); } catch { }
+                }
+            }
+            catch { }
+
+            if (meta?.Metadata == null || meta.Metadata.Length < 4 || !decodeOk)
+            {
+                BtnAutoFlip.IsChecked = false;
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipNoData"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                ShowSelectionBorder();
+                return;
+            }
+
+            var confirmResult = MessageBox.Show(
+                Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipConfirm"),
+                Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question);
+
+            if (confirmResult != MessageBoxResult.OK)
+            {
+                BtnAutoFlip.IsChecked = false;
+                ShowSelectionBorder();
+                return;
+            }
+
+            SaveCapture(bmp, meta);
+            _lastProcessedPage = meta.CurrentPage;
+            _autoFlipTotalPages = meta.TotalPages;
+            _autoFlipFileName = meta.FileName;
+
+            if (meta.CurrentPage >= meta.TotalPages)
+            {
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+                BtnAutoFlip.IsChecked = false;
+                ShowSelectionBorder();
+                return;
+            }
+
+            SimulateClickRightSide();
+            ShowSelectionBorder();
+
+            _isAutoFlipping = true;
+            _autoFlipTimer = new DispatcherTimer(DispatcherPriority.Normal)
+            {
+                Interval = TimeSpan.FromMilliseconds(100)
+            };
+            _autoFlipTimer.Tick += AutoFlipTick;
+            _autoFlipTimer.Start();
+        }
+
+        private void AutoFlipTick(object sender, EventArgs e)
+        {
+            if (!_isAutoFlipping) return;
+
+            Bitmap bmp = CaptureSelection(false);
+            if (bmp == null) return;
+
+            ImageDecoder.MetadataResult meta = null;
+            try
+            {
+                using (var metaBmp = new Bitmap(bmp))
+                {
+                    meta = ImageDecoder.ReadMetadata(metaBmp);
+                }
+            }
+            catch { }
+
+            if (meta?.Metadata == null || meta.Metadata.Length < 4)
+            {
+                bmp.Dispose();
+                return;
+            }
+
+            if (meta.CurrentPage == _lastProcessedPage)
+            {
+                bmp.Dispose();
+                return;
+            }
+
+            SaveCapture(bmp, meta);
+            bmp.Dispose();
+            _lastProcessedPage = meta.CurrentPage;
+
+            if (meta.CurrentPage >= _autoFlipTotalPages)
+            {
+                StopAutoFlip();
+                BtnAutoFlip.IsChecked = false;
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+                ShowSelectionBorder();
+                return;
+            }
+
+            SimulateClickRightSide();
+        }
+
+        private void StopAutoFlip()
+        {
+            _isAutoFlipping = false;
+            if (_autoFlipTimer != null)
+            {
+                _autoFlipTimer.Stop();
+                _autoFlipTimer.Tick -= AutoFlipTick;
+                _autoFlipTimer = null;
+            }
+        }
+
+        private void SimulateClickRightSide()
+        {
+            int x, y, width, height;
+
+            if (_selectedHwnd != IntPtr.Zero)
+            {
+                NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
+                if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
+                    rc = dwmRc;
+                x = rc.Left;
+                y = rc.Top;
+                width = rc.Right - rc.Left;
+                height = rc.Bottom - rc.Top;
+            }
+            else
+            {
+                x = (int)_selectedRegion.X;
+                y = (int)_selectedRegion.Y;
+                width = (int)_selectedRegion.Width;
+                height = (int)_selectedRegion.Height;
+            }
+
+            int clickX = x + width * 3 / 4;
+            int clickY = y + height / 2;
+
+            NativeMethods.GetCursorPos(out var originalPos);
+            NativeMethods.SetCursorPos(clickX, clickY);
+            NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, IntPtr.Zero);
+            System.Threading.Thread.Sleep(10);
+            NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
+            System.Threading.Thread.Sleep(50);
+            NativeMethods.SetCursorPos(originalPos.X, originalPos.Y);
+        }
+
         protected override void OnClosed(EventArgs e)
         {
+            StopAutoFlip();
             _expandDelayTimer?.Stop();
             _collapseDelayTimer?.Stop();
             _lastCapture?.Dispose();

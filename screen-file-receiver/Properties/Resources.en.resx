@@ -110,4 +110,9 @@
   <data name="Error_QrCodeCountMismatch" xml:space="preserve"><value>QR code count mismatch: expected {0}, actual {1}</value></data>
   <data name="Error_Crc32Failed" xml:space="preserve"><value>CRC32 verification failed: block ({0}, {1})</value></data>
   <data name="Error_LoadImageFailed" xml:space="preserve"><value>Failed to load image: {0}</value></data>
+  <data name="ToolTip_AutoFlip" xml:space="preserve"><value>Auto Flip</value></data>
+  <data name="MsgBox_AutoFlipConfirm" xml:space="preserve"><value>Please confirm the sender is in preview mode and the current screen is interactive. Click "OK" to start auto-flip capture.</value></data>
+  <data name="MsgBox_AutoFlipNoData" xml:space="preserve"><value>No data found. Please check if the selection is correct.</value></data>
+  <data name="MsgBox_AutoFlipComplete" xml:space="preserve"><value>Auto flip completed. All pages have been saved.</value></data>
+  <data name="Toast_AutoFlipPageSaved" xml:space="preserve"><value>Saved page {0}/{1}</value></data>
 </root>

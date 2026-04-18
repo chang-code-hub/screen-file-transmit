@@ -251,6 +251,27 @@
                         StrokeStartLineCap="Round"
                         StrokeThickness="1.1" />
                 </Button>
+                <ToggleButton
+                    x:Name="BtnAutoFlip"
+                    Checked="BtnAutoFlip_CheckedChanged"
+                    IsEnabled="False"
+                    Style="{StaticResource ToolbarToggleButtonStyle}"
+                    ToolTipService.InitialShowDelay="0"
+                    ToolTipService.ShowDuration="30000"
+                    ToolTipService.ShowOnDisabled="True"
+                    Unchecked="BtnAutoFlip_CheckedChanged">
+                    <ToggleButton.ToolTip>
+                        <ToolTip Content="{loc:Loc ToolTip_AutoFlip}" />
+                    </ToggleButton.ToolTip>
+                    <Path
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="M11,1 A6,6 0 1,1 3,5 M3,5 L1,5 M3,5 L3,3"
+                        Stroke="#444444"
+                        StrokeEndLineCap="Round"
+                        StrokeStartLineCap="Round"
+                        StrokeThickness="1.2" />
+                </ToggleButton>
                 <Button
                     x:Name="BtnDecodeTest"
                     Click="BtnDecodeTest_Click"

@@ -110,4 +110,9 @@
   <data name="Error_QrCodeCountMismatch" xml:space="preserve"><value>二维码数量校验失败: 期望 {0} 个，实际解析到 {1} 个</value></data>
   <data name="Error_Crc32Failed" xml:space="preserve"><value>CRC32 校验失败: 数据块 ({0}, {1})</value></data>
   <data name="Error_LoadImageFailed" xml:space="preserve"><value>加载图片失败: {0}</value></data>
+  <data name="ToolTip_AutoFlip" xml:space="preserve"><value>自动翻页</value></data>
+  <data name="MsgBox_AutoFlipConfirm" xml:space="preserve"><value>请确认发送端已处于预览模式，且当前画面有操作权限。点击"确定"开始自动翻页截图。</value></data>
+  <data name="MsgBox_AutoFlipNoData" xml:space="preserve"><value>未找到数据，请检查选区是否正确。</value></data>
+  <data name="MsgBox_AutoFlipComplete" xml:space="preserve"><value>自动翻页完成，所有页面已保存。</value></data>
+  <data name="Toast_AutoFlipPageSaved" xml:space="preserve"><value>已保存第 {0}/{1} 页</value></data>
 </root>
