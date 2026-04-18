@@ -281,6 +281,7 @@ namespace screen_file_transmit
             _selectedHwnd = IntPtr.Zero;
             _selectedRegion = Rect.Empty;
             var overlay = new WindowSelectOverlay();
+            overlay.Owner = this;
             overlay.Closed += (s, args) =>
             {
                 if (overlay.SelectedHwnd != IntPtr.Zero)
@@ -288,6 +289,7 @@ namespace screen_file_transmit
                     _selectedHwnd = overlay.SelectedHwnd;
                     _selectedRegion = Rect.Empty;
                     StartFollowTimer();
+                    EnableEditMode();
                 }
                 UpdateEditButtonState();
                 UpdateActionButtonState();
@@ -311,6 +313,7 @@ namespace screen_file_transmit
             _selectedHwnd = IntPtr.Zero;
             _selectedRegion = Rect.Empty;
             var overlay = new RegionSelectOverlay();
+            overlay.Owner = this;
             overlay.Closed += (s, args) =>
             {
                 if (overlay.SelectedRegion.Width > 0 && overlay.SelectedRegion.Height > 0)
@@ -319,6 +322,7 @@ namespace screen_file_transmit
                     _selectedHwnd = IntPtr.Zero;
                     StopFollowTimer();
                     ShowSelectionBorder(_selectedRegion);
+                    EnableEditMode();
                 }
                 UpdateEditButtonState();
                 UpdateActionButtonState();
@@ -345,6 +349,7 @@ namespace screen_file_transmit
             if (_selectionBorderWindow == null)
             {
                 _selectionBorderWindow = new SelectionBorderWindow();
+                _selectionBorderWindow.Owner = this;
                 if (_isEditMode)
                     _selectionBorderWindow.Resized += OnSelectionBorderResized;
             }
@@ -475,6 +480,28 @@ namespace screen_file_transmit
             }
         }
 
+        private void EnableEditMode()
+        {
+            if (_selectedHwnd == IntPtr.Zero && _selectedRegion == Rect.Empty)
+                return;
+
+            _isEditMode = true;
+            UpdateEditButtonState();
+
+            EnsureSelectionBorderWindow();
+            _selectionBorderWindow.EditMode = true;
+            _selectionBorderWindow.Resized -= OnSelectionBorderResized;
+            _selectionBorderWindow.Resized += OnSelectionBorderResized;
+
+            if (_selectedHwnd != IntPtr.Zero)
+            {
+                NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
+                if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
+                    rc = dwmRc;
+                _offsetBaselineRect = rc;
+            }
+        }
+
         private void ToggleEditMode()
         {
             if (_selectedHwnd == IntPtr.Zero && _selectedRegion == Rect.Empty)
@@ -492,17 +519,7 @@ namespace screen_file_transmit
 
             if (_isEditMode)
             {
-                _selectionBorderWindow.Resized -= OnSelectionBorderResized;
-                _selectionBorderWindow.Resized += OnSelectionBorderResized;
-
-                // 初始化基线窗口矩形
-                if (_selectedHwnd != IntPtr.Zero)
-                {
-                    NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
-                    if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
-                        rc = dwmRc;
-                    _offsetBaselineRect = rc;
-                }
+                EnableEditMode();
             }
             else
             {
@@ -529,7 +546,7 @@ namespace screen_file_transmit
             if (BtnCapture != null)
                 BtnCapture.IsEnabled = hasSelection;
             if (BtnDecodeTest != null)
-                BtnDecodeTest.IsEnabled = _lastCapture != null;
+                BtnDecodeTest.IsEnabled = hasSelection;
             if (BtnAutoFlip != null)
                 BtnAutoFlip.IsEnabled = hasSelection;
         }
@@ -672,53 +689,37 @@ namespace screen_file_transmit
 
         private void ExecuteDecodeTest()
         {
-            if (_lastCapture == null)
+            Bitmap bmp = CaptureSelection(true);
+            if (bmp == null)
             {
-                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_ScreenshotFirst"), Properties.Resources.ResourceManager.GetString("DecodeTest_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_ScreenshotFailed"), Properties.Resources.ResourceManager.GetString("DecodeTest_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             try
             {
                 string metaInfo;
+                string decodeInfo;
                 try
                 {
-                    using (var metaBmp = new Bitmap(_lastCapture))
+                    using (bmp)
                     {
-                        var meta = ImageDecoder.ReadMetadata(metaBmp);
+                        var meta = ImageDecoder.ReadMetadata(bmp);
                         metaInfo = meta?.Metadata != null && meta.Metadata.Length >= 4
                             ? string.Format(Properties.Resources.ResourceManager.GetString("DecodeTest_MetaOk"), meta.FileName, meta.MaxRows, meta.MaxCols, meta.CurrentPage, meta.TotalPages)
                             : Properties.Resources.ResourceManager.GetString("DecodeTest_MetaNotFound");
+
+                        var decodeResult = ImageDecoder.DecodeImageWithMetadata(bmp, false);
+                        bool decodeOk = decodeResult?.DataBlocks?.Count > 0;
+                        decodeInfo = decodeOk
+                            ? string.Format(Properties.Resources.ResourceManager.GetString("DecodeTest_DecodeSuccess"), decodeResult.DataBlocks.Count)
+                            : Properties.Resources.ResourceManager.GetString("DecodeTest_DecodeFailed");
                     }
                 }
                 catch (Exception ex)
                 {
                     metaInfo = string.Format(Properties.Resources.ResourceManager.GetString("DecodeTest_MetaError"), ex.Message);
-                }
-
-                string tempPath = Path.Combine(Path.GetTempPath(), $"scrtmp_{Guid.NewGuid()}.png");
-                string decodeInfo;
-                try
-                {
-                    using (var tempBmp = new Bitmap(_lastCapture))
-                    {
-                        var source = ScreenCaptureHelper.ToBitmapSource(tempBmp);
-                        ScreenCaptureHelper.SavePng(source, tempPath);
-                    }
-
-                    var decodeResult = ImageDecoder.DecodeImageWithMetadata(tempPath, false);
-                    bool decodeOk = decodeResult?.DataBlocks?.Count > 0;
-                    decodeInfo = decodeOk
-                        ? string.Format(Properties.Resources.ResourceManager.GetString("DecodeTest_DecodeSuccess"), decodeResult.DataBlocks.Count)
-                        : Properties.Resources.ResourceManager.GetString("DecodeTest_DecodeFailed");
-                }
-                catch (Exception ex)
-                {
                     decodeInfo = string.Format(Properties.Resources.ResourceManager.GetString("DecodeTest_DecodeError"), ex.Message);
-                }
-                finally
-                {
-                    try { File.Delete(tempPath); } catch { }
                 }
 
                 MessageBox.Show($"{metaInfo}\n{decodeInfo}", Properties.Resources.ResourceManager.GetString("MsgBox_Title_DecodeTestResult"), MessageBoxButton.OK, MessageBoxImage.Information);
@@ -733,40 +734,49 @@ namespace screen_file_transmit
         {
             if (hideBorder)
                 HideSelectionBorder();
-
-            Bitmap bmp = null;
-            if (_selectedHwnd != IntPtr.Zero)
+            try
             {
-                if (HasWindowOffset())
-                {
-                    NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
-                    if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
-                        rc = dwmRc;
 
-                    int x = rc.Left + (int)Math.Round(_offsetLeftPhys);
-                    int y = rc.Top + (int)Math.Round(_offsetTopPhys);
-                    int w = (rc.Right - rc.Left) + (int)Math.Round(_offsetRightPhys - _offsetLeftPhys);
-                    int h = (rc.Bottom - rc.Top) + (int)Math.Round(_offsetBottomPhys - _offsetTopPhys);
-
-                    var region = new Rectangle(x, y, Math.Max(1, w), Math.Max(1, h));
-                    bmp = ScreenCaptureHelper.CaptureRegion(region);
-                }
-                else
+                Bitmap bmp = null;
+                if (_selectedHwnd != IntPtr.Zero)
                 {
-                    bmp = ScreenCaptureHelper.CaptureWindow(_selectedHwnd);
+                    if (HasWindowOffset())
+                    {
+                        NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
+                        if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
+                            rc = dwmRc;
+
+                        int x = rc.Left + (int)Math.Round(_offsetLeftPhys);
+                        int y = rc.Top + (int)Math.Round(_offsetTopPhys);
+                        int w = (rc.Right - rc.Left) + (int)Math.Round(_offsetRightPhys - _offsetLeftPhys);
+                        int h = (rc.Bottom - rc.Top) + (int)Math.Round(_offsetBottomPhys - _offsetTopPhys);
+
+                        var region = new Rectangle(x, y, Math.Max(1, w), Math.Max(1, h));
+                        bmp = ScreenCaptureHelper.CaptureRegion(region);
+                    }
+                    else
+                    {
+                        bmp = ScreenCaptureHelper.CaptureWindow(_selectedHwnd);
+                    }
                 }
+                else if (_selectedRegion.Width > 0 && _selectedRegion.Height > 0)
+                {
+                    var rc = new Rectangle(
+                        (int)_selectedRegion.X,
+                        (int)_selectedRegion.Y,
+                        (int)_selectedRegion.Width,
+                        (int)_selectedRegion.Height);
+                    bmp = ScreenCaptureHelper.CaptureRegion(rc);
+                }
+
+                return bmp;
             }
-            else if (_selectedRegion.Width > 0 && _selectedRegion.Height > 0)
+            finally
             {
-                var rc = new Rectangle(
-                    (int)_selectedRegion.X,
-                    (int)_selectedRegion.Y,
-                    (int)_selectedRegion.Width,
-                    (int)_selectedRegion.Height);
-                bmp = ScreenCaptureHelper.CaptureRegion(rc);
-            }
+                if (hideBorder)
+                    ShowSelectionBorder();
 
-            return bmp;
+            }
         }
 
         private void SaveCapture(Bitmap bmp, ImageDecoder.MetadataResult meta)

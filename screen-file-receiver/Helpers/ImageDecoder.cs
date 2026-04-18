@@ -253,8 +253,6 @@ namespace screen_file_transmit
         /// </summary>
         public static DecodeResult DecodeImageWithMetadata(string imageFile, bool debug)
         {
-            var result = new DecodeResult();
-
             using (Mat image = Cv2.ImRead(imageFile))
             {
                 if (image.Empty())
@@ -262,26 +260,44 @@ namespace screen_file_transmit
                     throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_LoadImageFailed"), imageFile));
                 }
 
-                result.Metadata = ReadMetadata(imageFile, debug);
+                return DecodeImageWithMetadata(image, debug);
+            }
+        }
 
-                var dataMatrixContours = FindDataMatrixContours(image);
+        /// <summary>
+        /// 从 Bitmap 解码所有数据块（包含元数据）
+        /// </summary>
+        public static DecodeResult DecodeImageWithMetadata(Bitmap bitmap, bool debug)
+        {
+            using (Mat image = OpenCvSharp.Extensions.BitmapConverter.ToMat(bitmap))
+            {
+                return DecodeImageWithMetadata(image, debug);
+            }
+        }
 
-                bool isColorful = result.Metadata?.Colorful ?? false;
-                if (isColorful)
-                {
-                    result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours, debug, out int decodedCount);
-                    result.DecodedQrCodeCount = decodedCount;
-                }
-                else
-                {
-                    result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours, debug);
-                    result.DecodedQrCodeCount = result.DataBlocks.Count;
-                }
+        private static DecodeResult DecodeImageWithMetadata(Mat image, bool debug)
+        {
+            var result = new DecodeResult();
 
-                if (result.Metadata?.HasErrorCorrection == true && result.DataBlocks != null && result.DataBlocks.Count > 0)
-                {
-                    result.DataBlocks = DecodeWithReedSolomon(result.DataBlocks, result.Metadata);
-                }
+            result.Metadata = ReadMetadata(image, debug);
+
+            var dataMatrixContours = FindDataMatrixContours(image);
+
+            bool isColorful = result.Metadata?.Colorful ?? false;
+            if (isColorful)
+            {
+                result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours, debug, out int decodedCount);
+                result.DecodedQrCodeCount = decodedCount;
+            }
+            else
+            {
+                result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours, debug);
+                result.DecodedQrCodeCount = result.DataBlocks.Count;
+            }
+
+            if (result.Metadata?.HasErrorCorrection == true && result.DataBlocks != null && result.DataBlocks.Count > 0)
+            {
+                result.DataBlocks = DecodeWithReedSolomon(result.DataBlocks, result.Metadata);
             }
 
             return result;

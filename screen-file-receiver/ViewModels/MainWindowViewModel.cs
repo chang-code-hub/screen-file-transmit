@@ -210,24 +210,22 @@ namespace screen_file_transmit
         {
             foreach (var group in FileItems.GroupBy(c => new { c.FileId, c.SaveFileName }))
             {
-                HashSet<int> pages = new HashSet<int>();
+                var first = group.FirstOrDefault();
+                if (first == null || first.TotalPages <= 0)
+                {
+                    foreach (var item in group)
+                        item.IsComplete = false;
+                    continue;
+                }
+
+                var pages = group.Select(c => c.CurrentPage).ToList();
+                bool hasDuplicate = pages.Count != pages.Distinct().Count();
+                bool allPagesPresent = Enumerable.Range(1, first.TotalPages).All(p => pages.Contains(p));
+                bool isComplete = !hasDuplicate && allPagesPresent;
+
                 foreach (var item in group)
                 {
-                    pages.Add(item.CurrentPage);
-                }
-                if (pages.Count == group.First().TotalPages)
-                {
-                    foreach (var item in group)
-                    {
-                        item.IsComplete = true;
-                    }
-                }
-                else
-                {
-                    foreach (var item in group)
-                    {
-                        item.IsComplete = false;
-                    }
+                    item.IsComplete = isComplete;
                 }
             }
         }

@@ -78,6 +78,10 @@ namespace screen_file_transmit
 
             // 添加 WS_EX_TOOLWINDOW 样式
             NativeMethods.SetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE, (IntPtr)(exStyle | NativeMethods.WS_EX_TOOLWINDOW));
+
+            // 置顶
+            NativeMethods.SetWindowPos(hWnd, NativeMethods.HWND_TOPMOST, 0, 0, 0, 0,
+                NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
         }
         private void CreateResizeHandles()
         {

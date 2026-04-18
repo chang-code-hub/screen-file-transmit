@@ -198,7 +198,8 @@
                     Style="{StaticResource ToolbarButtonStyle}"
                     ToolTipService.InitialShowDelay="0"
                     ToolTipService.ShowDuration="30000"
-                    ToolTipService.ShowOnDisabled="True">
+                    ToolTipService.ShowOnDisabled="True"
+                    Visibility="Collapsed">
                     <Button.ToolTip>
                         <ToolTip Content="{loc:Loc ToolTip_EditSelection}" />
                     </Button.ToolTip>
@@ -270,7 +271,7 @@
                         Stroke="#444444"
                         StrokeEndLineCap="Round"
                         StrokeStartLineCap="Round"
-                        StrokeThickness="1.2" />
+                        StrokeThickness="1.2" Cursor="" />
                 </ToggleButton>
                 <Button
                     x:Name="BtnDecodeTest"
