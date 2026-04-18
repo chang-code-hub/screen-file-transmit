@@ -2,6 +2,8 @@
 
 中文 | [English](README.en.md)
 
+GitHub: [chang-code-hub/screen-file-transmit](https://github.com/chang-code-hub/screen-file-transmit)
+
 通过二维码视觉传输文件的系统。将二进制文件编码为 DataMatrix 二维码网格并显示在屏幕上，接收方通过截屏或拍照解码二维码来重建原始文件。无需网络连接，纯视觉传输。
 
 ## 系统组成

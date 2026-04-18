@@ -2,6 +2,8 @@
 
 [中文](README.md) | English
 
+GitHub: [chang-code-hub/screen-file-transmit](https://github.com/chang-code-hub/screen-file-transmit)
+
 A system for visually transmitting files via QR codes. Binary files are encoded into a DataMatrix QR code grid and displayed on screen; the receiver decodes the QR codes from screenshots or photos to reconstruct the original file. No network connection required — purely visual transmission.
 
 ## System Components
