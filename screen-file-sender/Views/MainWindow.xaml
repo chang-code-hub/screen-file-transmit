@@ -328,7 +328,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="175" />
                 </Grid.ColumnDefinitions>
-                <Label>{loc:Loc Label_SaveProgress}</Label>
+                <Label Content="{loc:Loc Label_SaveProgress}" />
                 <ProgressBar
                     Grid.Column="1"
                     Height="20"

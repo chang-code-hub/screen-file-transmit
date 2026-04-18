@@ -168,9 +168,27 @@ namespace screen_file_transmit
 
         private void ScrollViewer_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ChangedButton == MouseButton.Left)
-                this.DragMove();
+            if (e.ChangedButton != MouseButton.Left || !viewModel.IsPreviewMode || viewModel.IsPreviewLoading)
+                return;
 
+            var scrollViewer = sender as ScrollViewer;
+            if (scrollViewer == null)
+                return;
+
+            var position = e.GetPosition(scrollViewer);
+
+            if (position.X < scrollViewer.ActualWidth / 2)
+            {
+                if (viewModel.PreviewCurrentPage > 1)
+                    viewModel.PreviewPreviousPageCommand.Execute(null);
+            }
+            else
+            {
+                if (viewModel.PreviewCurrentPage < viewModel.PreviewTotalPages)
+                    viewModel.PreviewNextPageCommand.Execute(null);
+            }
+
+            e.Handled = true;
         }
     }
 }
