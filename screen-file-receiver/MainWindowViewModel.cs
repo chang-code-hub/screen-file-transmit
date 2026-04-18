@@ -9,6 +9,7 @@ using System.Media;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
+using System.Threading.Tasks;
 
 namespace screen_file_receiver
 {
@@ -456,7 +457,7 @@ namespace screen_file_receiver
             return newPath;
         }
 
-        private void StartConvert()
+        private async void StartConvert()
         {
             if (string.IsNullOrWhiteSpace(OutputFilePath))
             {
@@ -495,82 +496,94 @@ namespace screen_file_receiver
             IsBusy = true;
             ProgressMaximum = completeItems.Count;
             ProgressValue = 0;
+            StatusText = "正在解析...";
 
             try
             {
-                bool anyFailed = false;
-                int processedCount = 0;
-
-                foreach (var group in groups)
+                bool anyFailed = await Task.Run(() =>
                 {
-                    string outputFileName = group.Key.SaveFileName;
-                    if (string.IsNullOrWhiteSpace(outputFileName))
-                        outputFileName = "解码文件.bin";
+                    bool failed = false;
+                    int processedCount = 0;
+                    var dispatcher = Application.Current.Dispatcher;
 
-                    string outputPath = Path.Combine(OutputFilePath, outputFileName);
-                    outputPath = GetUniqueFilePath(outputPath);
-
-                    using (var encryptedMs = new MemoryStream())
+                    foreach (var group in groups)
                     {
-                        var sortedItems = group.OrderBy(f => f.CurrentPage).ToList();
-                        foreach (var item in sortedItems)
-                        {
-                            processedCount++;
-                            item.Status = $"正在解析 {processedCount}/{completeItems.Count}";
-                            item.ProgressValue = 0;
-                            ProgressValue = processedCount;
+                        string outputFileName = group.Key.SaveFileName;
+                        if (string.IsNullOrWhiteSpace(outputFileName))
+                            outputFileName = "解码文件.bin";
 
-                            if (string.IsNullOrEmpty(item.FullPath))
+                        string outputPath = Path.Combine(OutputFilePath, outputFileName);
+                        outputPath = GetUniqueFilePath(outputPath);
+
+                        using (var encryptedMs = new MemoryStream())
+                        {
+                            var sortedItems = group.OrderBy(f => f.CurrentPage).ToList();
+                            foreach (var item in sortedItems)
                             {
-                                item.Status = "路径为空";
-                                anyFailed = true;
-                                continue;
+                                processedCount++;
+
+                                dispatcher.Invoke(() =>
+                                {
+                                    item.Status = $"正在解析 {processedCount}/{completeItems.Count}";
+                                    item.ProgressValue = 0;
+                                    ProgressValue = processedCount;
+                                });
+
+                                if (string.IsNullOrEmpty(item.FullPath))
+                                {
+                                    dispatcher.Invoke(() => item.Status = "路径为空");
+                                    failed = true;
+                                    continue;
+                                }
+
+                                try
+                                {
+                                    if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
+                                    {
+                                        dispatcher.Invoke(() => item.Status = "解析失败");
+                                        failed = true;
+                                    }
+                                    else
+                                    {
+                                        dispatcher.Invoke(() =>
+                                        {
+                                            item.Status = "完成";
+                                            item.ProgressValue = 100;
+                                        });
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    dispatcher.Invoke(() => item.Status = $"解析失败: {ex.Message}");
+                                    failed = true;
+                                }
                             }
 
-                            try
+                            encryptedMs.Position = 0;
+                            using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
                             {
-                                if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
+                                if (!string.IsNullOrEmpty(Password))
                                 {
-                                    item.Status = "解析失败";
-                                    anyFailed = true;
+                                    CryptoHelper.DecryptStream(encryptedMs, fs, Password);
                                 }
                                 else
                                 {
-                                    item.Status = "完成";
-                                    item.ProgressValue = 100;
+                                    encryptedMs.CopyTo(fs);
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                item.Status = $"解析失败: {ex.Message}";
-                                anyFailed = true;
-                            }
-                        }
-
-                        encryptedMs.Position = 0;
-                        using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
-                        {
-                            if (!string.IsNullOrEmpty(Password))
-                            {
-                                CryptoHelper.DecryptStream(encryptedMs, fs, Password);
-                            }
-                            else
-                            {
-                                encryptedMs.CopyTo(fs);
                             }
                         }
                     }
-                }
+
+                    return failed;
+                });
 
                 if (anyFailed)
                 {
-                    //MessageBox.Show("部分文件解析失败，已完成可解析部分");
                     StatusText = "部分文件解析失败，已完成可解析部分";
                     SystemSounds.Exclamation.Play();
                 }
                 else
                 {
-                    //MessageBox.Show("解析成功");
                     StatusText = "解析成功";
                     SystemSounds.Asterisk.Play();
                 }
@@ -583,7 +596,6 @@ namespace screen_file_receiver
             finally
             {
                 IsBusy = false;
-                //ProgressValue = 0;
             }
         }
     }
