@@ -1,5 +1,7 @@
 # Screen File Transmit
 
+中文 | [English](README.en.md)
+
 通过二维码视觉传输文件的系统。将二进制文件编码为 DataMatrix 二维码网格并显示在屏幕上，接收方通过截屏或拍照解码二维码来重建原始文件。无需网络连接，纯视觉传输。
 
 ## 系统组成
@@ -41,8 +43,7 @@ dotnet build screen-file-receiver/screen-file-receiver.csproj
    - **保存文件名**：**需要手动输入**，作为最终输出文件名
    - **元数据信息**：显示行列数、色深、页码等
    - **状态 / 进度**：实时显示解码进度
-4. 当某文件的所有页码齐全后，该文件行会变为**黄色背景**，且复选框自动选中。
-5. 勾选要导出的文件，点击 **转换**，选择保存目录，即可重建原始文件。
+4. 勾选要导出的文件，点击 **转换**，选择保存目录，即可重建原始文件。
 
 > **提示**：
 > - 可批量添加多张图片，程序会自动按文件ID归类。
@@ -56,9 +57,7 @@ dotnet build screen-file-receiver/screen-file-receiver.csproj
 ## 关键技术栈
 
 - **ZXing.Net** — 二维码编码/解码
-- **OpenCvSharp4** — 接收端图像处理与轮廓检测
-- **PropertyChanged.Fody** — 自动实现 `INotifyPropertyChanged`
-- **Costura.Fody** — IL 合并，单文件部署
+- **OpenCvSharp4** — 接收端图像预处理
 
 ## 平台要求
 
