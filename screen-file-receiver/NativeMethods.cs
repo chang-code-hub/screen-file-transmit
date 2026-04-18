@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     internal static class NativeMethods
     {

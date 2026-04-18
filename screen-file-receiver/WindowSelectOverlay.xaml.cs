@@ -10,7 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     public partial class WindowSelectOverlay : Window
     {

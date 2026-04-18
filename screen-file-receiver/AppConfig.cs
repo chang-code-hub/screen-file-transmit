@@ -2,7 +2,7 @@ using System.IO;
 using System.Reflection;
 using System.Xml.Linq;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     public class AppConfig
     {

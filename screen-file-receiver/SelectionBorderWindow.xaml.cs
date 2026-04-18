@@ -6,7 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     public class RectChangedEventArgs : EventArgs
     {

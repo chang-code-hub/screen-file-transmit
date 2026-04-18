@@ -11,7 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Threading.Tasks;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     public class MainWindowViewModel : INotifyPropertyChanged
     {

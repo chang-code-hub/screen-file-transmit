@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Windows;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     public partial class App : Application
     {

@@ -14,7 +14,7 @@ using Point = OpenCvSharp.Point;
 using Rect = OpenCvSharp.Rect;
 using Size = OpenCvSharp.Size;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 { 
 
     public static class ImageDecoder

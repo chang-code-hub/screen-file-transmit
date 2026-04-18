@@ -2,8 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <OutputType>WinExe</OutputType>
-    <AssemblyName>屏幕文件接收器</AssemblyName>
-    <RootNamespace>screen_file_receiver</RootNamespace>
+    <AssemblyName>screen-file-receiver</AssemblyName>
+    <RootNamespace>screen_file_transmit</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <UseWPF>true</UseWPF>
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>

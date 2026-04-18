@@ -5,7 +5,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     /// <summary>
     /// MainWindow.xaml 的交互逻辑

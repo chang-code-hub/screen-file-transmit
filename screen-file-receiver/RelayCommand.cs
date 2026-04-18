@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Input;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     public class RelayCommand : ICommand
     {

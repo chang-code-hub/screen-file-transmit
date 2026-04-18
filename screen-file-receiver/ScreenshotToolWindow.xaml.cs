@@ -7,7 +7,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     public partial class ScreenshotToolWindow : Window
     {

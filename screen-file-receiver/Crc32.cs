@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     public static class Crc32
     {

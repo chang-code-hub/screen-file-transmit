@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     /// <summary>
     /// DataGrid 行模型

@@ -3,7 +3,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace screen_file_receiver
+namespace screen_file_transmit
 {
     public static class CryptoHelper
     {

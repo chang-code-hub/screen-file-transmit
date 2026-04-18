@@ -1,5 +1,5 @@
 <Window
-    x:Class="screen_file_receiver.SelectionBorderWindow"
+    x:Class="screen_file_transmit.SelectionBorderWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     AllowsTransparency="True"

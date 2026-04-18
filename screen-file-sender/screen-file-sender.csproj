@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net461</TargetFramework>
     <OutputType>WinExe</OutputType>
-    <AssemblyName>屏幕文件发送器</AssemblyName>
+    <AssemblyName>screen-file-sender</AssemblyName>
     <RootNamespace>screen_file_transmit</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <UseWindowsForms>true</UseWindowsForms>
