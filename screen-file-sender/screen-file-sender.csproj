@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net461</TargetFramework>
     <OutputType>WinExe</OutputType>
+    <AssemblyName>屏幕文件发送器</AssemblyName>
     <RootNamespace>screen_file_transmit</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <UseWindowsForms>true</UseWindowsForms>
@@ -23,5 +24,11 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-  </ItemGroup> 
+  </ItemGroup>
+  <Target Name="CopyToBin" AfterTargets="Build">
+    <ItemGroup>
+      <BinFiles Include="$(TargetDir)*.exe" />
+    </ItemGroup>
+	  <Copy SourceFiles="@(BinFiles)" DestinationFolder="$(SolutionDir)bin\" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

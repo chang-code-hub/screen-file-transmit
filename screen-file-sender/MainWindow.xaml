@@ -368,7 +368,7 @@
                     Height="24"
                     Click="Button_Click"
                     Command="{Binding SaveToFileCommand}"
-                    Content="转换..."
+                    Content="转换"
                     IsEnabled="{Binding IsConvertButtonEnabled}" />
                 <Button
                     Grid.Column="1"

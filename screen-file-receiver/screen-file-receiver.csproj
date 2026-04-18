@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <OutputType>WinExe</OutputType>
+    <AssemblyName>屏幕文件接收器</AssemblyName>
     <RootNamespace>screen_file_receiver</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <UseWPF>true</UseWPF>
@@ -34,5 +35,11 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="icon.ico" />
-  </ItemGroup> 
+  </ItemGroup>
+  <Target Name="CopyToBin" AfterTargets="Build">
+    <ItemGroup>
+      <BinFiles Include="$(TargetDir)*.exe" />
+    </ItemGroup>
+    <Copy SourceFiles="@(BinFiles)" DestinationFolder="$(SolutionDir)bin\" SkipUnchangedFiles="true" />
+  </Target>
 </Project>
