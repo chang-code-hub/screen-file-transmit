@@ -175,6 +175,7 @@ namespace screen_file_transmit
         public ICommand OpenOutputPathCommand => new RelayCommand(_ => OpenOutputPath());
         public ICommand ConvertCommand => new RelayCommand(_ => StartConvert(), _ => !IsBusy && FileItems.Count > 0 && !string.IsNullOrWhiteSpace(OutputFilePath));
         public ICommand OpenScreenshotToolCommand => new RelayCommand(_ => OpenScreenshotTool(), _ => !IsBusy);
+        public ICommand OpenCameraCaptureCommand => new RelayCommand(_ => OpenCameraCapture(), _ => !IsBusy);
 
         private void AddFiles()
         {
@@ -440,7 +441,23 @@ namespace screen_file_transmit
             {
                 screenshotToolWindow = new ScreenshotToolWindow(this);
                 screenshotToolWindow.Show();
-            } 
+            }
+        }
+
+        private CameraCaptureWindow cameraCaptureWindow;
+        private void OpenCameraCapture()
+        {
+            if (cameraCaptureWindow != null)
+            {
+                cameraCaptureWindow.Close();
+                cameraCaptureWindow = null;
+            }
+            else
+            {
+                cameraCaptureWindow = new CameraCaptureWindow(this);
+                cameraCaptureWindow.Closed += (s, e) => cameraCaptureWindow = null;
+                cameraCaptureWindow.Show();
+            }
         }
 
         private string GetUniqueFilePath(string basePath)

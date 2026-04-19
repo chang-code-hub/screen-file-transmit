@@ -115,4 +115,22 @@
   <data name="MsgBox_AutoFlipNoData" xml:space="preserve"><value>未找到数据，请检查选区是否正确。</value></data>
   <data name="MsgBox_AutoFlipComplete" xml:space="preserve"><value>自动翻页完成，所有页面已保存。</value></data>
   <data name="Toast_AutoFlipPageSaved" xml:space="preserve"><value>已保存第 {0}/{1} 页</value></data>
+  <data name="CameraCapture_Title" xml:space="preserve"><value>摄像头捕获</value></data>
+  <data name="Button_Refresh" xml:space="preserve"><value>刷新</value></data>
+  <data name="Button_Correction" xml:space="preserve"><value>校正</value></data>
+  <data name="Button_Capture" xml:space="preserve"><value>截图</value></data>
+  <data name="Button_DecodeTest" xml:space="preserve"><value>解码</value></data>
+  <data name="Button_AutoFlip" xml:space="preserve"><value>自动翻页</value></data>
+  <data name="Button_Close" xml:space="preserve"><value>关闭</value></data>
+  <data name="Camera_Device" xml:space="preserve"><value>摄像头</value></data>
+  <data name="Status_NoCamera" xml:space="preserve"><value>未检测到摄像头</value></data>
+  <data name="Status_CameraOpenFailed" xml:space="preserve"><value>无法打开摄像头</value></data>
+  <data name="Status_CameraPreviewing" xml:space="preserve"><value>正在预览: {0}</value></data>
+  <data name="Status_CameraError" xml:space="preserve"><value>摄像头错误: {0}</value></data>
+  <data name="Error_CaptureFailed" xml:space="preserve"><value>捕获失败</value></data>
+  <data name="Status_Captured" xml:space="preserve"><value>已捕获: {0}</value></data>
+  <data name="ToolTip_Camera" xml:space="preserve"><value>摄像头捕获</value></data>
+  <data name="Button_Camera" xml:space="preserve"><value>摄像头</value></data>
+  <data name="Button_ResetCorrection" xml:space="preserve"><value>重置</value></data>
+  <data name="MsgBox_ResetCorrectionConfirm" xml:space="preserve"><value>确定要重置当前摄像头的几何校正数据吗？</value></data>
 </root>

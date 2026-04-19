@@ -110,6 +110,11 @@
                     Margin="5,0,0,0"
                     Command="{Binding OpenScreenshotToolCommand}"
                     Content="{loc:Loc Button_ScreenshotTool}" />
+                <Button
+                    Width="80"
+                    Margin="5,0,0,0"
+                    Command="{Binding OpenCameraCaptureCommand}"
+                    Content="{loc:Loc Button_Camera}" />
 
                 <TextBlock
                     Margin="10,0,0,0"

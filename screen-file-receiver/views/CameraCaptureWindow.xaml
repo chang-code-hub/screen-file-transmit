@@ -1,0 +1,110 @@
+<Window
+    x:Class="screen_file_transmit.CameraCaptureWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:loc="clr-namespace:screen_file_transmit.Properties"
+    Title="{loc:Loc CameraCapture_Title}"
+    Width="900"
+    Height="700"
+    Closing="Window_Closing"
+    WindowStartupLocation="CenterScreen"
+    WindowStyle="ToolWindow">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  Toolbar  -->
+        <Border
+            Grid.Row="0"
+            Padding="8,5"
+            Background="#F7F7F7"
+            BorderBrush="#CCCCCC"
+            BorderThickness="0,0,0,1">
+            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                <ComboBox
+                    x:Name="CameraComboBox"
+                    Width="220"
+                    DisplayMemberPath="Name"
+                    SelectedValuePath="Index" />
+                <Button
+                    x:Name="BtnRefresh"
+                    Width="80"
+                    Margin="5,0,0,0"
+                    Click="BtnRefresh_Click"
+                    Content="{loc:Loc Button_Refresh}" />
+                <ToggleButton
+                    x:Name="BtnCorrection"
+                    Width="80"
+                    Margin="5,0,0,0"
+                    Checked="BtnCorrection_CheckedChanged"
+                    Content="{loc:Loc Button_Correction}"
+                    Unchecked="BtnCorrection_CheckedChanged" />
+                <Button
+                    x:Name="BtnResetCorrection"
+                    Width="80"
+                    Margin="5,0,0,0"
+                    Click="BtnResetCorrection_Click"
+                    Content="{loc:Loc Button_ResetCorrection}" />
+                <Button
+                    x:Name="BtnCapture"
+                    Width="80"
+                    Margin="5,0,0,0"
+                    Click="BtnCapture_Click"
+                    Content="{loc:Loc Button_Capture}" />
+                <Button
+                    x:Name="BtnDecode"
+                    Width="80"
+                    Margin="5,0,0,0"
+                    Click="BtnDecode_Click"
+                    Content="{loc:Loc Button_DecodeTest}" />
+                <!--<ToggleButton
+                    x:Name="BtnAutoFlip"
+                    Width="80"
+                    Margin="5,0,0,0"
+                    Checked="BtnAutoFlip_CheckedChanged"
+                    Content="{loc:Loc Button_AutoFlip}"
+                    IsEnabled="False"
+                    Unchecked="BtnAutoFlip_CheckedChanged" />-->
+                <!--<Button
+                    x:Name="BtnClose"
+                    Width="80"
+                    Margin="5,0,0,0"
+                    Click="BtnClose_Click"
+                    Content="{loc:Loc Button_Close}" />-->
+            </StackPanel>
+        </Border>
+
+        <!--  Preview Area  -->
+        <Border
+            Grid.Row="1"
+            Margin="10"
+            Background="Black"
+            BorderBrush="Gray"
+            BorderThickness="1">
+            <Grid>
+                <Image
+                    x:Name="PreviewImage"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Stretch="Uniform" />
+                <Canvas
+                    x:Name="OverlayCanvas"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="Transparent"
+                    IsHitTestVisible="False"
+                    SizeChanged="OverlayCanvas_SizeChanged" />
+            </Grid>
+        </Border>
+
+        <!--  Status  -->
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusText" Text="{loc:Loc Status_Ready}" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>
