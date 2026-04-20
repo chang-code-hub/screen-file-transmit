@@ -159,7 +159,8 @@ namespace screen_file_transmit
                 if (!IsCurrentProcessWindow(hwnd)
                     && NativeMethods.IsWindow(hwnd)
                     && NativeMethods.IsWindowVisible(hwnd)
-                    && !IsTransparentWindow(hwnd))
+                    && !IsTransparentWindow(hwnd)
+                    && IsAltTabVisibleWindow(hwnd))
                 {
                     // 先递归收集该顶层窗口的子窗口和控件（子窗口在上层，排在父窗口前面）
                     EnumerateChildren(hwnd, _windowList, zRank, 1);
@@ -191,7 +192,7 @@ namespace screen_file_transmit
                 _hoverHwnd = IntPtr.Zero;
             }
 
-            //WriteWindowLog();
+            WriteWindowLog();
             Trace.WriteLine($"window count {_windowList.Count}");
         }
 
@@ -288,6 +289,23 @@ namespace screen_file_transmit
 
             NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
             return pid == _currentPid;
+        }
+
+        private static bool IsAltTabVisibleWindow(IntPtr hwnd)
+        {
+            int exStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+
+            // WS_EX_TOOLWINDOW 的窗口通常不在 Alt-Tab/Win+Tab 中显示，
+            // 除非同时具有 WS_EX_APPWINDOW
+            if ((exStyle & NativeMethods.WS_EX_TOOLWINDOW) != 0
+                && (exStyle & NativeMethods.WS_EX_APPWINDOW) == 0)
+                return false;
+
+            // 具有 Owner 的窗口通常也不在 Alt-Tab/Win+Tab 中显示
+            if (NativeMethods.GetWindow(hwnd, NativeMethods.GW_OWNER) != IntPtr.Zero)
+                return false;
+
+            return true;
         }
 
         private static bool IsTransparentWindow(IntPtr hwnd)

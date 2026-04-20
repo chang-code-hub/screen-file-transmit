@@ -116,6 +116,8 @@ namespace screen_file_transmit
 
          
         public const int WS_EX_TOOLWINDOW = 0x00000080;
+        public const uint WS_EX_APPWINDOW = 0x00040000;
+        public const uint GW_OWNER = 4;
  
 
         [DllImport("user32.dll", SetLastError = true)]

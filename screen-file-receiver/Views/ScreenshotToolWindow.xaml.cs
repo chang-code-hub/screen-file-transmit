@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -396,6 +397,10 @@ namespace screen_file_transmit
 
         private void UpdateSelectionBorderToHwnd()
         {
+            if (_isClosing)
+            {
+                return;
+            }
             if (_selectedHwnd == IntPtr.Zero)
                 return;
 
@@ -872,21 +877,10 @@ namespace screen_file_transmit
                     meta = ImageDecoder.ReadMetadata(metaBmp);
                 }
 
-                string tempPath = Path.Combine(Path.GetTempPath(), $"scrtmp_{Guid.NewGuid()}.png");
-                try
+                using (var tempBmp = new Bitmap(bmp))
                 {
-                    using (var tempBmp = new Bitmap(bmp))
-                    {
-                        var source = ScreenCaptureHelper.ToBitmapSource(tempBmp);
-                        ScreenCaptureHelper.SavePng(source, tempPath);
-                    }
-
-                    var decodeResult = ImageDecoder.DecodeImageWithMetadata(tempPath, false);
+                    var decodeResult = ImageDecoder.DecodeImageWithMetadata(tempBmp, false);
                     decodeOk = decodeResult?.DataBlocks?.Count > 0;
-                }
-                finally
-                {
-                    try { File.Delete(tempPath); } catch { }
                 }
             }
             catch { }
@@ -911,7 +905,8 @@ namespace screen_file_transmit
                 ShowSelectionBorder();
                 return;
             }
-
+            Thread.Sleep(200);
+            if (_isClosing) return;
             SaveCapture(bmp, meta);
             _lastProcessedPage = meta.CurrentPage;
             _autoFlipTotalPages = meta.TotalPages;
@@ -931,7 +926,7 @@ namespace screen_file_transmit
             _isAutoFlipping = true;
             _autoFlipTimer = new DispatcherTimer(DispatcherPriority.Normal)
             {
-                Interval = TimeSpan.FromMilliseconds(100)
+                Interval = TimeSpan.FromMilliseconds(500)
             };
             _autoFlipTimer.Tick += AutoFlipTick;
             _autoFlipTimer.Start();
@@ -966,6 +961,8 @@ namespace screen_file_transmit
                 return;
             }
 
+            Thread.Sleep(200);
+            if (_isClosing) return;
             SaveCapture(bmp, meta);
             bmp.Dispose();
             _lastProcessedPage = meta.CurrentPage;
