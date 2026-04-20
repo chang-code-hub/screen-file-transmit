@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Windows;
@@ -43,6 +44,7 @@ namespace screen_file_transmit
         private double _offsetRightPhys;
         private double _offsetBottomPhys;
         private NativeMethods.RECT _offsetBaselineRect;
+        private bool _isClosing = false;
 
         public ScreenshotToolWindow(MainWindowViewModel mainVm)
         {
@@ -65,9 +67,15 @@ namespace screen_file_transmit
                 if (!_isCollapsed && !_isPinned)
                     CheckDockCollapse();
             };
+
+            this.Closing += OnClosing;
         }
 
- 
+        private void OnClosing(object sender, CancelEventArgs e)
+        { 
+            _isClosing = true; 
+        }
+
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
@@ -346,6 +354,7 @@ namespace screen_file_transmit
 
         private void EnsureSelectionBorderWindow()
         {
+            if (_isClosing) return;
             if (_selectionBorderWindow == null)
             {
                 _selectionBorderWindow = new SelectionBorderWindow();
@@ -626,11 +635,13 @@ namespace screen_file_transmit
             }
             else if (_selectedRegion.Width > 0 && _selectedRegion.Height > 0)
             {
+                var physTL = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(_selectedRegion.X, _selectedRegion.Y));
+                var physBR = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(_selectedRegion.Right, _selectedRegion.Bottom));
                 var rc = new Rectangle(
-                    (int)_selectedRegion.X,
-                    (int)_selectedRegion.Y,
-                    (int)_selectedRegion.Width,
-                    (int)_selectedRegion.Height);
+                    (int)physTL.X,
+                    (int)physTL.Y,
+                    (int)(physBR.X - physTL.X),
+                    (int)(physBR.Y - physTL.Y));
                 bmp = ScreenCaptureHelper.CaptureRegion(rc);
             }
             else
@@ -761,11 +772,13 @@ namespace screen_file_transmit
                 }
                 else if (_selectedRegion.Width > 0 && _selectedRegion.Height > 0)
                 {
+                    var physTL = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(_selectedRegion.X, _selectedRegion.Y));
+                    var physBR = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(_selectedRegion.Right, _selectedRegion.Bottom));
                     var rc = new Rectangle(
-                        (int)_selectedRegion.X,
-                        (int)_selectedRegion.Y,
-                        (int)_selectedRegion.Width,
-                        (int)_selectedRegion.Height);
+                        (int)physTL.X,
+                        (int)physTL.Y,
+                        (int)(physBR.X - physTL.X),
+                        (int)(physBR.Y - physTL.Y));
                     bmp = ScreenCaptureHelper.CaptureRegion(rc);
                 }
 
@@ -996,10 +1009,12 @@ namespace screen_file_transmit
             }
             else
             {
-                x = (int)_selectedRegion.X;
-                y = (int)_selectedRegion.Y;
-                width = (int)_selectedRegion.Width;
-                height = (int)_selectedRegion.Height;
+                var physTL = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(_selectedRegion.X, _selectedRegion.Y));
+                var physBR = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(_selectedRegion.Right, _selectedRegion.Bottom));
+                x = (int)physTL.X;
+                y = (int)physTL.Y;
+                width = (int)(physBR.X - physTL.X);
+                height = (int)(physBR.Y - physTL.Y);
             }
 
             int clickX = x + width * 3 / 4;
