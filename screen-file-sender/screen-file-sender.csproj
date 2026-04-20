@@ -1,34 +1,30 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net461</TargetFramework>
-    <OutputType>WinExe</OutputType>
-    <AssemblyName>screen-file-sender</AssemblyName>
-    <RootNamespace>screen_file_transmit</RootNamespace>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <UseWindowsForms>true</UseWindowsForms>
-    <UseWPF>true</UseWPF>
-    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <ApplicationIcon>icon.ico</ApplicationIcon>
-  </PropertyGroup>
-  <ItemGroup> 
-	  <Resource Include="icon.ico" /> 
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.CSharp" />
-    <PackageReference Include="PropertyChanged.Fody" />
-    <PackageReference Include="ReedSolomon" />
-    <PackageReference Include="System.Data.DataSetExtensions" />
-	<PackageReference Include="ZXing.Net" />
-    <PackageReference Include="Costura.Fody">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-  <Target Name="CopyToBin" AfterTargets="Build">
-    <ItemGroup>
-      <BinFiles Include="$(TargetDir)*.exe" />
-    </ItemGroup>
-	  <Copy SourceFiles="@(BinFiles)" DestinationFolder="$(SolutionDir)bin\" SkipUnchangedFiles="true" />
-  </Target>
+	<PropertyGroup>
+		<TargetFramework>net461</TargetFramework>
+		<OutputType>WinExe</OutputType>
+		<AssemblyName>screen-file-sender</AssemblyName>
+		<RootNamespace>screen_file_transmit</RootNamespace>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<UseWindowsForms>true</UseWindowsForms>
+		<UseWPF>true</UseWPF>
+		<ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<ApplicationIcon>icon.ico</ApplicationIcon>
+		<Version>2.0</Version>
+	</PropertyGroup>
+	<ItemGroup>
+		<Resource Include="icon.ico" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CSharp" />
+		<PackageReference Include="PropertyChanged.Fody">
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="ReedSolomon" />
+		<PackageReference Include="System.Data.DataSetExtensions" />
+		<PackageReference Include="ZXing.Net" />
+		<PackageReference Include="Costura.Fody">
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+	</ItemGroup>
 </Project>

@@ -1,0 +1,2 @@
+# Do not commit build artifacts — they are copied during publish
+dist/

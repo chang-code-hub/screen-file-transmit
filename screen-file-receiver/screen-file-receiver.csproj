@@ -1,49 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
-    <OutputType>WinExe</OutputType>
-    <AssemblyName>screen-file-receiver</AssemblyName>
-    <RootNamespace>screen_file_transmit</RootNamespace>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <UseWPF>true</UseWPF>
-    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
-    <Platforms>x64</Platforms>
-    <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
-    <ApplicationIcon>icon.ico</ApplicationIcon>
-	  <LangVersion>Latest</LangVersion>
-  </PropertyGroup>
-  <ItemGroup>
-    <Content Remove="C:\Users\chang\.nuget\packages\opencvsharp4.runtime.win\4.13.0.20260302\build\netstandard\..\..\runtimes\win-x64\native\OpenCvSharpExtern.dll" />
-    <Content Remove="C:\Users\chang\.nuget\packages\opencvsharp4.runtime.win\4.13.0.20260302\build\netstandard\..\..\runtimes\win-x64\native\opencv_videoio_ffmpeg4130_64.dll" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Remove="icon.ico" />
-  </ItemGroup>
-  <ItemGroup>
-	  <PackageReference Include="Costura.Fody">
-	    <PrivateAssets>all</PrivateAssets>
-	    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-	  </PackageReference>
-	  <PackageReference Include="Microsoft.CSharp" />
-	  <PackageReference Include="OpenCvSharp4" />
-	  <PackageReference Include="OpenCvSharp4.Extensions" />
-	  <PackageReference Include="OpenCvSharp4.runtime.win" />
-	  <PackageReference Include="PropertyChanged.Fody" />
-	  <PackageReference Include="ReedSolomon" />
-	  <PackageReference Include="System.Data.DataSetExtensions" />
-	  <PackageReference Include="System.Linq.Expressions" />
-	  <PackageReference Include="ZXing.Net" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="System.Windows.Forms" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="icon.ico" />
-  </ItemGroup>
-  <Target Name="CopyToBin" AfterTargets="Build">
-    <ItemGroup>
-      <BinFiles Include="$(TargetDir)*.exe" />
-    </ItemGroup>
-    <Copy SourceFiles="@(BinFiles)" DestinationFolder="$(SolutionDir)bin\" SkipUnchangedFiles="true" />
-  </Target>
+	<PropertyGroup>
+		<TargetFramework>net48</TargetFramework>
+		<OutputType>WinExe</OutputType>
+		<AssemblyName>screen-file-receiver</AssemblyName>
+		<RootNamespace>screen_file_transmit</RootNamespace>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<UseWPF>true</UseWPF>
+		<ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+		<Platforms>x64</Platforms>
+		<RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
+		<ApplicationIcon>icon.ico</ApplicationIcon>
+		<LangVersion>Latest</LangVersion>
+		<Version>2.0</Version>
+	</PropertyGroup> 
+	<ItemGroup>
+		<None Remove="icon.ico" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CSharp" />
+		<PackageReference Include="OpenCvSharp4" />
+		<PackageReference Include="OpenCvSharp4.Extensions" />
+		<PackageReference Include="OpenCvSharp4.runtime.win" />
+		<PackageReference Include="PropertyChanged.Fody">
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="ReedSolomon" />
+		<PackageReference Include="System.Data.DataSetExtensions" />
+		<PackageReference Include="System.Linq.Expressions" />
+		<PackageReference Include="ZXing.Net" />
+	</ItemGroup>
+	<ItemGroup>
+		<Resource Include="icon.ico" />
+	</ItemGroup>
 </Project>

@@ -4,7 +4,7 @@
 
 GitHub: [chang-code-hub/screen-file-transmit](https://github.com/chang-code-hub/screen-file-transmit)
 
-A system for visually transmitting files via QR codes. Binary files are encoded into a DataMatrix QR code grid and displayed on screen; the receiver decodes the QR codes from screenshots or photos to reconstruct the original file. No network connection required — purely visual transmission.
+A system for visually transmitting files via DataMatrix codes. Binary files are encoded into a DataMatrix QR code grid and displayed on screen; the receiver decodes the DataMatrix codes from screenshots or photos to reconstruct the original file. No network connection required — purely visual transmission.
 
 ## System Components
 
@@ -30,7 +30,7 @@ dotnet build screen-file-receiver/screen-file-receiver.csproj
 2. Click **Select File** and choose the file to transmit.
 3. Configure parameters:
    - **DataMatrix Size**: Density of each QR code (e.g. 144×144); larger means higher capacity per code
-   - **Grid Rows/Columns**: Automatically calculated or manually specified arrangement of QR codes on screen
+   - **Grid Rows/Columns**: Automatically calculated or manually specified arrangement of DataMatrix codes on screen
 4. Click **Generate**. The screen will display the QR code grid, metadata barcode on the left, and filename/file ID barcode on the right.
 5. After the receiver takes a photo or screenshot, click **Next Page** to continue sending the next page (if the file is large and requires paging).
 

@@ -403,17 +403,15 @@ namespace screen_file_transmit
 
         private void BrowseOutputPath()
         {
-            using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+            var dialog = new FolderPicker
             {
-                dialog.Description = Properties.Resources.ResourceManager.GetString("Dialog_SelectSaveFolder");
-                if (!string.IsNullOrWhiteSpace(OutputFilePath))
-                {
-                    dialog.SelectedPath = OutputFilePath;
-                }
-                if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                {
-                    OutputFilePath = dialog.SelectedPath;
-                }
+                Title = Properties.Resources.ResourceManager.GetString("Dialog_SelectSaveFolder"),
+                SelectedPath = OutputFilePath
+            };
+
+            if (dialog.ShowDialog(Application.Current.MainWindow) == true)
+            {
+                OutputFilePath = dialog.SelectedPath;
             }
         }
 
@@ -431,6 +429,12 @@ namespace screen_file_transmit
         private ScreenshotToolWindow screenshotToolWindow;
         private void OpenScreenshotTool()
         {
+            if (string.IsNullOrWhiteSpace(OutputFilePath) || !Directory.Exists(OutputFilePath))
+            {
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             if (screenshotToolWindow!=null)
             {
                 screenshotToolWindow.Close();
@@ -440,7 +444,7 @@ namespace screen_file_transmit
             {
                 screenshotToolWindow = new ScreenshotToolWindow(this);
                 screenshotToolWindow.Show();
-            } 
+            }
         }
 
         private string GetUniqueFilePath(string basePath)

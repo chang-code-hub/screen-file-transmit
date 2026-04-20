@@ -85,3 +85,5 @@ Migrations/
 /data/out
 
 .fake
+*.tgz
+/screen-file-sender.binlog

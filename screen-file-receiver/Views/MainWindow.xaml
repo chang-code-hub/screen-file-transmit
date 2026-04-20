@@ -61,19 +61,6 @@
                     FontWeight="Bold"
                     Foreground="White"
                     Text="{loc:Loc BannerTitle}" />
-                <TextBlock
-                    Grid.Column="2"
-                    Margin="10,0,0,0"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    FontSize="12">
-                    <Hyperlink
-                        Foreground="#FFCCCCCC"
-                        NavigateUri="https://github.com/chang-code-hub/screen-file-transmit"
-                        RequestNavigate="GitHubLink_RequestNavigate">
-                        GitHub
-                    </Hyperlink>
-                </TextBlock>
             </Grid>
         </Border>
 
@@ -221,6 +208,7 @@
                 <Image
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
+                    MouseLeftButtonDown="PreviewImage_MouseLeftButtonDown"
                     Source="{Binding PreviewImage}"
                     Stretch="Uniform" />
             </Border>

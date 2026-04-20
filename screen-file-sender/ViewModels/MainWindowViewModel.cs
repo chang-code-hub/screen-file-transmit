@@ -525,12 +525,13 @@ namespace screen_file_transmit
 
         private void BrowseSaveDirectory()
         {
-            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            var dialog = new FolderPicker
             {
-                Description = Properties.Resources.ResourceManager.GetString("Dialog_SelectSaveFolder")
+                Title = Properties.Resources.ResourceManager.GetString("Dialog_SelectSaveFolder"),
+                SelectedPath = SaveDirectory
             };
 
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            if (dialog.ShowDialog(Application.Current.MainWindow) == true)
             {
                 SaveDirectory = dialog.SelectedPath;
             }
@@ -558,12 +559,13 @@ namespace screen_file_transmit
             string saveDir = SaveDirectory;
             if (string.IsNullOrEmpty(saveDir))
             {
-                var dialog = new System.Windows.Forms.FolderBrowserDialog
+                var dialog = new FolderPicker
                 {
-                    Description = Properties.Resources.ResourceManager.GetString("Dialog_SelectSaveFolder")
+                    Title = Properties.Resources.ResourceManager.GetString("Dialog_SelectSaveFolder"),
+                    SelectedPath = SaveDirectory
                 };
 
-                if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                if (dialog.ShowDialog(Application.Current.MainWindow) != true)
                     return;
 
                 saveDir = dialog.SelectedPath;

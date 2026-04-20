@@ -74,6 +74,18 @@ namespace screen_file_transmit
                 this.DragMove();
         }
 
+        private void PreviewImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                var path = viewModel?.SelectedFileItem?.FullPath;
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    System.Diagnostics.Process.Start(path);
+                }
+            }
+        }
+
         private void ExitButton_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
@@ -85,12 +97,6 @@ namespace screen_file_transmit
             {
                 e.Cancel = true;
             }
-        }
-
-        private void GitHubLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
-            e.Handled = true;
         }
     }
 }
