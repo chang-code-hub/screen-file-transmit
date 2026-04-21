@@ -18,6 +18,10 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
+    <Window.InputBindings>
+        <KeyBinding Key="Left" Command="{Binding PreviewPreviousPageCommand}" />
+        <KeyBinding Key="Right" Command="{Binding PreviewNextPageCommand}" />
+    </Window.InputBindings>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />

@@ -455,7 +455,7 @@ namespace screen_file_transmit
         private ScreenshotToolWindow screenshotToolWindow;
         private void OpenScreenshotTool()
         {
-            if (string.IsNullOrWhiteSpace(OutputFilePath) || !Directory.Exists(OutputFilePath))
+            if (string.IsNullOrWhiteSpace(OutputFilePath))
             {
                 MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -534,6 +534,10 @@ namespace screen_file_transmit
 
             try
             {
+                if(!Directory.Exists(OutputFilePath))
+                {
+                    Directory.CreateDirectory(OutputFilePath);
+                }
                 bool anyFailed = await Task.Run(() =>
                 {
                     bool failed = false;
@@ -546,6 +550,7 @@ namespace screen_file_transmit
                         if (string.IsNullOrWhiteSpace(outputFileName))
                             outputFileName = Properties.Resources.ResourceManager.GetString("Default_DecodeFileName");
 
+                        outputFileName = ScreenCaptureHelper.SanitizeFileName(outputFileName);
                         string outputPath = Path.Combine(OutputFilePath, outputFileName);
                         outputPath = GetUniqueFilePath(outputPath);
 

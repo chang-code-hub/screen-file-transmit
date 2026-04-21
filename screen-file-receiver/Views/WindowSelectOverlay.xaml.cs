@@ -192,7 +192,7 @@ namespace screen_file_transmit
                 _hoverHwnd = IntPtr.Zero;
             }
 
-            WriteWindowLog();
+            // WriteWindowLog();
             Trace.WriteLine($"window count {_windowList.Count}");
         }
 

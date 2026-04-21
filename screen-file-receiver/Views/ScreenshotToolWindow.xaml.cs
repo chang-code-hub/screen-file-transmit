@@ -37,6 +37,9 @@ namespace screen_file_transmit
         private int _lastProcessedPage = -1;
         private int _autoFlipTotalPages;
         private string _autoFlipFileName;
+        private FlipMethod _flipMethod = FlipMethod.LeftRight;
+        private DateTime _lastPageTurnTime;
+        private const int AutoFlipTimeoutSeconds = 10;
 
         // 编辑选区相关
         private bool _isEditMode;
@@ -608,10 +611,16 @@ namespace screen_file_transmit
         {
             HideSelectionBorder();
             string outputDir = _mainVm?.OutputFilePath;
-            if (string.IsNullOrWhiteSpace(outputDir) || !Directory.Exists(outputDir))
+
+            if (string.IsNullOrWhiteSpace(outputDir))
             {
                 MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
+            }
+            
+            if(!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
             }
 
             Bitmap bmp = null;
@@ -687,6 +696,7 @@ namespace screen_file_transmit
                 fileName = Path.ChangeExtension(fileName, ".png");
             }
 
+            fileName = ScreenCaptureHelper.SanitizeFileName(fileName);
             string fullPath = Path.Combine(outputDir, fileName);
             fullPath = ScreenCaptureHelper.GetUniqueFilePath(fullPath);
 
@@ -805,6 +815,11 @@ namespace screen_file_transmit
                 MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+            
+            if(!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+            }
 
             string fileName = null;
             if (meta != null && !string.IsNullOrWhiteSpace(meta.FileName))
@@ -813,6 +828,7 @@ namespace screen_file_transmit
             if (string.IsNullOrWhiteSpace(fileName))
                 fileName = $"{Properties.Resources.ResourceManager.GetString("Screenshot_FileNamePrefix")}{DateTime.Now:yyyyMMdd_HHmmss}.png";
 
+            fileName = ScreenCaptureHelper.SanitizeFileName(fileName);
             string fullPath = Path.Combine(outputDir, fileName);
             fullPath = ScreenCaptureHelper.GetUniqueFilePath(fullPath);
 
@@ -854,6 +870,11 @@ namespace screen_file_transmit
                 BtnAutoFlip.IsChecked = false;
                 MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
+            }
+            
+            if(!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
             }
 
             Bitmap bmp = CaptureSelection(true);
@@ -905,6 +926,18 @@ namespace screen_file_transmit
                 ShowSelectionBorder();
                 return;
             }
+
+            var configDialog = new AutoFlipConfigDialog(_selectedHwnd);
+            configDialog.Owner = this;
+            var configResult = configDialog.ShowDialog();
+            if (configResult != true)
+            {
+                BtnAutoFlip.IsChecked = false;
+                ShowSelectionBorder();
+                return;
+            }
+            _flipMethod = configDialog.SelectedMethod;
+
             Thread.Sleep(200);
             if (_isClosing) return;
             SaveCapture(bmp, meta);
@@ -920,7 +953,7 @@ namespace screen_file_transmit
                 return;
             }
 
-            SimulateClickRightSide();
+            SimulatePageTurn();
             ShowSelectionBorder();
 
             _isAutoFlipping = true;
@@ -936,7 +969,7 @@ namespace screen_file_transmit
         {
             if (!_isAutoFlipping) return;
 
-            Bitmap bmp = CaptureSelection(false);
+            Bitmap bmp = CaptureSelection(true);
             if (bmp == null) return;
 
             ImageDecoder.MetadataResult meta = null;
@@ -947,7 +980,9 @@ namespace screen_file_transmit
                     meta = ImageDecoder.ReadMetadata(metaBmp);
                 }
             }
-            catch { }
+            catch {
+                bmp.Save("D:/test.bmp");
+            }
 
             if (meta?.Metadata == null || meta.Metadata.Length < 4)
             {
@@ -957,6 +992,19 @@ namespace screen_file_transmit
 
             if (meta.CurrentPage == _lastProcessedPage)
             {
+                if ((DateTime.Now - _lastPageTurnTime).TotalSeconds > AutoFlipTimeoutSeconds)
+                {
+                    bmp.Dispose();
+                    StopAutoFlip();
+                    BtnAutoFlip.IsChecked = false;
+                    MessageBox.Show(
+                        Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipTimeout"),
+                        Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    ShowSelectionBorder();
+                    return;
+                }
                 bmp.Dispose();
                 return;
             }
@@ -976,7 +1024,7 @@ namespace screen_file_transmit
                 return;
             }
 
-            SimulateClickRightSide();
+            SimulatePageTurn();
         }
 
         private void StopAutoFlip()
@@ -990,40 +1038,32 @@ namespace screen_file_transmit
             }
         }
 
-        private void SimulateClickRightSide()
+        private void SimulatePageTurn()
         {
-            int x, y, width, height;
-
             if (_selectedHwnd != IntPtr.Zero)
             {
-                NativeMethods.GetWindowRect(_selectedHwnd, out var rc);
-                if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
-                    rc = dwmRc;
-                x = rc.Left;
-                y = rc.Top;
-                width = rc.Right - rc.Left;
-                height = rc.Bottom - rc.Top;
+                NativeMethods.SetForegroundWindow(_selectedHwnd);
+                System.Threading.Thread.Sleep(50);
             }
-            else
+
+            byte vk;
+            switch (_flipMethod)
             {
-                var physTL = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(_selectedRegion.X, _selectedRegion.Y));
-                var physBR = ScreenCaptureHelper.LogicalToPhysical(this, new System.Windows.Point(_selectedRegion.Right, _selectedRegion.Bottom));
-                x = (int)physTL.X;
-                y = (int)physTL.Y;
-                width = (int)(physBR.X - physTL.X);
-                height = (int)(physBR.Y - physTL.Y);
+                case FlipMethod.UpDown:
+                    vk = NativeMethods.VK_DOWN;
+                    break;
+                case FlipMethod.PageUpDown:
+                    vk = NativeMethods.VK_NEXT;
+                    break;
+                default:
+                    vk = NativeMethods.VK_RIGHT;
+                    break;
             }
 
-            int clickX = x + width * 3 / 4;
-            int clickY = y + height / 2;
-
-            NativeMethods.GetCursorPos(out var originalPos);
-            NativeMethods.SetCursorPos(clickX, clickY);
-            NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, IntPtr.Zero);
-            System.Threading.Thread.Sleep(10);
-            NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
+            _lastPageTurnTime = DateTime.Now;
+            NativeMethods.keybd_event(vk, 0, 0, IntPtr.Zero);
             System.Threading.Thread.Sleep(50);
-            NativeMethods.SetCursorPos(originalPos.X, originalPos.Y);
+            NativeMethods.keybd_event(vk, 0, NativeMethods.KEYEVENTF_KEYUP, IntPtr.Zero);
         }
 
         protected override void OnClosed(EventArgs e)

@@ -70,6 +70,7 @@
   <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
   <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
   <data name="Error_SelectFileFirst" xml:space="preserve"><value>Please select a file to encode first</value></data>
+  <data name="Error_PageCountExceeded" xml:space="preserve"><value>Page count exceeds limit: {0} pages required, maximum supported is {1}. Please increase encoding scale or resolution.</value></data>
   <data name="Error_PreviewFailed" xml:space="preserve"><value>Preview failed: {0}</value></data>
   <data name="Error_GeneratePreviewFailed" xml:space="preserve"><value>Failed to generate preview: {0}</value></data>
   <data name="Error_SavePathNotExist" xml:space="preserve"><value>Save path does not exist</value></data>

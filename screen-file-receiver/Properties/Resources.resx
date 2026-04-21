@@ -115,4 +115,12 @@
   <data name="MsgBox_AutoFlipNoData" xml:space="preserve"><value>未找到数据，请检查选区是否正确。</value></data>
   <data name="MsgBox_AutoFlipComplete" xml:space="preserve"><value>自动翻页完成，所有页面已保存。</value></data>
   <data name="Toast_AutoFlipPageSaved" xml:space="preserve"><value>已保存第 {0}/{1} 页</value></data>
+  <data name="AutoFlipConfigDialog_Title" xml:space="preserve"><value>自动翻页设置</value></data>
+  <data name="AutoFlipConfigDialog_Instruction" xml:space="preserve"><value>请先在发送端窗口中测试键盘翻页，然后选择要使用的翻页方式：</value></data>
+  <data name="AutoFlipConfigDialog_MethodLeftRight" xml:space="preserve"><value>左右方向键 (→)</value></data>
+  <data name="AutoFlipConfigDialog_MethodUpDown" xml:space="preserve"><value>上下方向键 (↓)</value></data>
+  <data name="AutoFlipConfigDialog_MethodPageUpDown" xml:space="preserve"><value>PageUp / PageDown</value></data>
+  <data name="AutoFlipConfigDialog_TestButton" xml:space="preserve"><value>测试</value></data>
+  <data name="AutoFlipConfigDialog_TestSent" xml:space="preserve"><value>已发送测试按键</value></data>
+  <data name="MsgBox_AutoFlipTimeout" xml:space="preserve"><value>翻页后10秒内未检测到新页面，自动翻页已停止。请检查发送端是否正常响应翻页操作。</value></data>
 </root>

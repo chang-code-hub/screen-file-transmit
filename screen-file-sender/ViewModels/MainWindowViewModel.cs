@@ -413,6 +413,8 @@ namespace screen_file_transmit
                 long bytesPerPage = matrix.PageByteCount * ColorDepth *
                                     (ColorMode != "黑白" ? 3 : 1);
                 PreviewTotalPages = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
+                if (PreviewTotalPages > ushort.MaxValue)
+                    throw new InvalidOperationException(string.Format(Properties.Resources.ResourceManager.GetString("Error_PageCountExceeded"), PreviewTotalPages, ushort.MaxValue));
                 PreviewCurrentPage = 1;
                 _previewSessionGuid = null;
 
@@ -601,7 +603,7 @@ namespace screen_file_transmit
             IsConverting = true;
             ConversionProgress = 0;
             ConversionStatus = Properties.Resources.ResourceManager.GetString("Status_Preparing");
-            _cts = new CancellationTokenSource();
+            _cts = new CancellationTokenSource(); 
 
             var progress = new Progress<(int progress, string status)>(report =>
             {
@@ -676,6 +678,8 @@ namespace screen_file_transmit
                     long bytesPerPage = matrix.PageByteCount * ColorDepth *
                                         (ColorMode != "黑白" ? 3 : 1);
                     totalPages = (int)Math.Ceiling((double)totalBytes / bytesPerPage);
+                    if (totalPages > ushort.MaxValue)
+                        throw new InvalidOperationException(string.Format(Properties.Resources.ResourceManager.GetString("Error_PageCountExceeded"), totalPages, ushort.MaxValue));
 
                     var originalFileName = Path.GetFileNameWithoutExtension(FilePath);
 
@@ -700,6 +704,10 @@ namespace screen_file_transmit
                         // 生成文件名：原文件名_yymmddhhmmss_4位串号.png（下划线分割）
                         var serial = GenerateSerialNumber(page, 4);
                         var fileName = $"{originalFileName}_{timestamp}_{sessionGuid}_{serial}.png";
+                        if(!Directory.Exists(saveDir))
+                        {
+                            Directory.CreateDirectory(saveDir);
+                        }
                         var fullPath = Path.Combine(saveDir, fileName);
 
                         bitmap.Save(fullPath, ImageFormat.Png);

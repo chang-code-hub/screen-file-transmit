@@ -8,12 +8,12 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="{loc:Loc WindowTitle}"
     Width="980"
+    Height="600"
     MinHeight="600"
     AllowDrop="True"
     AllowsTransparency="True"
     Closing="Window_Closing"
     ResizeMode="CanResizeWithGrip"
-    SizeToContent="Height"
     WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     mc:Ignorable="d">

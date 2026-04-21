@@ -970,7 +970,7 @@ namespace screen_file_transmit
                         var base64Part = code.TrimStart('$').TrimStart('-');
                         result.Metadata = Convert.FromBase64String(base64Part);
 
-                        if (result.Metadata != null && result.Metadata.Length >= 4)
+                        if (result.Metadata != null && result.Metadata.Length >= 6)
                         {
                             result.MaxRows = (result.Metadata[0] >> 4) & 0x0F;
                             result.MaxCols = result.Metadata[0] & 0x0F;
@@ -978,15 +978,15 @@ namespace screen_file_transmit
                             result.HasPassword = (result.Metadata[1] & 0x40) != 0;
                             result.HasErrorCorrection = (result.Metadata[1] & 0x20) != 0;
                             result.ColorDepth = result.Metadata[1] & 0x1F;
-                            result.CurrentPage = result.Metadata[2];
-                            result.TotalPages = result.Metadata[3];
-                            if (result.Metadata.Length >= 5)
-                            {
-                                result.ErrorCorrectionPercent = result.Metadata[4];
-                            }
+                            result.CurrentPage = (result.Metadata[2] << 8) | result.Metadata[3];
+                            result.TotalPages = (result.Metadata[4] << 8) | result.Metadata[5];
                             if (result.Metadata.Length >= 7)
                             {
-                                result.TotalQrCodeCount = (result.Metadata[5] << 8) | result.Metadata[6];
+                                result.ErrorCorrectionPercent = result.Metadata[6];
+                            }
+                            if (result.Metadata.Length >= 9)
+                            {
+                                result.TotalQrCodeCount = (result.Metadata[7] << 8) | result.Metadata[8];
                             }
                         }
                     }
@@ -1080,6 +1080,7 @@ namespace screen_file_transmit
             using (Mat gray = new Mat())
             {
                 Cv2.CvtColor(roi, gray, ColorConversionCodes.BGR2GRAY);
+                Cv2.Threshold(gray, gray, 128, 255, ThresholdTypes.Binary); // 新增：过滤浅灰/白
                 Cv2.MedianBlur(gray, gray, 5);
                 Cv2.GaussianBlur(gray, gray, new Size(7, 7), 0);
 

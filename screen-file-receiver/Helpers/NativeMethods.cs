@@ -218,5 +218,21 @@ namespace screen_file_transmit
 
         public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
         public const uint MOUSEEVENTF_LEFTUP = 0x0004;
+
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, IntPtr dwExtraInfo);
+
+        public const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+        public const uint KEYEVENTF_KEYUP = 0x0002;
+
+        public const byte VK_LEFT = 0x25;
+        public const byte VK_UP = 0x26;
+        public const byte VK_RIGHT = 0x27;
+        public const byte VK_DOWN = 0x28;
+        public const byte VK_PRIOR = 0x21;
+        public const byte VK_NEXT = 0x22;
     }
 }

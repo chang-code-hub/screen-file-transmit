@@ -121,5 +121,18 @@ namespace screen_file_transmit
             } while (File.Exists(newPath));
             return newPath;
         }
+
+        public static string SanitizeFileName(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+                return fileName;
+
+            var invalidChars = Path.GetInvalidFileNameChars();
+            foreach (char c in invalidChars)
+            {
+                fileName = fileName.Replace(c, '_');
+            }
+            return fileName.Trim();
+        }
     }
 }

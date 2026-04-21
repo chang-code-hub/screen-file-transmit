@@ -1,0 +1,76 @@
+<Window
+    x:Class="screen_file_transmit.AutoFlipConfigDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="{Binding TitleText}"
+    Width="360"
+    Height="Auto"
+    ResizeMode="NoResize"
+    SizeToContent="Height"
+    WindowStartupLocation="CenterOwner">
+    <Grid Margin="16,12,16,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+            Grid.Row="0"
+            Margin="0,0,0,8"
+            Text="{Binding InstructionText}"
+            TextWrapping="Wrap" />
+
+        <StackPanel Grid.Row="1" Margin="8,4,0,4">
+            <RadioButton
+                x:Name="RbLeftRight"
+                Margin="0,4"
+                Content="{Binding MethodLeftRightText}"
+                IsChecked="True" />
+            <RadioButton
+                x:Name="RbUpDown"
+                Margin="0,4"
+                Content="{Binding MethodUpDownText}" />
+            <RadioButton
+                x:Name="RbPageUpDown"
+                Margin="0,4"
+                Content="{Binding MethodPageUpDownText}" />
+        </StackPanel>
+
+<!--         <Button -->
+<!--             Grid.Row="2" -->
+<!--             Margin="0,8,0,0" -->
+<!--             Padding="12,4" -->
+<!--             HorizontalAlignment="Left" -->
+<!--             Click="BtnTest_Click" -->
+<!--             Content="{Binding TestButtonText}" /> -->
+
+<!--         <TextBlock -->
+<!--             x:Name="TestResultText" -->
+<!--             Grid.Row="3" -->
+<!--             Margin="0,4,0,0" -->
+<!--             Foreground="Green" -->
+<!--             Text="" -->
+<!--             Visibility="Collapsed" /> -->
+
+        <StackPanel
+            Grid.Row="4"
+            Margin="0,16,0,0"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                Padding="16,4"
+                Click="BtnOk_Click"
+                Content="OK"
+                IsDefault="True" />
+            <Button
+                Margin="8,0,0,0"
+                Padding="16,4"
+                Click="BtnCancel_Click"
+                Content="Cancel"
+                IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

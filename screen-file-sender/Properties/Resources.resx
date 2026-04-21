@@ -70,6 +70,7 @@
   <data name="Unit_GB" xml:space="preserve"><value>GB</value></data>
   <data name="Unit_TB" xml:space="preserve"><value>TB</value></data>
   <data name="Error_SelectFileFirst" xml:space="preserve"><value>请先选择要编码的文件</value></data>
+  <data name="Error_PageCountExceeded" xml:space="preserve"><value>页数超过限制: 当前需要 {0} 页，最大支持 {1} 页。请增大编码比例或分辨率。</value></data>
   <data name="Error_PreviewFailed" xml:space="preserve"><value>预览失败: {0}</value></data>
   <data name="Error_GeneratePreviewFailed" xml:space="preserve"><value>生成预览失败: {0}</value></data>
   <data name="Error_SavePathNotExist" xml:space="preserve"><value>保存路径不存在</value></data>

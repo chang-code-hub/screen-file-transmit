@@ -445,6 +445,11 @@ namespace screen_file_transmit
             int currentPage = 1, int totalPages = 1, string sessionGuid = null, bool hasPassword = false,
             int errorCorrectionPercent = 0)
         {
+            if (currentPage < 0 || currentPage > ushort.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(currentPage), $"Current page ({currentPage}) exceeds the maximum allowed value ({ushort.MaxValue}).");
+            if (totalPages < 0 || totalPages > ushort.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(totalPages), $"Total pages ({totalPages}) exceeds the maximum allowed value ({ushort.MaxValue}).");
+
             var bitmap = new Bitmap(pageInfo.BitmapWidth, pageInfo.BitmapHeight);
             using (Graphics g = Graphics.FromImage(bitmap))
             {
@@ -602,8 +607,10 @@ namespace screen_file_transmit
                 List<byte> meta = new List<byte>();
                 meta.Add((byte)(matrix.MaxRows << 4 | matrix.MaxCols));
                 meta.Add((byte)((colorful ? 0x80 : 0x00) | (hasPassword ? 0x40 : 0x00) | (errorCorrectionPercent > 0 ? 0x20 : 0x00) | colorDepth));
-                meta.Add((byte)(currentPage));
-                meta.Add((byte)(totalPages));
+                meta.Add((byte)(currentPage >> 8));
+                meta.Add((byte)(currentPage & 0xFF));
+                meta.Add((byte)(totalPages >> 8));
+                meta.Add((byte)(totalPages & 0xFF));
                 meta.Add((byte)(errorCorrectionPercent));
                 int totalQrCodeCount = count * (colorful ? 3 : 1);
                 meta.Add((byte)(totalQrCodeCount >> 8));
