@@ -1,13 +1,24 @@
 {
   "name": "@chang-code-hub/screen-file-receiver",
-  "version": "2.0",
+  "version": "2.1.0",
   "description": "Screen file receiver - decode files from DataMatrix codes captured from screen",
-  "keywords": ["datamatrix", "qrcode", "file-transfer", "screen", "visual-transfer", "opencv"],
+  "keywords": [
+    "datamatrix",
+    "qrcode",
+    "file-transfer",
+    "screen",
+    "visual-transfer",
+    "opencv"
+  ],
   "homepage": "https://github.com/chang/screen-file-transmit",
   "license": "MIT",
   "author": "chang",
-  "os": ["win32"],
-  "cpu": ["x64"],
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "bin": {
     "screen-file-receiver": "bin/screen-file-receiver.js",
     "sfr": "bin/screen-file-receiver.js"
