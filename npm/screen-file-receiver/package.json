@@ -1,6 +1,6 @@
 {
   "name": "@chang-code-hub/screen-file-receiver",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Screen file receiver - decode files from DataMatrix codes captured from screen",
   "keywords": [
     "datamatrix",
