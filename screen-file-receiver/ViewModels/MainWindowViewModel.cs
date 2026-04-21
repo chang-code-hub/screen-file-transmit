@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Media;
 using System.Windows;
+using System.Runtime.InteropServices;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Threading.Tasks;
@@ -135,13 +136,30 @@ namespace screen_file_transmit
             }
         }
 
+        private static string GetDownloadsPath()
+        {
+            try
+            {
+                var downloadsGuid = new Guid("374DE290-123F-4565-9164-39C4925E467B");
+                SHGetKnownFolderPath(downloadsGuid, 0, IntPtr.Zero, out var path);
+                return path;
+            }
+            catch
+            {
+                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+            }
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        static extern int SHGetKnownFolderPath([MarshalAs(UnmanagedType.LPStruct)] Guid rfid, uint dwFlags, IntPtr hToken, out string pszPath);
+
         public MainWindowViewModel()
         {
             _appConfig.Load();
             _outputFilePath = _appConfig.SaveDirectory;
             if (string.IsNullOrWhiteSpace(_outputFilePath))
             {
-                _outputFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "ScreenFileReceiver");
+                _outputFilePath = Path.Combine(GetDownloadsPath(), "ScreenFileReceiver");
                 if(!Directory.Exists(_outputFilePath))
                 {
                     Directory.CreateDirectory(_outputFilePath);

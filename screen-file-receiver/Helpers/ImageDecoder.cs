@@ -994,6 +994,11 @@ namespace screen_file_transmit
                 }
             }
 
+            if (result.Metadata == null)
+            {
+                throw new Exception("Cannot find page meta data" );
+            }
+
             // 右侧：文件名条码、文件ID条码（#fileId#page 格式）
             var rightCodes = DetectBarcodes(image, isLeft: false, debug);
             if (rightCodes.Count >= 2)
@@ -1027,9 +1032,9 @@ namespace screen_file_transmit
                     result.FileName = ordered[1];
                 }
             }
-            else if (rightCodes.Count == 1)
+            else
             {
-                result.FileName = rightCodes[0].TrimStart('#');
+                throw new Exception("Cannot find file meta data");
             }
 
             return result;
