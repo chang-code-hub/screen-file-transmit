@@ -994,20 +994,36 @@ namespace screen_file_transmit
                 }
             }
 
-            // 右侧：文件名条码、时间戳条码（Base64）
+            // 右侧：文件名条码、文件ID条码（#fileId#page 格式）
             var rightCodes = DetectBarcodes(image, isLeft: false, debug);
             if (rightCodes.Count >= 2)
             {
                 var ordered = rightCodes.OrderByDescending(c => c.Length).ToList();
-                var candidateFileId = ordered.FirstOrDefault(c => c.StartsWith("#"));// ordered.FirstOrDefault(IsBase64String);
+                var candidateFileId = ordered.FirstOrDefault(c => c.StartsWith("#"));
                 if (candidateFileId != null)
                 {
-                    result.FileId = candidateFileId.TrimStart('#');// ParseTimestamp(candidateTimestamp);
+                    // 解析 #fileId#page 格式
+                    var parts = candidateFileId.Split('#');
+                    if (parts.Length >= 3 && !string.IsNullOrEmpty(parts[1]))
+                    {
+                        result.FileId = parts[1];
+                        if (int.TryParse(parts[2], out int pageFromBarcode))
+                        {
+                            if (pageFromBarcode != result.CurrentPage)
+                            {
+                                throw new Exception(string.Format("Page mismatch: barcode page {0} != metadata page {1}", pageFromBarcode, result.CurrentPage));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        result.FileId = candidateFileId.TrimStart('#');
+                    }
                     result.FileName = ordered.First(c => c != candidateFileId);
                 }
                 else
                 {
-                    result.FileId = ordered[0].TrimStart('#');// ParseTimestamp(ordered[0]);
+                    result.FileId = ordered[0].TrimStart('#');
                     result.FileName = ordered[1];
                 }
             }

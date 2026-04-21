@@ -624,6 +624,7 @@ namespace screen_file_transmit
                 g.DrawImage(rotatedInfoBitmap, new Point(infoX, infoY));
                 rotatedInfoBitmap.Dispose();
 
+
                 // ===== 右侧：文件名条码（旋转90度，中文转拼音首字母，保留扩展名）=====
                 if (!string.IsNullOrEmpty(fileName))
                 {
@@ -662,7 +663,7 @@ namespace screen_file_transmit
                         fileNameBarcode.Dispose();
 
                         int fileNameX = bitmap.Width - MARGIN - META_BARCODE_HEIGHT - MARGIN - META_BARCODE_HEIGHT;
-                        int fileNameY = MARGIN;
+                        int fileNameY = bitmap.Height - rotatedFileNameBarcode.Height - MARGIN;
                         g.DrawImage(rotatedFileNameBarcode, new Point(fileNameX, fileNameY));
                         rotatedFileNameBarcode.Dispose();
 
@@ -673,7 +674,7 @@ namespace screen_file_transmit
                 // ===== 右侧：GUID条码（旋转90度）=====
                 if (!string.IsNullOrEmpty(sessionGuid))
                 {
-                    var guidBitmap = GenerateCode128("#"+sessionGuid, META_BARCODE_HEIGHT, scale);
+                    var guidBitmap = GenerateCode128("#" + sessionGuid + "#" + currentPage, META_BARCODE_HEIGHT, scale);
 
                     // 缩放条码以适应边界（旋转后的高度 = 原始宽度）
                     guidBitmap = ScaleBarcodeToFit(guidBitmap, maxBarcodeHeight);
@@ -682,7 +683,7 @@ namespace screen_file_transmit
                     guidBitmap.Dispose();
 
                     int guidX = bitmap.Width - MARGIN - META_BARCODE_HEIGHT;
-                    int guidY = MARGIN;
+                    int guidY = bitmap.Height - rotatedGuidBitmap.Height - MARGIN;
                     g.DrawImage(rotatedGuidBitmap, new System.Drawing.Point(guidX, guidY));
                     rotatedGuidBitmap.Dispose();
                 }
