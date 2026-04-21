@@ -277,6 +277,14 @@ namespace screen_file_transmit
         {
             _appConfig.Load();
             _saveDirectory = _appConfig.SaveDirectory;
+            if (string.IsNullOrWhiteSpace(_saveDirectory))
+            {
+                _saveDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "ScreenFileSender");
+                if(!Directory.Exists(_saveDirectory))
+                {
+                    Directory.CreateDirectory(_saveDirectory);
+                }
+            }
 
             _scale = _appConfig.Scale;
             _colorMode = _appConfig.ColorMode;

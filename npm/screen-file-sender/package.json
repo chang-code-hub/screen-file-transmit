@@ -1,6 +1,6 @@
 {
   "name": "@chang-code-hub/screen-file-sender",
-  "version": "2.0.0",
+  "version": "2.0",
   "description": "Screen file sender - transmit files via DataMatrix codes displayed on screen",
   "keywords": [
     "datamatrix",

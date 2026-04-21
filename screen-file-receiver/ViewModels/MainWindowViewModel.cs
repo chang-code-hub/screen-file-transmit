@@ -139,6 +139,14 @@ namespace screen_file_transmit
         {
             _appConfig.Load();
             _outputFilePath = _appConfig.SaveDirectory;
+            if (string.IsNullOrWhiteSpace(_outputFilePath))
+            {
+                _outputFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "ScreenFileReceiver");
+                if(!Directory.Exists(_outputFilePath))
+                {
+                    Directory.CreateDirectory(_outputFilePath);
+                }
+            }
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

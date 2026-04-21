@@ -3,7 +3,11 @@
  * Build and publish script for npm packages.
  *
  * Usage:
- *   node npm/publish.js [sender|receiver|all] [--dry-run|--pack]
+ *   node npm/publish.js [sender|receiver|all] [version] [--dry-run|--pack]
+ *
+ * Arguments:
+ *   sender|receiver|all  - Package to publish (default: all)
+ *   version              - Optional fixed version (e.g. 2.1.0). If omitted, auto-bumps patch.
  *
  * Modes:
  *   (default)  - Build, copy artifacts, and publish to npm
@@ -13,7 +17,9 @@
  * Steps:
  *   1. Build the .NET project in Release mode
  *   2. Copy build artifacts to npm/<package>/dist/
- *   3. Run npm publish / npm publish --dry-run / npm pack
+ *   3. Bump version (auto patch or use fixed version)
+ *   4. Run npm publish / npm publish --dry-run / npm pack
+ *   5. Git commit and tag (publish mode only)
  */
 const fs = require('fs');
 const path = require('path');
@@ -140,6 +146,64 @@ function copyFiles(pkgKey) {
   }
 }
 
+function getRemoteVersion(pkgName) {
+  try {
+    const version = execSync(`npm view "${pkgName}" version`, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    return version.trim();
+  } catch {
+    return null;
+  }
+}
+
+function bumpVersion(pkgKey, fixedVersion) {
+  const pkg = packages[pkgKey];
+  const pkgDir = path.join(rootDir, 'npm', pkg.dir);
+  const pkgJsonPath = path.join(pkgDir, 'package.json');
+
+  const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+  const localVersion = pkgJson.version;
+
+  let newVersion;
+  if (fixedVersion) {
+    newVersion = fixedVersion;
+    console.log(`Using fixed version: ${newVersion}`);
+  } else {
+    const remoteVersion = getRemoteVersion(pkg.name);
+    let baseVersion = localVersion;
+    if (remoteVersion && remoteVersion !== localVersion) {
+      const localParts = localVersion.split('.').map(Number);
+      const remoteParts = remoteVersion.split('.').map(Number);
+
+      const localNum = localParts[0] * 1_000_000 + localParts[1] * 1_000 + localParts[2];
+      const remoteNum = remoteParts[0] * 1_000_000 + remoteParts[1] * 1_000 + remoteParts[2];
+
+      if (remoteNum > localNum) {
+        baseVersion = remoteVersion;
+        console.log(`Remote version ${remoteVersion} is ahead of local ${localVersion}, using remote as base.`);
+      }
+    }
+
+    const parts = baseVersion.split('.').map(Number);
+    parts[2] += 1;
+    newVersion = parts.join('.');
+  }
+
+  let changed = false;
+  if (newVersion !== localVersion) {
+    pkgJson.version = newVersion;
+    fs.writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + '\n');
+    console.log(`Bumped version: ${localVersion} -> ${newVersion}`);
+    changed = true;
+  } else {
+    console.log(`Version already at ${newVersion}`);
+  }
+
+  return { pkgKey, oldVersion: localVersion, newVersion, changed, dir: pkg.dir, name: pkg.name };
+}
+
 function publishPackage(pkgKey, mode) {
   const pkg = packages[pkgKey];
   const pkgDir = path.join(rootDir, 'npm', pkg.dir);
@@ -165,23 +229,68 @@ function publishPackage(pkgKey, mode) {
   }
 }
 
+function gitCommitAndTag(changes, mode) {
+  if (mode !== 'publish' || changes.length === 0) {
+    return;
+  }
+
+  const paths = changes.map(c => path.join('npm', c.dir, 'package.json'));
+  execSync(`git add ${paths.map(p => `"${p}"`).join(' ')}`, {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
+
+  const lines = ['publish: bump version', ''];
+  for (const c of changes) {
+    lines.push(`- ${c.name}: ${c.oldVersion} → ${c.newVersion}`);
+  }
+  const msg = lines.join('\n');
+
+  execSync('git commit -F -', {
+    cwd: rootDir,
+    stdio: ['pipe', 'inherit', 'inherit'],
+    input: msg,
+  });
+
+  for (const c of changes) {
+    const tag = `${c.pkgKey}-${c.newVersion}`;
+    execSync(`git tag "${tag}"`, { cwd: rootDir, stdio: 'inherit' });
+    console.log(`Tagged: ${tag}`);
+  }
+}
+
 function main() {
   const args = process.argv.slice(2);
 
   let target = 'all';
+  let fixedVersion = null;
   let mode = 'publish';
 
+  const posArgs = [];
   for (const arg of args) {
     if (arg === '--dry-run') {
       mode = 'dry-run';
     } else if (arg === '--pack') {
       mode = 'pack';
     } else if (!arg.startsWith('-')) {
-      target = arg;
+      posArgs.push(arg);
     }
   }
 
+  if (posArgs.length >= 1) {
+    target = posArgs[0];
+  }
+  if (posArgs.length >= 2) {
+    fixedVersion = posArgs[1];
+  }
+
+  if (target === 'all' && fixedVersion) {
+    console.error('Cannot specify a fixed version when publishing all packages.');
+    process.exit(1);
+  }
+
   const keys = target === 'all' ? Object.keys(packages) : [target];
+  const changes = [];
 
   for (const key of keys) {
     if (!packages[key]) {
@@ -194,8 +303,14 @@ function main() {
     console.log(`\n========== ${packages[key].name} [${mode}] ==========\n`);
     buildProject(packages[key].proj);
     copyFiles(key);
+    const bumpResult = bumpVersion(key, fixedVersion);
+    if (bumpResult.changed) {
+      changes.push(bumpResult);
+    }
     publishPackage(key, mode);
   }
+
+  gitCommitAndTag(changes, mode);
 
   console.log('\nDone!');
 }
