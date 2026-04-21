@@ -202,33 +202,38 @@ namespace screen_file_transmit
         public ICommand ConvertCommand => new RelayCommand(_ => StartConvert(), _ => !IsBusy && FileItems.Count > 0 && !string.IsNullOrWhiteSpace(OutputFilePath));
         public ICommand OpenScreenshotToolCommand => new RelayCommand(_ => OpenScreenshotTool(), _ => !IsBusy);
 
-        private void AddFiles()
+        private async void AddFiles()
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Multiselect = true;
             openFileDialog.Filter = $"{Properties.Resources.ResourceManager.GetString("FileFilter_ImageFiles")}|*.png;*.jpg;*.jpeg;*.bmp|{Properties.Resources.ResourceManager.GetString("FileFilter_AllFiles")}|*.*";
             if (openFileDialog.ShowDialog() ?? false)
             {
-                AddFiles(openFileDialog.FileNames);
+                await AddFilesAsync(openFileDialog.FileNames);
             }
         }
 
-        public void AddFiles(IEnumerable<string> files)
+        public async Task AddFilesAsync(IEnumerable<string> files)
         {
-            foreach (var file in files.OrderBy(c=>c))
+            var existingPaths = new HashSet<string>(FileItems.Select(f => f.FullPath));
+            var fileList = files.OrderBy(c => c).ToList();
+
+            foreach (var file in fileList)
             {
-                if (FileItems.Any(f => f.FullPath == file))
+                if (existingPaths.Contains(file))
                     continue;
 
-                var item = CreateFileItem(file);
+                var item = await Task.Run(() => CreateFileItem(file));
                 if (item != null)
                 {
                     item.PropertyChanged += FileItem_PropertyChanged;
                     FileItems.Add(item);
+                    existingPaths.Add(file);
+                    SelectedFileItem = item;
+                    await Task.Yield();
                 }
             }
-            if (SelectedFileItem == null && FileItems.Count > 0)
-                SelectedFileItem = FileItems[0]; 
+
             CheckFileComplete();
         }
 

@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -53,7 +54,7 @@ namespace screen_file_transmit
         }
 
 
-        private void MainWindow_Drop(object sender, DragEventArgs e)
+        private async void MainWindow_Drop(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
@@ -63,7 +64,7 @@ namespace screen_file_transmit
                     var ext = Path.GetExtension(f).ToLower();
                     return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp";
                 });
-                viewModel.AddFiles(imageFiles);
+                await viewModel.AddFilesAsync(imageFiles);
             }
             e.Handled = true;
         }

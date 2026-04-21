@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -607,7 +608,7 @@ namespace screen_file_transmit
                 || Math.Abs(_offsetRightPhys) > 0.5 || Math.Abs(_offsetBottomPhys) > 0.5;
         }
 
-        private void ExecuteCapture()
+        private async void ExecuteCapture()
         {
             HideSelectionBorder();
             string outputDir = _mainVm?.OutputFilePath;
@@ -705,7 +706,8 @@ namespace screen_file_transmit
                 var bitmapSource = ScreenCaptureHelper.ToBitmapSource(bmp);
                 ScreenCaptureHelper.SavePng(bitmapSource, fullPath);
                 ToastNotification.Show(string.Format(Properties.Resources.ResourceManager.GetString("Toast_SavedTo"), fullPath), Properties.Resources.ResourceManager.GetString("Toast_ScreenshotSuccess"), MessageBoxImage.Information);
-                _mainVm?.AddFiles(new[] { fullPath });
+                if (_mainVm != null)
+                    await _mainVm.AddFilesAsync(new[] { fullPath });
             }
             catch (Exception ex)
             {
@@ -807,7 +809,7 @@ namespace screen_file_transmit
             }
         }
 
-        private void SaveCapture(Bitmap bmp, ImageDecoder.MetadataResult meta)
+        private async void SaveCapture(Bitmap bmp, ImageDecoder.MetadataResult meta)
         {
             string outputDir = _mainVm?.OutputFilePath;
             if (string.IsNullOrWhiteSpace(outputDir) || !Directory.Exists(outputDir))
@@ -815,7 +817,7 @@ namespace screen_file_transmit
                 MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            
+
             if(!Directory.Exists(outputDir))
             {
                 Directory.CreateDirectory(outputDir);
@@ -838,7 +840,8 @@ namespace screen_file_transmit
                 ScreenCaptureHelper.SavePng(bitmapSource, fullPath);
                 //string toastTitle = string.Format(Properties.Resources.ResourceManager.GetString("Toast_AutoFlipPageSaved"), meta?.CurrentPage ?? 0, _autoFlipTotalPages);
                 //ToastNotification.Show(string.Format(Properties.Resources.ResourceManager.GetString("Toast_SavedTo"), fullPath), toastTitle, MessageBoxImage.Information);
-                _mainVm?.AddFiles(new[] { fullPath });
+                if (_mainVm != null)
+                    await _mainVm.AddFilesAsync(new[] { fullPath });
             }
             catch (Exception ex)
             {
@@ -981,7 +984,7 @@ namespace screen_file_transmit
                 }
             }
             catch {
-                bmp.Save("D:/test.bmp");
+                // bmp.Save("D:/test.bmp");
             }
 
             if (meta?.Metadata == null || meta.Metadata.Length < 4)
@@ -990,24 +993,19 @@ namespace screen_file_transmit
                 return;
             }
 
-            if (meta.CurrentPage == _lastProcessedPage)
+            if ((DateTime.Now - _lastPageTurnTime).TotalSeconds > AutoFlipTimeoutSeconds)
             {
-                if ((DateTime.Now - _lastPageTurnTime).TotalSeconds > AutoFlipTimeoutSeconds)
-                {
-                    bmp.Dispose();
-                    StopAutoFlip();
-                    BtnAutoFlip.IsChecked = false;
-                    MessageBox.Show(
-                        Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipTimeout"),
-                        Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                    ShowSelectionBorder();
-                    return;
-                }
                 bmp.Dispose();
+                StopAutoFlip();
+                BtnAutoFlip.IsChecked = false;
+                MessageBox.Show(
+                    Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipTimeout"),
+                    Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                ShowSelectionBorder();
                 return;
-            }
+            } 
 
             Thread.Sleep(200);
             if (_isClosing) return;
