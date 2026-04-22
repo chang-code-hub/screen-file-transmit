@@ -82,4 +82,8 @@
   <data name="Status_GeneratingPage" xml:space="preserve"><value>正在生成第 {0}/{1} 页...</value></data>
   <data name="Preview_TitleFormat" xml:space="preserve"><value>{0} - 第 {1}/{2} 页</value></data>
   <data name="MatrixWindowTitle" xml:space="preserve"><value>二维码矩阵</value></data>
+  <data name="Label_AutoPage" xml:space="preserve"><value>自动翻页</value></data>
+  <data name="Label_AutoPageInterval" xml:space="preserve"><value>翻页周期</value></data>
+  <data name="Label_GoToPage" xml:space="preserve"><value>跳转</value></data>
+  <data name="Unit_Second" xml:space="preserve"><value>秒</value></data>
 </root>

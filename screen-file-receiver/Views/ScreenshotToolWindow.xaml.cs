@@ -40,7 +40,7 @@ namespace screen_file_transmit
         private string _autoFlipFileName;
         private FlipMethod _flipMethod = FlipMethod.LeftRight;
         private DateTime _lastPageTurnTime;
-        private const int AutoFlipTimeoutSeconds = 10;
+        private const int AutoFlipTimeoutSeconds = 30;
 
         // 编辑选区相关
         private bool _isEditMode;
@@ -825,7 +825,7 @@ namespace screen_file_transmit
 
             string fileName = null;
             if (meta != null && !string.IsNullOrWhiteSpace(meta.FileName))
-                fileName = Path.GetFileNameWithoutExtension($"{meta.FileName}" )+$"_{meta.FileId}_{meta.CurrentPage:0000}.png";
+                fileName = Path.GetFileNameWithoutExtension($"{meta.FileName}" )+$"_{meta.FileId}_{meta.CurrentPage:00000}.png";
 
             if (string.IsNullOrWhiteSpace(fileName))
                 fileName = $"{Properties.Resources.ResourceManager.GetString("Screenshot_FileNamePrefix")}{DateTime.Now:yyyyMMdd_HHmmss}.png";
@@ -909,16 +909,16 @@ namespace screen_file_transmit
             }
             catch { }
 
+            var confirmText = Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipConfirm");
             if (meta?.Metadata == null || meta.Metadata.Length < 4 || !decodeOk)
             {
-                BtnAutoFlip.IsChecked = false;
-                MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipNoData"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
-                ShowSelectionBorder();
-                return;
+                var noDataText = Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipNoData");
+                if (!string.IsNullOrEmpty(noDataText))
+                    confirmText = noDataText + "\n\n" + confirmText;
             }
 
             var confirmResult = MessageBox.Show(
-                Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipConfirm"),
+                confirmText,
                 Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
                 MessageBoxButton.OKCancel,
                 MessageBoxImage.Question);
@@ -962,7 +962,7 @@ namespace screen_file_transmit
             _isAutoFlipping = true;
             _autoFlipTimer = new DispatcherTimer(DispatcherPriority.Normal)
             {
-                Interval = TimeSpan.FromMilliseconds(500)
+                Interval = TimeSpan.FromMilliseconds(250)
             };
             _autoFlipTimer.Tick += AutoFlipTick;
             _autoFlipTimer.Start();
@@ -987,12 +987,6 @@ namespace screen_file_transmit
                 // bmp.Save("D:/test.bmp");
             }
 
-            if (meta?.Metadata == null || meta.Metadata.Length < 4)
-            {
-                bmp.Dispose();
-                return;
-            }
-
             if ((DateTime.Now - _lastPageTurnTime).TotalSeconds > AutoFlipTimeoutSeconds)
             {
                 bmp.Dispose();
@@ -1007,20 +1001,26 @@ namespace screen_file_transmit
                 return;
             } 
 
+            if (meta?.Metadata == null || meta.Metadata.Length < 4)
+            {
+                bmp.Dispose();
+                return;
+            }
+
             Thread.Sleep(200);
             if (_isClosing) return;
             SaveCapture(bmp, meta);
             bmp.Dispose();
             _lastProcessedPage = meta.CurrentPage;
 
-            if (meta.CurrentPage >= _autoFlipTotalPages)
-            {
-                StopAutoFlip();
-                BtnAutoFlip.IsChecked = false;
-                MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
-                ShowSelectionBorder();
-                return;
-            }
+            // if (meta.CurrentPage >= _autoFlipTotalPages)
+            // {
+            //     StopAutoFlip();
+            //     BtnAutoFlip.IsChecked = false;
+            //     MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+            //     ShowSelectionBorder();
+            //     return;
+            // }
 
             SimulatePageTurn();
         }
@@ -1038,6 +1038,12 @@ namespace screen_file_transmit
 
         private void SimulatePageTurn()
         {
+            if (_flipMethod == FlipMethod.Wait)
+            {
+                _lastPageTurnTime = DateTime.Now;
+                return;
+            }
+
             if (_selectedHwnd != IntPtr.Zero)
             {
                 NativeMethods.SetForegroundWindow(_selectedHwnd);

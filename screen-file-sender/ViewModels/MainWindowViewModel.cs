@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using MessageBox = System.Windows.MessageBox;
 
 namespace screen_file_transmit
@@ -230,6 +231,48 @@ namespace screen_file_transmit
         public int PreviewCurrentPage { get; set; }
         public int PreviewTotalPages { get; set; }
         public string PreviewInfoText { get; set; }
+        public string PreviewPageInfo { get; set; }
+
+        private bool _isAutoPageEnabled;
+        public bool IsAutoPageEnabled
+        {
+            get => _isAutoPageEnabled;
+            set
+            {
+                _isAutoPageEnabled = value;
+                OnPropertyChanged(nameof(IsAutoPageEnabled));
+                _appConfig.AutoPageEnabled = value;
+                _appConfig.Save();
+                UpdateAutoPageTimer();
+            }
+        }
+
+        public List<int> AutoPageIntervalList { get; } = new List<int> { 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+        private int _autoPageInterval = 5;
+        public int AutoPageInterval
+        {
+            get => _autoPageInterval;
+            set
+            {
+                _autoPageInterval = value;
+                OnPropertyChanged(nameof(AutoPageInterval));
+                _appConfig.AutoPageInterval = value;
+                _appConfig.Save();
+                UpdateAutoPageTimer();
+            }
+        }
+
+        private string _goToPageText;
+        public string GoToPageText
+        {
+            get => _goToPageText;
+            set
+            {
+                _goToPageText = value;
+                OnPropertyChanged(nameof(GoToPageText));
+            }
+        }
 
         private Stream _previewStream;
         private FileStream _previewEncryptedTempStream;
@@ -237,6 +280,7 @@ namespace screen_file_transmit
         private int _previewTargetWidth;
         private int _previewTargetHeight;
         private CancellationTokenSource _previewCts;
+        private DispatcherTimer _autoPageTimer;
 
         public Rectangle ScreenSize
         {
@@ -315,6 +359,14 @@ namespace screen_file_transmit
 
             var savedRes = ResolutionList.Find(r => r.Width == _appConfig.ResolutionWidth && r.Height == _appConfig.ResolutionHeight);
             _selectedResolution = savedRes ?? ResolutionList[0];
+
+            _isAutoPageEnabled = _appConfig.AutoPageEnabled;
+            _autoPageInterval = _appConfig.AutoPageInterval;
+            if (_autoPageInterval < 2 || _autoPageInterval > 10)
+                _autoPageInterval = 5;
+
+            _autoPageTimer = new DispatcherTimer();
+            _autoPageTimer.Tick += AutoPageTimer_Tick;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -360,6 +412,8 @@ namespace screen_file_transmit
         public ICommand PreviewPreviousPageCommand => new RelayCommand((x) => PreviewPreviousPage(), (x) => PreviewCurrentPage > 1 && !IsPreviewLoading);
         public ICommand PreviewNextPageCommand => new RelayCommand((x) => PreviewNextPage(), (x) => PreviewCurrentPage < PreviewTotalPages && !IsPreviewLoading);
         public ICommand PreviewBackCommand => new RelayCommand((x) => ExitPreview());
+        public ICommand GoToPageCommand => new RelayCommand((x) => GoToPage(), (x) => IsPreviewMode && !IsPreviewLoading);
+        public ICommand ToggleAutoPageCommand => new RelayCommand((x) => ToggleAutoPage());
 
         private void BrowseFile()
         {
@@ -419,6 +473,7 @@ namespace screen_file_transmit
                 _previewSessionGuid = null;
 
                 IsPreviewMode = true;
+                GoToPageText = "1";
                 ShowPreviewPage(1);
             }
             catch (Exception e)
@@ -480,6 +535,7 @@ namespace screen_file_transmit
 
                 PreviewCurrentPage = page;
                 PreviewInfoText = string.Format(Properties.Resources.ResourceManager.GetString("Preview_TitleFormat"), Path.GetFileName(FilePath), page, PreviewTotalPages);
+                PreviewPageInfo = $"第 {page}/{PreviewTotalPages} 页";
             }
             catch (OperationCanceledException)
             {
@@ -493,6 +549,7 @@ namespace screen_file_transmit
             {
                 IsPreviewLoading = false;
                 CommandManager.InvalidateRequerySuggested();
+                UpdateAutoPageTimer();
             }
         }
 
@@ -510,10 +567,52 @@ namespace screen_file_transmit
             {
                 ShowPreviewPage(PreviewCurrentPage + 1);
             }
+            else if (IsAutoPageEnabled)
+            {
+                ShowPreviewPage(1);
+            }
+        }
+
+        private void GoToPage()
+        {
+            if (int.TryParse(GoToPageText, out var page))
+            {
+                page = Math.Max(1, Math.Min(PreviewTotalPages, page));
+                if (page != PreviewCurrentPage)
+                {
+                    ShowPreviewPage(page);
+                }
+            }
+        }
+
+        private void ToggleAutoPage()
+        {
+            IsAutoPageEnabled = !IsAutoPageEnabled;
+        }
+
+        private void AutoPageTimer_Tick(object sender, EventArgs e)
+        {
+            if (!IsPreviewLoading)
+            {
+                PreviewNextPage();
+            }
+        }
+
+        private void UpdateAutoPageTimer()
+        {
+            if (_autoPageTimer == null) return;
+
+            _autoPageTimer.Stop();
+            if (IsAutoPageEnabled && IsPreviewMode && PreviewTotalPages > 1)
+            {
+                _autoPageTimer.Interval = TimeSpan.FromSeconds(AutoPageInterval);
+                _autoPageTimer.Start();
+            }
         }
 
         public void ExitPreview()
         {
+            _autoPageTimer?.Stop();
             _previewCts?.Cancel();
             _previewCts = null;
             IsPreviewLoading = false;
@@ -523,6 +622,8 @@ namespace screen_file_transmit
             PreviewCurrentPage = 0;
             PreviewTotalPages = 0;
             PreviewInfoText = string.Empty;
+            PreviewPageInfo = string.Empty;
+            GoToPageText = string.Empty;
 
             _previewEncryptedTempStream?.Dispose();
             _previewEncryptedTempStream = null;
@@ -701,9 +802,8 @@ namespace screen_file_transmit
                         if (bitmap == null)
                             continue;
 
-                        // 生成文件名：原文件名_yymmddhhmmss_4位串号.png（下划线分割）
-                        var serial = GenerateSerialNumber(page, 4);
-                        var fileName = $"{originalFileName}_{timestamp}_{sessionGuid}_{serial}.png";
+                        // 生成文件名：原文件名_yymmddhhmmss_4位串号.png（下划线分割） 
+                        var fileName = $"{originalFileName}_{timestamp}_{sessionGuid}_{page:00000}.png";
                         if(!Directory.Exists(saveDir))
                         {
                             Directory.CreateDirectory(saveDir);

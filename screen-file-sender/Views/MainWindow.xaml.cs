@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -163,6 +164,11 @@ namespace screen_file_transmit
         {
             if(e.ChangedButton == MouseButton.Left)
                 this.DragMove();
+        }
+
+        private void GoToPageText_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            e.Handled = !e.Text.All(char.IsDigit);
         }
          
 

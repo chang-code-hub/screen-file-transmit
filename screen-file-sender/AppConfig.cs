@@ -28,6 +28,8 @@ namespace screen_file_transmit
         public int ErrorCorrectionPercent { get; set; } = 0;
         public string ColorMode { get; set; } = "黑白";
         public int ColorDepth { get; set; } = 1;
+        public bool AutoPageEnabled { get; set; } = false;
+        public int AutoPageInterval { get; set; } = 5;
 
         public void Load()
         {
@@ -68,6 +70,12 @@ namespace screen_file_transmit
 
                     var cdEl = root.Element("ColorDepth");
                     if (cdEl != null && int.TryParse(cdEl.Value, out var cd)) ColorDepth = cd;
+
+                    var apeEl = root.Element("AutoPageEnabled");
+                    if (apeEl != null && bool.TryParse(apeEl.Value, out var ape)) AutoPageEnabled = ape;
+
+                    var apiEl = root.Element("AutoPageInterval");
+                    if (apiEl != null && int.TryParse(apiEl.Value, out var api)) AutoPageInterval = api;
                 }
             }
             catch { }
@@ -89,7 +97,9 @@ namespace screen_file_transmit
                         new XElement("ShrinkHeight", ShrinkHeight),
                         new XElement("ErrorCorrectionPercent", ErrorCorrectionPercent),
                         new XElement("ColorMode", ColorMode ?? "黑白"),
-                        new XElement("ColorDepth", ColorDepth)
+                        new XElement("ColorDepth", ColorDepth),
+                        new XElement("AutoPageEnabled", AutoPageEnabled),
+                        new XElement("AutoPageInterval", AutoPageInterval)
                     )
                 );
                 doc.Save(_filePath);

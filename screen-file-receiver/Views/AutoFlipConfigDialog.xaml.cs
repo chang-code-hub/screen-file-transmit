@@ -9,7 +9,8 @@ namespace screen_file_transmit
     {
         LeftRight,
         UpDown,
-        PageUpDown
+        PageUpDown,
+        Wait
     }
 
     public partial class AutoFlipConfigDialog : Window, INotifyPropertyChanged
@@ -24,6 +25,8 @@ namespace screen_file_transmit
                     return FlipMethod.UpDown;
                 if (RbPageUpDown.IsChecked == true)
                     return FlipMethod.PageUpDown;
+                if (RbWait.IsChecked == true)
+                    return FlipMethod.Wait;
                 return FlipMethod.LeftRight;
             }
         }
@@ -33,6 +36,7 @@ namespace screen_file_transmit
         public string MethodLeftRightText { get; set; } = "左右方向键 (→)";
         public string MethodUpDownText { get; set; } = "上下方向键 (↓)";
         public string MethodPageUpDownText { get; set; } = "PageUp / PageDown";
+        public string MethodWaitText { get; set; } = "等待自动翻页";
         public string TestButtonText { get; set; } = "测试";
         public string TestSentText { get; set; } = "已发送测试按键";
 
@@ -51,6 +55,7 @@ namespace screen_file_transmit
             MethodLeftRightText = Properties.Resources.ResourceManager.GetString("AutoFlipConfigDialog_MethodLeftRight") ?? MethodLeftRightText;
             MethodUpDownText = Properties.Resources.ResourceManager.GetString("AutoFlipConfigDialog_MethodUpDown") ?? MethodUpDownText;
             MethodPageUpDownText = Properties.Resources.ResourceManager.GetString("AutoFlipConfigDialog_MethodPageUpDown") ?? MethodPageUpDownText;
+            MethodWaitText = Properties.Resources.ResourceManager.GetString("AutoFlipConfigDialog_MethodWait") ?? MethodWaitText;
             TestButtonText = Properties.Resources.ResourceManager.GetString("AutoFlipConfigDialog_TestButton") ?? TestButtonText;
             TestSentText = Properties.Resources.ResourceManager.GetString("AutoFlipConfigDialog_TestSent") ?? TestSentText;
             OnPropertyChanged(nameof(TitleText));
@@ -58,6 +63,7 @@ namespace screen_file_transmit
             OnPropertyChanged(nameof(MethodLeftRightText));
             OnPropertyChanged(nameof(MethodUpDownText));
             OnPropertyChanged(nameof(MethodPageUpDownText));
+            OnPropertyChanged(nameof(MethodWaitText));
             OnPropertyChanged(nameof(TestButtonText));
         }
 //
@@ -91,6 +97,8 @@ namespace screen_file_transmit
                 case FlipMethod.PageUpDown:
                     vk = NativeMethods.VK_NEXT;
                     break;
+                case FlipMethod.Wait:
+                    return;
                 default:
                     vk = NativeMethods.VK_RIGHT;
                     break;

@@ -37,6 +37,10 @@
                 x:Name="RbPageUpDown"
                 Margin="0,4"
                 Content="{Binding MethodPageUpDownText}" />
+            <RadioButton
+                x:Name="RbWait"
+                Margin="0,4"
+                Content="{Binding MethodWaitText}" />
         </StackPanel>
 
 <!--         <Button -->

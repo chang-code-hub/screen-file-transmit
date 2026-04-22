@@ -120,6 +120,7 @@
   <data name="AutoFlipConfigDialog_MethodLeftRight" xml:space="preserve"><value>左右方向键 (→)</value></data>
   <data name="AutoFlipConfigDialog_MethodUpDown" xml:space="preserve"><value>上下方向键 (↓)</value></data>
   <data name="AutoFlipConfigDialog_MethodPageUpDown" xml:space="preserve"><value>PageUp / PageDown</value></data>
+  <data name="AutoFlipConfigDialog_MethodWait" xml:space="preserve"><value>等待自动翻页</value></data>
   <data name="AutoFlipConfigDialog_TestButton" xml:space="preserve"><value>测试</value></data>
   <data name="AutoFlipConfigDialog_TestSent" xml:space="preserve"><value>已发送测试按键</value></data>
   <data name="MsgBox_AutoFlipTimeout" xml:space="preserve"><value>翻页后10秒内未检测到新页面，自动翻页已停止。请检查发送端是否正常响应翻页操作。</value></data>
