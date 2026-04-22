@@ -360,7 +360,7 @@ namespace screen_file_transmit
             var savedRes = ResolutionList.Find(r => r.Width == _appConfig.ResolutionWidth && r.Height == _appConfig.ResolutionHeight);
             _selectedResolution = savedRes ?? ResolutionList[0];
 
-            _isAutoPageEnabled = _appConfig.AutoPageEnabled;
+            //_isAutoPageEnabled = _appConfig.AutoPageEnabled;
             _autoPageInterval = _appConfig.AutoPageInterval;
             if (_autoPageInterval < 2 || _autoPageInterval > 10)
                 _autoPageInterval = 5;
