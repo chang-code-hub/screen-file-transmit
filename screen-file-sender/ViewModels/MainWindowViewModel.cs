@@ -624,6 +624,7 @@ namespace screen_file_transmit
             PreviewInfoText = string.Empty;
             PreviewPageInfo = string.Empty;
             GoToPageText = string.Empty;
+            _isAutoPageEnabled = false;
 
             _previewEncryptedTempStream?.Dispose();
             _previewEncryptedTempStream = null;
