@@ -29,7 +29,10 @@
   <data name="Button_Add" xml:space="preserve"><value>Hinzufügen...</value></data>
   <data name="Button_Delete" xml:space="preserve"><value>Löschen</value></data>
   <data name="Button_Clear" xml:space="preserve"><value>Leeren</value></data>
-  <data name="Hint_DragDrop" xml:space="preserve"><value>Tipp: Sie können Bilddateien per Drag &amp; Drop in das Fenster ziehen.</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>Sie können Bilddateien per Drag &amp; Drop in das Fenster ziehen.</value></data>
+  <data name="Hint_NoScaling" xml:space="preserve"><value>Stellen Sie sicher, dass der Screenshot mit 100% Anzeigemaßstab aufgenommen wird, um QR-Code-Verzerrungen zu vermeiden.</value></data>
+  <data name="Hint_ClearImage" xml:space="preserve"><value>Stellen Sie sicher, dass der Screenshot klar und vollständig ist; schneiden Sie die Rand-Metadaten-Barcodes nicht ab.</value></data>
+  <data name="Label_Tips" xml:space="preserve"><value>Tipps:</value></data>
   <data name="Column_ImageFileName" xml:space="preserve"><value>Dateiname</value></data>
   <data name="Column_FileId" xml:space="preserve"><value>Datei-ID</value></data>
   <data name="Column_SaveFileName" xml:space="preserve"><value>Speichername</value></data>
@@ -39,6 +42,7 @@
   <data name="Label_Preview" xml:space="preserve"><value>Vorschau:</value></data>
   <data name="Label_Password" xml:space="preserve"><value>Passwort:</value></data>
   <data name="Label_SavePath" xml:space="preserve"><value>Speicherpfad:</value></data>
+  <data name="Label_WorkPath" xml:space="preserve"><value>Arbeitspfad:</value></data>
   <data name="Button_Browse" xml:space="preserve"><value>Durchsuchen...</value></data>
   <data name="Button_Open" xml:space="preserve"><value>Öffnen</value></data>
   <data name="Label_Progress" xml:space="preserve"><value>Fortschritt:</value></data>

@@ -803,7 +803,7 @@ namespace screen_file_transmit
                             continue;
 
                         // 生成文件名：原文件名_yymmddhhmmss_4位串号.png（下划线分割） 
-                        var fileName = $"{originalFileName}_{timestamp}_{sessionGuid}_{page:00000}.png";
+                        var fileName = $"{originalFileName}_{timestamp}_{sessionGuid}_{(page+1):00000}.png";
                         if(!Directory.Exists(saveDir))
                         {
                             Directory.CreateDirectory(saveDir);

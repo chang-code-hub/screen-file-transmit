@@ -29,7 +29,10 @@
   <data name="Button_Add" xml:space="preserve"><value>Добавить...</value></data>
   <data name="Button_Delete" xml:space="preserve"><value>Удалить</value></data>
   <data name="Button_Clear" xml:space="preserve"><value>Очистить</value></data>
-  <data name="Hint_DragDrop" xml:space="preserve"><value>Подсказка: перетащите файлы изображений в окно для добавления.</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>Перетащите файлы изображений в окно для добавления.</value></data>
+  <data name="Hint_NoScaling" xml:space="preserve"><value>Убедитесь, что скриншот сделан при масштабе отображения 100%, чтобы избежать искажения QR-кода.</value></data>
+  <data name="Hint_ClearImage" xml:space="preserve"><value>Убедитесь, что скриншот четкий и полный; не обрезайте краевые штрих-коды метаданных.</value></data>
+  <data name="Label_Tips" xml:space="preserve"><value>Подсказки:</value></data>
   <data name="Column_ImageFileName" xml:space="preserve"><value>Имя файла</value></data>
   <data name="Column_FileId" xml:space="preserve"><value>ID файла</value></data>
   <data name="Column_SaveFileName" xml:space="preserve"><value>Имя сохранения</value></data>
@@ -39,6 +42,7 @@
   <data name="Label_Preview" xml:space="preserve"><value>Предпросмотр:</value></data>
   <data name="Label_Password" xml:space="preserve"><value>Пароль:</value></data>
   <data name="Label_SavePath" xml:space="preserve"><value>Путь сохранения:</value></data>
+  <data name="Label_WorkPath" xml:space="preserve"><value>Рабочий путь:</value></data>
   <data name="Button_Browse" xml:space="preserve"><value>Обзор...</value></data>
   <data name="Button_Open" xml:space="preserve"><value>Открыть</value></data>
   <data name="Label_Progress" xml:space="preserve"><value>Прогресс:</value></data>

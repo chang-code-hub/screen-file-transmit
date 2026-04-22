@@ -29,7 +29,10 @@
   <data name="Button_Add" xml:space="preserve"><value>Ajouter...</value></data>
   <data name="Button_Delete" xml:space="preserve"><value>Supprimer</value></data>
   <data name="Button_Clear" xml:space="preserve"><value>Effacer</value></data>
-  <data name="Hint_DragDrop" xml:space="preserve"><value>Conseil : vous pouvez glisser-déposer des fichiers image dans la fenêtre.</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>Vous pouvez glisser-déposer des fichiers image dans la fenêtre.</value></data>
+  <data name="Hint_NoScaling" xml:space="preserve"><value>Assurez-vous que la capture d'écran est effectuée à l'échelle d'affichage de 100% pour éviter la distorsion du code QR.</value></data>
+  <data name="Hint_ClearImage" xml:space="preserve"><value>Assurez-vous que la capture d'écran est claire et complète ; ne recadrez pas les codes-barres de métadonnées situés sur les bords.</value></data>
+  <data name="Label_Tips" xml:space="preserve"><value>Conseils :</value></data>
   <data name="Column_ImageFileName" xml:space="preserve"><value>Nom du fichier</value></data>
   <data name="Column_FileId" xml:space="preserve"><value>ID de fichier</value></data>
   <data name="Column_SaveFileName" xml:space="preserve"><value>Nom de sauvegarde</value></data>
@@ -39,6 +42,7 @@
   <data name="Label_Preview" xml:space="preserve"><value>Aperçu :</value></data>
   <data name="Label_Password" xml:space="preserve"><value>Mot de passe :</value></data>
   <data name="Label_SavePath" xml:space="preserve"><value>Chemin de sauvegarde :</value></data>
+  <data name="Label_WorkPath" xml:space="preserve"><value>Répertoire de travail :</value></data>
   <data name="Button_Browse" xml:space="preserve"><value>Parcourir...</value></data>
   <data name="Button_Open" xml:space="preserve"><value>Ouvrir</value></data>
   <data name="Label_Progress" xml:space="preserve"><value>Progression :</value></data>

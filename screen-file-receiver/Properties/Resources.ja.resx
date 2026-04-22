@@ -29,7 +29,10 @@
   <data name="Button_Add" xml:space="preserve"><value>追加...</value></data>
   <data name="Button_Delete" xml:space="preserve"><value>削除</value></data>
   <data name="Button_Clear" xml:space="preserve"><value>クリア</value></data>
-  <data name="Hint_DragDrop" xml:space="preserve"><value>ヒント: 画像ファイルをウィンドウにドラッグ&amp;ドロップできます。</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>画像ファイルをウィンドウにドラッグ&amp;ドロップできます。</value></data>
+  <data name="Hint_NoScaling" xml:space="preserve"><value>QRコードの歪みを避けるため、スクリーンショットは100%表示倍率で撮影してください。</value></data>
+  <data name="Hint_ClearImage" xml:space="preserve"><value>スクリーンショットが鮮明で完全であることを確認してください。端のメタデータバーコードを切り取らないでください。</value></data>
+  <data name="Label_Tips" xml:space="preserve"><value>ヒント:</value></data>
   <data name="Column_ImageFileName" xml:space="preserve"><value>ファイル名</value></data>
   <data name="Column_FileId" xml:space="preserve"><value>ファイルID</value></data>
   <data name="Column_SaveFileName" xml:space="preserve"><value>保存ファイル名</value></data>
@@ -39,6 +42,7 @@
   <data name="Label_Preview" xml:space="preserve"><value>プレビュー:</value></data>
   <data name="Label_Password" xml:space="preserve"><value>パスワード:</value></data>
   <data name="Label_SavePath" xml:space="preserve"><value>保存パス:</value></data>
+  <data name="Label_WorkPath" xml:space="preserve"><value>作業パス:</value></data>
   <data name="Button_Browse" xml:space="preserve"><value>参照...</value></data>
   <data name="Button_Open" xml:space="preserve"><value>開く</value></data>
   <data name="Label_Progress" xml:space="preserve"><value>進捗:</value></data>

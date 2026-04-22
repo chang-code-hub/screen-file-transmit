@@ -29,7 +29,10 @@
   <data name="Button_Add" xml:space="preserve"><value>Add...</value></data>
   <data name="Button_Delete" xml:space="preserve"><value>Delete</value></data>
   <data name="Button_Clear" xml:space="preserve"><value>Clear</value></data>
-  <data name="Hint_DragDrop" xml:space="preserve"><value>Tip: You can drag and drop image files into the window.</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>You can drag and drop image files into the window.</value></data>
+  <data name="Hint_NoScaling" xml:space="preserve"><value>Ensure the screenshot is taken at 100% display scale to avoid QR code distortion.</value></data>
+  <data name="Hint_ClearImage" xml:space="preserve"><value>Ensure the screenshot is clear and complete; do not crop the edge metadata barcodes.</value></data>
+  <data name="Label_Tips" xml:space="preserve"><value>Tips:</value></data>
   <data name="Column_ImageFileName" xml:space="preserve"><value>Image File Name</value></data>
   <data name="Column_FileId" xml:space="preserve"><value>File ID</value></data>
   <data name="Column_SaveFileName" xml:space="preserve"><value>Save File Name</value></data>
@@ -39,6 +42,7 @@
   <data name="Label_Preview" xml:space="preserve"><value>Preview:</value></data>
   <data name="Label_Password" xml:space="preserve"><value>Password:</value></data>
   <data name="Label_SavePath" xml:space="preserve"><value>Save Path:</value></data>
+  <data name="Label_WorkPath" xml:space="preserve"><value>Work Path:</value></data>
   <data name="Button_Browse" xml:space="preserve"><value>Browse...</value></data>
   <data name="Button_Open" xml:space="preserve"><value>Open</value></data>
   <data name="Label_Progress" xml:space="preserve"><value>Progress:</value></data>

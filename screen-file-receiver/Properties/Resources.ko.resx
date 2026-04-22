@@ -29,7 +29,10 @@
   <data name="Button_Add" xml:space="preserve"><value>추가...</value></data>
   <data name="Button_Delete" xml:space="preserve"><value>삭제</value></data>
   <data name="Button_Clear" xml:space="preserve"><value>지우기</value></data>
-  <data name="Hint_DragDrop" xml:space="preserve"><value>팁: 이미지 파일을 창에 끌어다 놓을 수 있습니다.</value></data>
+  <data name="Hint_DragDrop" xml:space="preserve"><value>이미지 파일을 창에 끌어다 놓을 수 있습니다.</value></data>
+  <data name="Hint_NoScaling" xml:space="preserve"><value>QR 코드 왜곡을 방지하기 위해 스크린샷을 100% 표시 배율로 촬영하세요.</value></data>
+  <data name="Hint_ClearImage" xml:space="preserve"><value>스크린샷이 선명하고 완전한지 확인하세요. 가장자리 메타데이터 바코드를 잘라내지 마세요.</value></data>
+  <data name="Label_Tips" xml:space="preserve"><value>팁:</value></data>
   <data name="Column_ImageFileName" xml:space="preserve"><value>파일명</value></data>
   <data name="Column_FileId" xml:space="preserve"><value>파일 ID</value></data>
   <data name="Column_SaveFileName" xml:space="preserve"><value>저장 파일명</value></data>
@@ -39,6 +42,7 @@
   <data name="Label_Preview" xml:space="preserve"><value>미리보기:</value></data>
   <data name="Label_Password" xml:space="preserve"><value>비밀번호:</value></data>
   <data name="Label_SavePath" xml:space="preserve"><value>저장 경로:</value></data>
+  <data name="Label_WorkPath" xml:space="preserve"><value>작업 경로:</value></data>
   <data name="Button_Browse" xml:space="preserve"><value>찾아보기...</value></data>
   <data name="Button_Open" xml:space="preserve"><value>열기</value></data>
   <data name="Label_Progress" xml:space="preserve"><value>진행:</value></data>
