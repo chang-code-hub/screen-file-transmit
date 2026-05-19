@@ -12,6 +12,7 @@
 		<ApplicationIcon>icon.ico</ApplicationIcon>
 		<LangVersion>Latest</LangVersion>
 		<Version>2.0</Version>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup> 
 	<ItemGroup>
 		<None Remove="icon.ico" />

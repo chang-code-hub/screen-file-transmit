@@ -51,6 +51,13 @@ namespace screen_file_transmit
         private NativeMethods.RECT _offsetBaselineRect;
         private bool _isClosing = false;
 
+        // 保存闪烁相关
+        private DispatcherTimer _blinkTimer;
+        private int _blinkCount;
+        private const double NormalBorderThickness = 1;
+        private const double BoldBorderThickness = 4;
+        private const int BlinkTotalTicks = 4;
+
         public ScreenshotToolWindow(MainWindowViewModel mainVm)
         {
             InitializeComponent();
@@ -349,6 +356,10 @@ namespace screen_file_transmit
         private void ShowSelectionBorder(Rect region)
         {
             EnsureSelectionBorderWindow();
+            if (_selectionBorderWindow.Blinking)
+            {
+                return;
+            }
             _selectionBorderWindow.Left = region.X;
             _selectionBorderWindow.Top = region.Y;
             _selectionBorderWindow.Width = region.Width;
@@ -809,14 +820,14 @@ namespace screen_file_transmit
             }
         }
 
-        private async void SaveCapture(Bitmap bmp, ImageDecoder.MetadataResult meta)
+        private async Task<String> SaveCapture(Bitmap bmp, ImageDecoder.MetadataResult meta)
         {
             string outputDir = _mainVm?.OutputFilePath;
-            if (string.IsNullOrWhiteSpace(outputDir) || !Directory.Exists(outputDir))
+            if (string.IsNullOrWhiteSpace(outputDir))
             {
                 MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+                return null;
+            } 
 
             if(!Directory.Exists(outputDir))
             {
@@ -842,11 +853,13 @@ namespace screen_file_transmit
                 //ToastNotification.Show(string.Format(Properties.Resources.ResourceManager.GetString("Toast_SavedTo"), fullPath), toastTitle, MessageBoxImage.Information);
                 if (_mainVm != null)
                     await _mainVm.AddFilesAsync(new[] { fullPath });
+                return fullPath;
             }
             catch (Exception ex)
             {
                 MessageBox.Show(string.Format(Properties.Resources.ResourceManager.GetString("Error_SaveFailed"), ex.Message), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
+            return null;
         }
 
         private void BtnAutoFlip_CheckedChanged(object sender, RoutedEventArgs e)
@@ -868,7 +881,7 @@ namespace screen_file_transmit
             }
 
             string outputDir = _mainVm?.OutputFilePath;
-            if (string.IsNullOrWhiteSpace(outputDir) || !Directory.Exists(outputDir))
+            if (string.IsNullOrWhiteSpace(outputDir))
             {
                 BtnAutoFlip.IsChecked = false;
                 MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -888,6 +901,7 @@ namespace screen_file_transmit
                 return;
             }
 
+            _lastProcessedPage = -1;
             _lastCapture?.Dispose();
             _lastCapture = bmp;
             UpdateActionButtonState();
@@ -898,7 +912,7 @@ namespace screen_file_transmit
             {
                 using (var metaBmp = new Bitmap(bmp))
                 {
-                    meta = ImageDecoder.ReadMetadata(metaBmp);
+                    meta = ImageDecoder.ReadMetadata(metaBmp, false);
                 }
 
                 using (var tempBmp = new Bitmap(bmp))
@@ -907,16 +921,24 @@ namespace screen_file_transmit
                     decodeOk = decodeResult?.DataBlocks?.Count > 0;
                 }
             }
-            catch { }
+            catch(Exception ex) {
+                //bmp.Save("D:/test.bmp");
+            }
 
-            var confirmText = Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipConfirm");
             if (meta?.Metadata == null || meta.Metadata.Length < 4 || !decodeOk)
             {
                 var noDataText = Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipNoData");
-                if (!string.IsNullOrEmpty(noDataText))
-                    confirmText = noDataText + "\n\n" + confirmText;
-            }
+                MessageBox.Show(
+                noDataText,
+                Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+                BtnAutoFlip.IsChecked = false;
+                ShowSelectionBorder();
+                return;
 
+            }
+            var confirmText = Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipConfirm");
             var confirmResult = MessageBox.Show(
                 confirmText,
                 Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
@@ -942,7 +964,9 @@ namespace screen_file_transmit
             _flipMethod = configDialog.SelectedMethod;
 
             Thread.Sleep(200);
-            if (_isClosing) return;
+            if (_isClosing) return; 
+            if (_flipMethod == FlipMethod.Wait)
+                BlinkOnSave();
             SaveCapture(bmp, meta);
             _lastProcessedPage = meta.CurrentPage;
             _autoFlipTotalPages = meta.TotalPages;
@@ -962,10 +986,42 @@ namespace screen_file_transmit
             _isAutoFlipping = true;
             _autoFlipTimer = new DispatcherTimer(DispatcherPriority.Normal)
             {
-                Interval = TimeSpan.FromMilliseconds(250)
+                Interval = TimeSpan.FromMilliseconds(500)
             };
             _autoFlipTimer.Tick += AutoFlipTick;
             _autoFlipTimer.Start();
+        }
+
+        private void BlinkOnSave()
+        {
+            if (_selectionBorderWindow != null && _selectionBorderWindow.IsVisible)
+            {
+                _selectionBorderWindow.BlinkBorder();
+                return;
+            }
+
+            //_blinkTimer?.Stop();
+            //_blinkCount = 0;
+            //var originalBrush = RootBorder.BorderBrush;
+            //var greenBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Green);
+            //_blinkTimer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(200) };
+            //_blinkTimer.Tick += (s, e) =>
+            //{
+            //    _blinkCount++;
+            //    if (_blinkCount >= BlinkTotalTicks)
+            //    {
+            //        _blinkTimer.Stop();
+            //        RootBorder.BorderThickness = new Thickness(NormalBorderThickness);
+            //        RootBorder.BorderBrush = originalBrush;
+            //        return;
+            //    }
+            //    bool bold = (_blinkCount % 2) == 1;
+            //    RootBorder.BorderThickness = new Thickness(bold ? BoldBorderThickness : 0);
+            //    //RootBorder.BorderBrush = bold ? greenBrush : originalBrush;
+            //};
+            //RootBorder.BorderThickness = new Thickness(BoldBorderThickness);
+            //RootBorder.BorderBrush = greenBrush;
+            //_blinkTimer.Start();
         }
 
         private void AutoFlipTick(object sender, EventArgs e)
@@ -983,7 +1039,8 @@ namespace screen_file_transmit
                     meta = ImageDecoder.ReadMetadata(metaBmp);
                 }
             }
-            catch {
+            catch (Exception ex){
+                //ignore
                 // bmp.Save("D:/test.bmp");
             }
 
@@ -999,7 +1056,7 @@ namespace screen_file_transmit
                     MessageBoxImage.Warning);
                 ShowSelectionBorder();
                 return;
-            } 
+            }
 
             if (meta?.Metadata == null || meta.Metadata.Length < 4)
             {
@@ -1009,18 +1066,23 @@ namespace screen_file_transmit
 
             Thread.Sleep(200);
             if (_isClosing) return;
-            SaveCapture(bmp, meta);
+            if (_lastProcessedPage != meta.CurrentPage)
+            {
+                //截图成功
+                if (_flipMethod == FlipMethod.Wait)
+                    BlinkOnSave();
+                SaveCapture(bmp, meta);
+            }
             bmp.Dispose();
             _lastProcessedPage = meta.CurrentPage;
-
-            // if (meta.CurrentPage >= _autoFlipTotalPages)
-            // {
-            //     StopAutoFlip();
-            //     BtnAutoFlip.IsChecked = false;
-            //     MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
-            //     ShowSelectionBorder();
-            //     return;
-            // }
+            if(meta.CurrentPage >= meta.TotalPages)
+            {
+                StopAutoFlip();
+                BtnAutoFlip.IsChecked = false;
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
+                ShowSelectionBorder();
+                return;
+            } 
 
             SimulatePageTurn();
         }

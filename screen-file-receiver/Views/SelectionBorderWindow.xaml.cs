@@ -1,10 +1,12 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace screen_file_transmit
 {
@@ -48,6 +50,12 @@ namespace screen_file_transmit
         private const double HandleSize = 8;
         private const double EdgeDetectThickness = 6;
 
+        private DispatcherTimer _blinkTimer;
+        private int _blinkCount;
+        private const double NormalThickness = 2;
+        private const double BoldThickness = 4;
+        private const int BlinkTotalTicks = 4;
+
         private enum ResizeEdge
         {
             None,
@@ -66,7 +74,35 @@ namespace screen_file_transmit
             SizeChanged += OnSizeChanged;
         }
 
- 
+        public bool Blinking { get; private set; }
+        public void BlinkBorder()
+        {
+            _blinkTimer?.Stop();
+            _blinkCount = 0;
+            Blinking = true;
+            var originalBrush = BorderElement.BorderBrush;
+            var greenBrush = new SolidColorBrush(Colors.Green);
+            _blinkTimer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(200) };
+            _blinkTimer.Tick += (s, e) =>
+            {
+                _blinkCount++;
+                if (_blinkCount >= BlinkTotalTicks)
+                {
+                    _blinkTimer.Stop();
+                    BorderElement.BorderThickness = new Thickness(NormalThickness);
+                    BorderElement.BorderBrush = originalBrush;
+                    Blinking = false;
+                    return;
+                }
+                bool bold = (_blinkCount % 2) == 1;
+                BorderElement.BorderThickness = new Thickness(bold ? BoldThickness : 0);
+                //BorderElement.BorderBrush = bold ? greenBrush : originalBrush;
+            };
+            BorderElement.BorderThickness = new Thickness(BoldThickness);
+            BorderElement.BorderBrush = greenBrush;
+            _blinkTimer.Start();
+        }
+
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);

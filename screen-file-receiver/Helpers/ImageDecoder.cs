@@ -204,7 +204,7 @@ namespace screen_file_transmit
                 if ((isLeft && results.Count < 1) || (!isLeft && results.Count < 2))
                 {
                     using (Mat roi = new Mat(img, roiRect))
-                        DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, true);
+                        DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, debug);
                     Cv2.ImShow($"{(isLeft ? "Left" : "Right")} Detection Result", debugImg);
                     Cv2.WaitKey();
                 }
@@ -1073,6 +1073,84 @@ namespace screen_file_transmit
             return merged;
         }
 
+        /// <summary>
+        /// 更高效的实现方式（适用于单通道二值图像）
+        /// </summary>
+        public static Mat RemoveBlackBorderFast(Mat binaryMat , byte threshold = 0, byte set = 255)
+        {
+            if (binaryMat.Empty() || binaryMat.Channels() != 1)
+                return binaryMat.Clone();
+
+            Mat result = binaryMat.Clone();
+            int height = result.Rows;
+            int width = result.Cols;
+
+            bool[,] visited = new bool[height, width];
+            var queue = new Queue<Point>();
+
+            // 将所有边框上的黑色像素加入队列
+            for (int x = 0; x < width; x++)
+            {
+                if (result.At<byte>(0, x) <= threshold && !visited[0, x])
+                {
+                    queue.Enqueue(new Point(x, 0));
+                    visited[0, x] = true;
+                }
+                if (result.At<byte>(height - 1, x) <= threshold && !visited[height - 1, x])
+                {
+                    queue.Enqueue(new Point(x, height - 1));
+                    visited[height - 1, x] = true;
+                }
+            }
+
+            for (int y = 0; y < height; y++)
+            {
+                if (result.At<byte>(y, 0) <= threshold && !visited[y, 0])
+                {
+                    queue.Enqueue(new Point(0, y));
+                    visited[y, 0] = true;
+                }
+                if (result.At<byte>(y, width - 1) <= threshold && !visited[y, width - 1])
+                {
+                    queue.Enqueue(new Point(width - 1, y));
+                    visited[y, width - 1] = true;
+                }
+            }
+
+            // 8方向邻域（包括对角线）
+            Point[] directions = new Point[]
+            {
+            new Point(-1, -1), new Point(0, -1), new Point(1, -1),
+            new Point(-1, 0),                    new Point(1, 0),
+            new Point(-1, 1),  new Point(0, 1),  new Point(1, 1)
+            };
+
+            int fillCount = 0;
+            while (queue.Count > 0)
+            {
+                Point current = queue.Dequeue();
+                result.Set<byte>(current.Y, current.X, set);
+                fillCount++;
+
+                foreach (var dir in directions)
+                {
+                    int nx = current.X + dir.X;
+                    int ny = current.Y + dir.Y;
+
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height)
+                    {
+                        if (result.At<byte>(ny, nx) <= threshold && !visited[ny, nx])
+                        {
+                            visited[ny, nx] = true;
+                            queue.Enqueue(new Point(nx, ny));
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
         public static List<Rect> DetectBarcodesInRoi(Mat roi, string label, Rect roiOffset, bool debug)
         {
             var result = new List<Rect>();
@@ -1086,9 +1164,13 @@ namespace screen_file_transmit
 
                 if (debug) Cv2.ImShow($"{label} - 1 Gray", gray);
 
+                var noBorder = RemoveBlackBorderFast(gray, 224);
+                if (debug)
+                    Cv2.ImShow($"{label} - 3.1 RmBorder", noBorder);
+
                 using (Mat gradX = new Mat())
                 {
-                    Cv2.Sobel(gray, gradX, MatType.CV_32F, 1, 0, ksize: 3);
+                    Cv2.Sobel(noBorder, gradX, MatType.CV_32F, 1, 0, ksize: 3);
                     Cv2.ConvertScaleAbs(gradX, gradX);
 
                     if (debug) Cv2.ImShow($"{label} - 2 Sobel X", gradX);
@@ -1100,7 +1182,7 @@ namespace screen_file_transmit
                             Cv2.ImShow($"{label} - 3 Binary", binary);
 
                         using (Mat closed = new Mat())
-                        using (Mat kernelClose = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(35, 1)))
+                        using (Mat kernelClose = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(15, 1)))
                         {
                             Cv2.MorphologyEx(binary, closed, MorphTypes.Close, kernelClose);
 
