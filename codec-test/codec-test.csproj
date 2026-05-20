@@ -8,6 +8,7 @@
     <Nullable>disable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
     <UseWPF>false</UseWPF>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
