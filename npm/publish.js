@@ -24,6 +24,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { platform } = require('os');
 
 const rootDir = path.resolve(__dirname, '..');
 
@@ -48,7 +49,7 @@ const packages = {
     dir: 'screen-file-sender',
     name: '@chang-code-hub/screen-file-sender',
     proj: 'screen-file-sender/screen-file-sender.csproj',
-    sourceDir: 'screen-file-sender/bin/Release/net461',
+    sourceDir: 'screen-file-sender/bin/Release',
     files: [
       'screen-file-sender.exe',
       'screen-file-sender.exe.config',
@@ -59,32 +60,21 @@ const packages = {
     dir: 'screen-file-receiver',
     name: '@chang-code-hub/screen-file-receiver',
     proj: 'screen-file-receiver/screen-file-receiver.csproj',
-    sourceDir: 'screen-file-receiver/bin/Release/net48',
+      sourceDir: 'screen-file-receiver/bin/Release',
     files: [
       'screen-file-receiver.exe',
-      'screen-file-receiver.exe.config',
-      'OpenCvSharp.dll',
-      'OpenCvSharp.Extensions.dll',
-      'ReedSolomon.dll',
-      'System.Buffers.dll',
-      'System.Drawing.Common.dll',
-      'System.Memory.dll',
-      'System.Numerics.Vectors.dll',
-      'System.Runtime.CompilerServices.Unsafe.dll',
-      'zxing.dll',
-      'zxing.presentation.dll',
+      'screen-file-receiver.exe.config'
     ],
     nativeFiles: {
-      'dll/x64/OpenCvSharpExtern.dll': 'dll/x64/OpenCvSharpExtern.dll',
-      'dll/x64/opencv_videoio_ffmpeg4130_64.dll': 'dll/x64/opencv_videoio_ffmpeg4130_64.dll',
     },
     directories: ['de', 'en', 'es', 'fr', 'it', 'ja', 'ko', 'ru'],
   },
 };
 
-function buildProject(projPath) {
-  console.log(`Building ${projPath} ...`);
-  execSync(`dotnet build "${path.join(rootDir, projPath)}" -c Release`, {
+function buildProject() {
+  console.log(`Building ...`);
+  console.log(`msbuild  /t:Clean,Build /p:Configuration=Release`);
+  execSync(`msbuild  /t:Clean,Build /p:Configuration=Release`, {
     cwd: rootDir,
     stdio: 'inherit',
   });
@@ -291,6 +281,7 @@ function main() {
 
   const keys = target === 'all' ? Object.keys(packages) : [target];
   const changes = [];
+  buildProject();
 
   for (const key of keys) {
     if (!packages[key]) {
@@ -301,7 +292,6 @@ function main() {
     }
 
     console.log(`\n========== ${packages[key].name} [${mode}] ==========\n`);
-    buildProject(packages[key].proj);
     copyFiles(key);
     const bumpResult = bumpVersion(key, fixedVersion);
     if (bumpResult.changed) {

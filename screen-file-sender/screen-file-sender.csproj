@@ -27,4 +27,7 @@
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
 	</ItemGroup>
+	<PropertyGroup>
+		<OutDir>bin\$(Configuration)</OutDir>
+	</PropertyGroup>
 </Project>
