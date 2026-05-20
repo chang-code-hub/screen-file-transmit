@@ -1182,7 +1182,7 @@ namespace screen_file_transmit
                             Cv2.ImShow($"{label} - 3 Binary", binary);
 
                         using (Mat closed = new Mat())
-                        using (Mat kernelClose = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(15, 1)))
+                        using (Mat kernelClose = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(35, 1)))
                         {
                             Cv2.MorphologyEx(binary, closed, MorphTypes.Close, kernelClose);
 
