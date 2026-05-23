@@ -87,3 +87,4 @@ Migrations/
 .fake
 *.tgz
 /screen-file-sender.binlog
+.claude/settings.local.json
