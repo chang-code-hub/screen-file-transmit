@@ -1,6 +1,6 @@
 {
   "name": "@chang-code-hub/screen-file-sender",
-  "version": "2.2.3",
+  "version": "2.2.5",
   "description": "Screen file sender - transmit files via DataMatrix codes displayed on screen",
   "keywords": [
     "datamatrix",
@@ -20,12 +20,10 @@
     "ia32"
   ],
   "bin": {
-    "screen-file-sender": "bin/screen-file-sender.js",
-    "sfs": "bin/screen-file-sender.js"
+    "sfs": "bin/screen-file-sender.exe"
   },
   "files": [
     "bin/",
-    "dist/",
     "README.md"
   ],
   "publishConfig": {

@@ -72,8 +72,16 @@ const packages = {
 };
 
 function buildProject() {
-  console.log(`Building ...`);
-  console.log(`msbuild  /t:Clean,Build /p:Configuration=Release`);
+  console.log(`Cleaning ...`); 
+  execSync(`if exist "screen-file-receiver\\bin\\Release" rd /s /q "screen-file-receiver\\bin\\Release"`, {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
+  execSync(`if exist "screen-file-sender\\bin\\Release" rd /s /q "screen-file-sender\\bin\\Release"`, {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
+  console.log(`Building ...`); 
   execSync(`msbuild  /t:Clean,Build /p:Configuration=Release`, {
     cwd: rootDir,
     stdio: 'inherit',
@@ -82,7 +90,7 @@ function buildProject() {
 
 function copyFiles(pkgKey) {
   const pkg = packages[pkgKey];
-  const distDir = path.join(rootDir, 'npm', pkg.dir, 'dist');
+  const distDir = path.join(rootDir, 'npm', pkg.dir, 'bin');
 
   if (fs.existsSync(distDir)) {
     fs.rmSync(distDir, { recursive: true });
