@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net461</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>About</AssemblyName>
+    <RootNamespace>about</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <UseWPF>true</UseWPF>
+    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <Version>1.0</Version>
+      
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Costura.Fody">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CSharp" />
+    <PackageReference Include="Obfuscar">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\screen-file-sender\screen-file-sender.csproj" />
+  </ItemGroup>
+	<ItemGroup>
+		<Reference Include="System.Configuration" />
+	</ItemGroup> 
+	<ItemGroup>
+		<OutputPathFiles Include="$(OutputPath)\**\*" />
+		<OutputPathDirectories Include="$(OutputPath)\**\" />
+	</ItemGroup>
+	<Target Name="CleanOutputFolder" BeforeTargets="BeforeBuild">
+		<Message Text="Cleaning output folder: $(OutputPath)" Importance="high" />
+		<Delete Files="@(OutputPathFiles)" />
+		<RemoveDir Directories="@(OutputPathDirectories)" />
+	</Target>
+	<Target Name="ObfuscarTask" AfterTargets="AfterBuild">
+		<PropertyGroup>
+			<ObfuscateCommand>$(ProjectDir)Obfuscar.bat $(Obfuscar) $(ProjectDir)Obfuscar.$(Platform).xml</ObfuscateCommand>
+			<CurrentDateyyyyMMdd>$([System.DateTime]::Now.ToString("yyyyMMdd"))</CurrentDateyyyyMMdd>
+		</PropertyGroup>
+		<Exec WorkingDirectory="$(OutputPath)" Command="$(ObfuscateCommand)" />
+	</Target>
+</Project> 
