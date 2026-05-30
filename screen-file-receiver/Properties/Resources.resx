@@ -128,4 +128,16 @@
   <data name="AutoFlipConfigDialog_TestButton" xml:space="preserve"><value>测试</value></data>
   <data name="AutoFlipConfigDialog_TestSent" xml:space="preserve"><value>已发送测试按键</value></data>
   <data name="MsgBox_AutoFlipTimeout" xml:space="preserve"><value>翻页后10秒内未检测到新页面，自动翻页已停止。请检查发送端是否正常响应翻页操作。</value></data>
+  <data name="MsgBox_FileCompletenessWarning" xml:space="preserve"><value>以下文件组不完整，请补充缺失页面或删除不需要的文件：</value></data>
+  <data name="MsgBox_FileCompletenessTitle" xml:space="preserve"><value>文件完整性检查</value></data>
+  <data name="MsgBox_FileGroup_MissingPages" xml:space="preserve"><value>  缺失页: {0}</value></data>
+  <data name="MsgBox_FileGroup_DuplicatePages" xml:space="preserve"><value>  重复页: {0}</value></data>
+  <data name="MsgBox_FileGroup_ExtraPages" xml:space="preserve"><value>  多余页: {0}</value></data>
+  <data name="MsgBox_FileGroup_ExpectedPages" xml:space="preserve"><value>  期望页数: {0}</value></data>
+  <data name="MsgBox_FileGroup_ActualPages" xml:space="preserve"><value>  实际页数: {0}</value></data>
+  <data name="Button_Pause" xml:space="preserve"><value>暂停</value></data>
+  <data name="Button_Resume" xml:space="preserve"><value>继续</value></data>
+  <data name="Button_Stop" xml:space="preserve"><value>停止</value></data>
+  <data name="Status_Paused" xml:space="preserve"><value>已暂停</value></data>
+  <data name="Status_Stopped" xml:space="preserve"><value>已停止</value></data>
 </root>

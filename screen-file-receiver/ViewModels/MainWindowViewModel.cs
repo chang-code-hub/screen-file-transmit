@@ -8,6 +8,8 @@ using System.Linq;
 using System.Media;
 using System.Windows;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Threading.Tasks;
@@ -28,6 +30,10 @@ namespace screen_file_transmit
         private bool _isSyncingProperty;
         private string _outputFilePath;
         private readonly AppConfig _appConfig = new AppConfig();
+        private CancellationTokenSource _cts;
+        private readonly ManualResetEventSlim _pauseEvent = new ManualResetEventSlim(true);
+        private bool _isPaused;
+        private string _pauseButtonText = Properties.Resources.ResourceManager.GetString("Button_Pause");
 
         public ObservableCollection<FileItem> FileItems
         {
@@ -91,6 +97,27 @@ namespace screen_file_transmit
             }
         }
 
+        public bool IsPaused
+        {
+            get => _isPaused;
+            set
+            {
+                _isPaused = value;
+                OnPropertyChanged(nameof(IsPaused));
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
+        public string PauseButtonText
+        {
+            get => _pauseButtonText;
+            set
+            {
+                _pauseButtonText = value;
+                OnPropertyChanged(nameof(PauseButtonText));
+            }
+        }
+
         public BitmapImage PreviewImage
         {
             get => _previewImage;
@@ -151,7 +178,8 @@ namespace screen_file_transmit
         }
 
         [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-        static extern int SHGetKnownFolderPath([MarshalAs(UnmanagedType.LPStruct)] Guid rfid, uint dwFlags, IntPtr hToken, out string pszPath);
+        static extern int SHGetKnownFolderPath([MarshalAs(UnmanagedType.LPStruct)] Guid rfid, uint dwFlags,
+            IntPtr hToken, out string pszPath);
 
         public MainWindowViewModel()
         {
@@ -160,7 +188,7 @@ namespace screen_file_transmit
             if (string.IsNullOrWhiteSpace(_outputFilePath))
             {
                 _outputFilePath = Path.Combine(GetDownloadsPath(), "ScreenFileReceiver");
-                if(!Directory.Exists(_outputFilePath))
+                if (!Directory.Exists(_outputFilePath))
                 {
                     Directory.CreateDirectory(_outputFilePath);
                 }
@@ -176,7 +204,8 @@ namespace screen_file_transmit
 
         private string GetFriendlyFileSize(long bytes)
         {
-            string[] sizes = {
+            string[] sizes =
+            {
                 Properties.Resources.ResourceManager.GetString("Unit_B"),
                 Properties.Resources.ResourceManager.GetString("Unit_KB"),
                 Properties.Resources.ResourceManager.GetString("Unit_MB"),
@@ -195,18 +224,27 @@ namespace screen_file_transmit
         }
 
         public ICommand AddFileCommand => new RelayCommand(_ => AddFiles(), _ => !IsBusy);
-        public ICommand RemoveFileCommand => new RelayCommand(_ => RemoveFile(), _ => !IsBusy && SelectedFileItems != null && SelectedFileItems.Count > 0 && FileItems.Count > 0);
+
+        public ICommand RemoveFileCommand => new RelayCommand(_ => RemoveFile(),
+            _ => !IsBusy && SelectedFileItems != null && SelectedFileItems.Count > 0 && FileItems.Count > 0);
+
         public ICommand ClearFilesCommand => new RelayCommand(_ => ClearFiles(), _ => !IsBusy && FileItems.Count > 0);
         public ICommand BrowseOutputPathCommand => new RelayCommand(_ => BrowseOutputPath(), _ => !IsBusy);
         public ICommand OpenOutputPathCommand => new RelayCommand(_ => OpenOutputPath());
-        public ICommand ConvertCommand => new RelayCommand(_ => StartConvert(), _ => !IsBusy && FileItems.Count > 0 && !string.IsNullOrWhiteSpace(OutputFilePath));
+
+        public ICommand ConvertCommand => new RelayCommand(_ => StartConvert(),
+            _ => !IsBusy && FileItems.Count > 0 && !string.IsNullOrWhiteSpace(OutputFilePath));
+
         public ICommand OpenScreenshotToolCommand => new RelayCommand(_ => OpenScreenshotTool(), _ => !IsBusy);
+        public ICommand PauseCommand => new RelayCommand(_ => TogglePause(), _ => IsBusy);
+        public ICommand StopCommand => new RelayCommand(_ => StopConvert(), _ => IsBusy);
 
         private async void AddFiles()
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Multiselect = true;
-            openFileDialog.Filter = $"{Properties.Resources.ResourceManager.GetString("FileFilter_ImageFiles")}|*.png;*.jpg;*.jpeg;*.bmp|{Properties.Resources.ResourceManager.GetString("FileFilter_AllFiles")}|*.*";
+            openFileDialog.Filter =
+                $"{Properties.Resources.ResourceManager.GetString("FileFilter_ImageFiles")}|*.png;*.jpg;*.jpeg;*.bmp|{Properties.Resources.ResourceManager.GetString("FileFilter_AllFiles")}|*.*";
             if (openFileDialog.ShowDialog() ?? false)
             {
                 await AddFilesAsync(openFileDialog.FileNames);
@@ -235,6 +273,79 @@ namespace screen_file_transmit
             }
 
             CheckFileComplete();
+            ShowFileCompletenessWarnings();
+        }
+
+        private void ShowFileCompletenessWarnings()
+        {
+            var warnings = new List<string>();
+
+            var groups = FileItems
+                .Where(f => !string.IsNullOrEmpty(f.FileId) && f.TotalPages > 0)
+                .GroupBy(c => new { c.FileId, c.SaveFileName })
+                .ToList();
+
+            foreach (var group in groups)
+            {
+                var first = group.FirstOrDefault();
+                if (first == null) continue;
+
+                var pages = group.Select(c => c.CurrentPage).ToList();
+                bool hasDuplicate = pages.Count != pages.Distinct().Count();
+                bool allPagesPresent = Enumerable.Range(1, first.TotalPages).All(p => pages.Contains(p));
+
+                if (!hasDuplicate && allPagesPresent) continue;
+
+                var sb = new StringBuilder();
+                sb.AppendLine(string.Format("{0} (ID: {1})",
+                    group.Key.SaveFileName, group.Key.FileId));
+                sb.AppendLine(string.Format(
+                    Properties.Resources.ResourceManager.GetString("MsgBox_FileGroup_ExpectedPages"),
+                    first.TotalPages));
+                sb.AppendLine(string.Format(
+                    Properties.Resources.ResourceManager.GetString("MsgBox_FileGroup_ActualPages"), pages.Count));
+
+                if (!allPagesPresent)
+                {
+                    var missingPages = Enumerable.Range(1, first.TotalPages)
+                        .Where(p => !pages.Contains(p))
+                        .ToList();
+                    sb.AppendLine(string.Format(
+                        Properties.Resources.ResourceManager.GetString("MsgBox_FileGroup_MissingPages"),
+                        string.Join(", ", missingPages)));
+                }
+
+                if (hasDuplicate)
+                {
+                    var duplicatePages = pages.GroupBy(p => p)
+                        .Where(g => g.Count() > 1)
+                        .Select(g => g.Key)
+                        .OrderBy(p => p)
+                        .ToList();
+                    sb.AppendLine(string.Format(
+                        Properties.Resources.ResourceManager.GetString("MsgBox_FileGroup_DuplicatePages"),
+                        string.Join(", ", duplicatePages)));
+                }
+
+                var extraPages = pages.Where(p => p > first.TotalPages || p < 1).Distinct().OrderBy(p => p).ToList();
+                if (extraPages.Count > 0)
+                {
+                    sb.AppendLine(string.Format(
+                        Properties.Resources.ResourceManager.GetString("MsgBox_FileGroup_ExtraPages"),
+                        string.Join(", ", extraPages)));
+                }
+
+                warnings.Add(sb.ToString());
+            }
+
+            if (warnings.Count > 0)
+            {
+                var message = Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessWarning")
+                              + "\n\n" + string.Join("\n", warnings);
+                MessageBox.Show(message,
+                    Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessTitle"),
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void CheckFileComplete()
@@ -288,12 +399,14 @@ namespace screen_file_transmit
                 {
                     //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
                     //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
-                    item.MetadataInfo = $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? Properties.Resources.ResourceManager.GetString("Meta_Colorful") : Properties.Resources.ResourceManager.GetString("Meta_BlackWhite"))} D={item.ColorDepth} DM={item.TotalQrCodeCount} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " " + Properties.Resources.ResourceManager.GetString("Meta_HasPassword") : "")}{(item.HasErrorCorrection ? " " + string.Format(Properties.Resources.ResourceManager.GetString("Meta_ErrorCorrection"), item.ErrorCorrectionPercent) : "")}";
+                    item.MetadataInfo =
+                        $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? Properties.Resources.ResourceManager.GetString("Meta_Colorful") : Properties.Resources.ResourceManager.GetString("Meta_BlackWhite"))} D={item.ColorDepth} DM={item.TotalQrCodeCount} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " " + Properties.Resources.ResourceManager.GetString("Meta_HasPassword") : "")}{(item.HasErrorCorrection ? " " + string.Format(Properties.Resources.ResourceManager.GetString("Meta_ErrorCorrection"), item.ErrorCorrectionPercent) : "")}";
                 }
                 else
                 {
                     item.Status = Properties.Resources.ResourceManager.GetString("Status_MetaParseFailed");
                 }
+
                 return item;
             }
             catch (Exception ex)
@@ -303,7 +416,8 @@ namespace screen_file_transmit
                     FullPath = filePath,
                     ImageFileName = Path.GetFileName(filePath),
                     SaveFileName = Path.GetFileNameWithoutExtension(filePath),
-                    Status = string.Format(Properties.Resources.ResourceManager.GetString("Status_ReadFailed"), ex.Message)
+                    Status = string.Format(Properties.Resources.ResourceManager.GetString("Status_ReadFailed"),
+                        ex.Message)
                 };
                 //errorItem.DeleteCommand = new RelayCommand(_ => DeleteItem(errorItem), _ => !IsBusy);
                 //errorItem.RetryCommand = new RelayCommand(_ => RetryItem(errorItem), _ => !IsBusy);
@@ -327,6 +441,7 @@ namespace screen_file_transmit
                         item.SaveFileName = changedItem.SaveFileName;
                     }
                 }
+
                 _isSyncingProperty = false;
                 CheckFileComplete();
             }
@@ -346,6 +461,7 @@ namespace screen_file_transmit
                     FileItems.Remove(item);
                 }
             }
+
             CheckFileComplete();
         }
 
@@ -374,6 +490,7 @@ namespace screen_file_transmit
             {
                 FileItems.Remove(item);
             }
+
             item.PropertyChanged -= FileItem_PropertyChanged;
         }
 
@@ -454,19 +571,23 @@ namespace screen_file_transmit
                 MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SavePathNotExist"));
                 return;
             }
+
             System.Diagnostics.Process.Start("explorer.exe", path);
         }
-         
+
         private ScreenshotToolWindow screenshotToolWindow;
+
         private void OpenScreenshotTool()
         {
             if (string.IsNullOrWhiteSpace(OutputFilePath))
             {
-                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"), Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SetSavePathFirst"),
+                    Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"), MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
                 return;
             }
 
-            if (screenshotToolWindow!=null)
+            if (screenshotToolWindow != null)
             {
                 screenshotToolWindow.Close();
                 screenshotToolWindow = null;
@@ -476,6 +597,30 @@ namespace screen_file_transmit
                 screenshotToolWindow = new ScreenshotToolWindow(this);
                 screenshotToolWindow.Show();
             }
+        }
+
+        private void TogglePause()
+        {
+            if (IsPaused)
+            {
+                _pauseEvent.Set();
+                IsPaused = false;
+                PauseButtonText = Properties.Resources.ResourceManager.GetString("Button_Pause");
+                StatusText = "正在解析...";
+            }
+            else
+            {
+                _pauseEvent.Reset();
+                IsPaused = true;
+                PauseButtonText = Properties.Resources.ResourceManager.GetString("Button_Resume");
+                StatusText = Properties.Resources.ResourceManager.GetString("Status_Paused");
+            }
+        }
+
+        private void StopConvert()
+        {
+            _cts?.Cancel();
+            _pauseEvent.Set();
         }
 
         private string GetUniqueFilePath(string basePath)
@@ -493,6 +638,7 @@ namespace screen_file_transmit
                 newPath = Path.Combine(directory, $"{fileNameWithoutExt}({index}){extension}");
                 index++;
             } while (File.Exists(newPath));
+
             return newPath;
         }
 
@@ -506,9 +652,9 @@ namespace screen_file_transmit
 
             if (!Directory.Exists(OutputFilePath))
             {
-                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_SavePathNotExist"));
-                return;
+                Directory.CreateDirectory(OutputFilePath);
             }
+
             var completeItems = FileItems.Where(f => f.IsComplete).ToList();
             if (completeItems.Count == 0)
             {
@@ -525,13 +671,26 @@ namespace screen_file_transmit
             var incompleteItems = FileItems.Where(f => !f.IsComplete).ToList();
             if (incompleteItems.Count > 0)
             {
-                var result = MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_SkipIncompleteFiles"), Properties.Resources.ResourceManager.GetString("MsgBox_Title_Prompt"), MessageBoxButton.YesNo, MessageBoxImage.Question);
+                var result =
+                    MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_SkipIncompleteFiles"),
+                        Properties.Resources.ResourceManager.GetString("MsgBox_Title_Prompt"), MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
                 if (result == MessageBoxResult.No)
                     return;
             }
 
             var groups = completeItems.GroupBy(f => new { f.FileId, f.SaveFileName }).ToList();
 
+            // 重置所有待转换文件的状态和错误信息
+            foreach (var item in completeItems)
+            {
+                item.Status = Properties.Resources.ResourceManager.GetString("Status_Ready");
+                item.ProgressValue = 0;
+            }
+
+            _cts = new CancellationTokenSource();
+            _pauseEvent.Set();
+            IsPaused = false;
             IsBusy = true;
             ProgressMaximum = completeItems.Count;
             ProgressValue = 0;
@@ -539,18 +698,23 @@ namespace screen_file_transmit
 
             try
             {
-                if(!Directory.Exists(OutputFilePath))
+                if (!Directory.Exists(OutputFilePath))
                 {
                     Directory.CreateDirectory(OutputFilePath);
                 }
+
                 bool anyFailed = await Task.Run(() =>
                 {
                     bool failed = false;
                     int processedCount = 0;
                     var dispatcher = Application.Current.Dispatcher;
 
-                    foreach (var group in groups)
+                    try
                     {
+                        foreach (var group in groups)
+                        {
+                            if (_cts.IsCancellationRequested)
+                                return failed;
                         string outputFileName = group.Key.SaveFileName;
                         if (string.IsNullOrWhiteSpace(outputFileName))
                             outputFileName = Properties.Resources.ResourceManager.GetString("Default_DecodeFileName");
@@ -564,18 +728,36 @@ namespace screen_file_transmit
                             var sortedItems = group.OrderBy(f => f.CurrentPage).ToList();
                             foreach (var item in sortedItems)
                             {
+                                // 检查暂停和取消
+                                try
+                                {
+                                    _pauseEvent.Wait(_cts.Token);
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    return failed;
+                                }
+
+                                if (_cts.IsCancellationRequested)
+                                    return failed;
+
                                 processedCount++;
 
                                 dispatcher.Invoke(() =>
                                 {
-                                    item.Status = string.Format(Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"), processedCount, completeItems.Count);
+                                    item.Status =
+                                        string.Format(
+                                            Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
+                                            processedCount, completeItems.Count);
                                     item.ProgressValue = 0;
                                     ProgressValue = processedCount;
                                 });
 
                                 if (string.IsNullOrEmpty(item.FullPath))
                                 {
-                                    dispatcher.Invoke(() => item.Status = Properties.Resources.ResourceManager.GetString("Status_EmptyPath"));
+                                    dispatcher.Invoke(() =>
+                                        item.Status =
+                                            Properties.Resources.ResourceManager.GetString("Status_EmptyPath"));
                                     failed = true;
                                     continue;
                                 }
@@ -584,24 +766,34 @@ namespace screen_file_transmit
                                 {
                                     if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
                                     {
-                                        dispatcher.Invoke(() => item.Status = Properties.Resources.ResourceManager.GetString("Status_ParseFailed"));
+                                        dispatcher.Invoke(() =>
+                                            item.Status =
+                                                Properties.Resources.ResourceManager.GetString("Status_ParseFailed"));
                                         failed = true;
                                     }
                                     else
                                     {
                                         dispatcher.Invoke(() =>
                                         {
-                                            item.Status = Properties.Resources.ResourceManager.GetString("Status_Complete");
+                                            item.Status =
+                                                Properties.Resources.ResourceManager.GetString("Status_Complete");
                                             item.ProgressValue = 100;
                                         });
                                     }
                                 }
                                 catch (Exception ex)
                                 {
-                                    dispatcher.Invoke(() => item.Status = string.Format(Properties.Resources.ResourceManager.GetString("Error_ParseFailed"), ex.Message));
+                                    dispatcher.Invoke(() =>
+                                        item.Status =
+                                            string.Format(
+                                                Properties.Resources.ResourceManager.GetString("Error_ParseFailed"),
+                                                ex.Message));
                                     failed = true;
                                 }
                             }
+
+                            if (_cts.IsCancellationRequested)
+                                return failed;
 
                             encryptedMs.Position = 0;
                             using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
@@ -617,11 +809,21 @@ namespace screen_file_transmit
                             }
                         }
                     }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return failed;
+                    }
 
                     return failed;
                 });
 
-                if (anyFailed)
+                if (_cts.IsCancellationRequested)
+                {
+                    StatusText = Properties.Resources.ResourceManager.GetString("Status_Stopped");
+                    SystemSounds.Exclamation.Play();
+                }
+                else if (anyFailed)
                 {
                     StatusText = Properties.Resources.ResourceManager.GetString("Status_PartialFailed");
                     SystemSounds.Exclamation.Play();
@@ -634,11 +836,19 @@ namespace screen_file_transmit
             }
             catch (Exception e)
             {
-                MessageBox.Show(e.Message);
-                StatusText = string.Format(Properties.Resources.ResourceManager.GetString("Error_Error"), e.Message);
+                if (_cts == null || !_cts.IsCancellationRequested)
+                {
+                    MessageBox.Show(e.Message);
+                    StatusText = string.Format(Properties.Resources.ResourceManager.GetString("Error_Error"), e.Message);
+                }
             }
             finally
             {
+                _pauseEvent.Set();
+                _cts?.Dispose();
+                _cts = null;
+                IsPaused = false;
+                PauseButtonText = Properties.Resources.ResourceManager.GetString("Button_Pause");
                 IsBusy = false;
             }
         }

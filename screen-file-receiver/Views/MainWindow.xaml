@@ -316,6 +316,18 @@
                 <Button
                     Width="110"
                     Height="24"
+                    Margin="0,0,10,0"
+                    Command="{Binding PauseCommand}"
+                    Content="{Binding PauseButtonText}" />
+                <Button
+                    Width="110"
+                    Height="24"
+                    Margin="0,0,10,0"
+                    Command="{Binding StopCommand}"
+                    Content="{loc:Loc Button_Stop}" />
+                <Button
+                    Width="110"
+                    Height="24"
                     Click="ExitButton_Click"
                     Content="{loc:Loc Button_Exit}" />
             </StackPanel>
