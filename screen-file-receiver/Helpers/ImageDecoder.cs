@@ -15,8 +15,7 @@ using Rect = OpenCvSharp.Rect;
 using Size = OpenCvSharp.Size;
 
 namespace screen_file_transmit
-{ 
-
+{
     public static class ImageDecoder
     {
         private static readonly string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -38,12 +37,14 @@ namespace screen_file_transmit
 
             if (meta?.Metadata == null || meta.Metadata.Length < 4)
             {
-                throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_MetaNotFound"), fileName));
+                throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_MetaNotFound"),
+                    fileName));
             }
 
             if (dataBlocks == null || dataBlocks.Count == 0)
             {
-                throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_NoDataBlocks"), fileName));
+                throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_NoDataBlocks"),
+                    fileName));
             }
 
             if (meta.TotalQrCodeCount > 0)
@@ -51,7 +52,9 @@ namespace screen_file_transmit
                 int actualQrCount = decodeResult.DecodedQrCodeCount;
                 if (actualQrCount < meta.TotalQrCodeCount * 0.8)
                 {
-                    throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_QrCodeCountMismatch"), meta.TotalQrCodeCount, actualQrCount));
+                    throw new Exception(string.Format(
+                        Properties.Resources.ResourceManager.GetString("Error_QrCodeCountMismatch"),
+                        meta.TotalQrCodeCount, actualQrCount));
                 }
             }
 
@@ -95,8 +98,10 @@ namespace screen_file_transmit
                 var computedCrc = Crc32.ComputeHash(data);
                 if (!crcBytes.SequenceEqual(computedCrc))
                 {
-                    throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_Crc32Failed"), block.row, block.col));
+                    throw new Exception(string.Format(
+                        Properties.Resources.ResourceManager.GetString("Error_Crc32Failed"), block.row, block.col));
                 }
+
                 fileStream.Write(data, 0, data.Length);
             }
 
@@ -141,6 +146,7 @@ namespace screen_file_transmit
                     Console.WriteLine("  Failed to load image.");
                     return new List<string>();
                 }
+
                 return DetectBarcodes(rawImg, isLeft, debug);
             }
         }
@@ -220,7 +226,9 @@ namespace screen_file_transmit
         /// </summary>
         public class DecodeResult
         {
-            public List<(int row, int col, byte[] data)> DataBlocks { get; set; } = new List<(int row, int col, byte[] data)>();
+            public List<(int row, int col, byte[] data)> DataBlocks { get; set; } =
+                new List<(int row, int col, byte[] data)>();
+
             public MetadataResult Metadata { get; set; }
             public int DecodedQrCodeCount { get; set; }
         }
@@ -257,7 +265,8 @@ namespace screen_file_transmit
             {
                 if (image.Empty())
                 {
-                    throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_LoadImageFailed"), imageFile));
+                    throw new Exception(string.Format(
+                        Properties.Resources.ResourceManager.GetString("Error_LoadImageFailed"), imageFile));
                 }
 
                 return DecodeImageWithMetadata(image, debug);
@@ -324,7 +333,8 @@ namespace screen_file_transmit
         /// <summary>
         /// 对每个 DataMatrix 数据块进行 Reed-Solomon 解码
         /// </summary>
-        private static List<(int row, int col, byte[] data)> DecodeWithReedSolomon(List<(int row, int col, byte[] data)> dataBlocks, MetadataResult meta)
+        private static List<(int row, int col, byte[] data)> DecodeWithReedSolomon(
+            List<(int row, int col, byte[] data)> dataBlocks, MetadataResult meta)
         {
             var (dataShards, parityShards) = GetRsShardCounts(meta.ErrorCorrectionPercent);
             int totalShards = dataShards + parityShards;
@@ -371,6 +381,7 @@ namespace screen_file_transmit
                         {
                             ms.Write(shards[i], 0, shardSize);
                         }
+
                         result.Add((block.row, block.col, ms.ToArray()));
                     }
                 }
@@ -379,6 +390,7 @@ namespace screen_file_transmit
                     result.Add(block);
                 }
             }
+
             return result;
         }
 
@@ -409,7 +421,7 @@ namespace screen_file_transmit
                     .Where(c => Cv2.ContourArea(c) > 100)
                     .Select(c => Cv2.BoundingRect(c))
                     .Where(r => r.Height > 15 && r.Width > 15 &&
-                               Math.Abs(r.Height - r.Width) < Math.Max(r.Height, r.Width) * 0.3)
+                                Math.Abs(r.Height - r.Width) < Math.Max(r.Height, r.Width) * 0.3)
                     .ToList();
 
                 if (validContours.Count == 0) return new List<Rect>();
@@ -426,28 +438,38 @@ namespace screen_file_transmit
         /// <summary>
         /// 黑白模式解码
         /// </summary>
-        private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours, bool debug = false)
+        private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours,
+            bool debug = false)
         {
-            var results = new List<(int row, int col, byte[] data)>(); 
+            var results = new List<(int row, int col, byte[] data)>();
             //reader.Options.TryHarder = true;
             //reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
 
+
+            HashSet<(int, int)> rowCols = new HashSet<(int, int)>();
             foreach (var rect in contours)
             {
-                var decoded = DecodeDataMatrixAt(image, rect,  debug);
+                var decoded = DecodeDataMatrixAt(image, rect, debug);
                 if (decoded != null)
                 {
+                    if (rowCols.Contains((decoded.Value.row, decoded.Value.col)))
+                    {
+                        continue;
+                    }
+
                     results.Add(decoded.Value);
+                    rowCols.Add((decoded.Value.row, decoded.Value.col));
                 }
             }
 
-            return results;
+            return results.OrderBy(x => x.row).ThenBy(x => x.col).ToList();
         }
 
         /// <summary>
         /// 彩色模式解码 - 分离 R/G/B 通道分别解码
         /// </summary>
-        private static List<(int row, int col, byte[] data)> DecodeColorfulMode(Mat image, List<Rect> contours,bool debug, out int decodedQrCodeCount)
+        private static List<(int row, int col, byte[] data)> DecodeColorfulMode(Mat image, List<Rect> contours,
+            bool debug, out int decodedQrCodeCount)
         {
             var results = new List<(int row, int col, byte[] data)>();
             var reader = new DataMatrixReader();
@@ -491,7 +513,7 @@ namespace screen_file_transmit
         /// 从单通道解码 DataMatrix
         /// </summary>
         private static (int row, int col, byte[] data)? DecodeDataMatrixFromChannel(
-            Mat channel, Rect rect, DataMatrixReader reader, int layer, bool debug= false)
+            Mat channel, Rect rect, DataMatrixReader reader, int layer, bool debug = false)
         {
             int padding = 5;
             int x = Math.Max(0, rect.X - padding);
@@ -533,7 +555,7 @@ namespace screen_file_transmit
         /// <summary>
         /// 在指定位置解码 DataMatrix（用于黑白模式）
         /// </summary>
-        private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect,  bool debug )
+        private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect, bool debug)
         {
             int padding = 5;
             int x = Math.Max(0, rect.X - padding);
@@ -565,7 +587,8 @@ namespace screen_file_transmit
         /// <summary>
         /// 合并多层数据
         /// </summary>
-        private static (int row, int col, byte[] data) MergeLayerData(List<(int layer, int row, int col, byte[] data)> layerResults)
+        private static (int row, int col, byte[] data) MergeLayerData(
+            List<(int layer, int row, int col, byte[] data)> layerResults)
         {
             var sorted = layerResults.OrderBy(l => l.layer).ToList();
             var first = sorted[0];
@@ -590,6 +613,7 @@ namespace screen_file_transmit
                         ms.Write(layer.data, 0, layer.data.Length);
                     }
                 }
+
                 return (first.row, first.col, ms.ToArray());
             }
         }
@@ -613,7 +637,7 @@ namespace screen_file_transmit
                             { DecodeHintType.CHARACTER_SET, "ISO-8859-1" },
                             { DecodeHintType.TRY_HARDER, true }
                         };
-                        var result = reader.decode(binaryBitmap, hints); 
+                        var result = reader.decode(binaryBitmap, hints);
 
                         if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
                         {
@@ -633,9 +657,11 @@ namespace screen_file_transmit
                         processed.SaveImage(Directory.GetCurrentDirectory() + $"/dm_{attempt}.png");
                     }
                 }
+
                 Cv2.ImShow("DM", image);
                 Cv2.WaitKey();
             }
+
             return null;
         }
 
@@ -702,6 +728,7 @@ namespace screen_file_transmit
                                 }
                             }
                         }
+
                         System.Runtime.InteropServices.Marshal.Copy(bytes, 0, data.Scan0, bytes.Length);
                     }
                     finally
@@ -719,10 +746,10 @@ namespace screen_file_transmit
                 // 不重新抛出异常，避免影响主流程
             }
         }
+
         /// <summary>
         /// 解码预处理
         /// </summary> 
-
         private static Mat PreprocessForDecode(Mat image, int attempt)
         {
             // === 1. 统一先放大 ===
@@ -753,7 +780,7 @@ namespace screen_file_transmit
             {
                 case 0:
                 case 1:
-                case 2: 
+                case 2:
                     result = gray.Clone();
                     break;
 
@@ -777,6 +804,7 @@ namespace screen_file_transmit
                         Cv2.GaussianBlur(gray, blur, new Size(5, 5), 0);
                         Cv2.Threshold(blur, result, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
                     }
+
                     break;
 
                 case 6:
@@ -789,6 +817,7 @@ namespace screen_file_transmit
                             ThresholdTypes.Binary,
                             11, 2);
                     }
+
                     break;
 
                 case 7:
@@ -797,6 +826,7 @@ namespace screen_file_transmit
                     {
                         Cv2.MorphologyEx(gray, result, MorphTypes.Open, kernel);
                     }
+
                     break;
 
                 case 8:
@@ -805,19 +835,21 @@ namespace screen_file_transmit
                     {
                         Cv2.MorphologyEx(gray, result, MorphTypes.Close, kernel);
                     }
+
                     break;
 
                 case 9:
                     // 锐化
                     using (Mat kernelSharpen = Mat.FromArray(new float[,]
-                    {
-                                { -1, -1, -1 },
-                                { -1, 9, -1 },
-                                { -1, -1, -1 }
-                    }))
+                           {
+                               { -1, -1, -1 },
+                               { -1, 9, -1 },
+                               { -1, -1, -1 }
+                           }))
                     {
                         Cv2.Filter2D(gray, result, -1, kernelSharpen);
                     }
+
                     break;
 
                 case 10:
@@ -827,6 +859,7 @@ namespace screen_file_transmit
                         Cv2.Threshold(gray, binary, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
                         Cv2.BitwiseNot(binary, result);
                     }
+
                     break;
 
                 default:
@@ -836,78 +869,80 @@ namespace screen_file_transmit
 
             return result;
         }
-    //private static Mat PreprocessForDecode(Mat image, int attempt)
-    //{
-    //    if (attempt == 0)
-    //    {
-    //        return image.Clone();
-    //    }
+        //private static Mat PreprocessForDecode(Mat image, int attempt)
+        //{
+        //    if (attempt == 0)
+        //    {
+        //        return image.Clone();
+        //    }
 
-    //    Mat result = new Mat();
+        //    Mat result = new Mat();
 
-    //    if (attempt <= 2)
-    //    {
-    //        return image.Clone();
-    //        //Cv2.Resize(image, result, new Size(), 1 + attempt, 1 + attempt, InterpolationFlags.Linear);
-    //    }
+        //    if (attempt <= 2)
+        //    {
+        //        return image.Clone();
+        //        //Cv2.Resize(image, result, new Size(), 1 + attempt, 1 + attempt, InterpolationFlags.Linear);
+        //    }
 
-    //    Mat resize = new Mat();
-    //    Cv2.Resize(image, resize, new Size(), 3, 3, InterpolationFlags.Linear);
+        //    Mat resize = new Mat();
+        //    Cv2.Resize(image, resize, new Size(), 3, 3, InterpolationFlags.Linear);
 
-    //    if (attempt == 3)
-    //    {
-    //        using (Mat gray = new Mat())
-    //        {
-    //            if (resize.Channels() == 3)
-    //                Cv2.CvtColor(resize, gray, ColorConversionCodes.BGR2GRAY);
-    //            else
-    //                resize.CopyTo(gray);
+        //    if (attempt == 3)
+        //    {
+        //        using (Mat gray = new Mat())
+        //        {
+        //            if (resize.Channels() == 3)
+        //                Cv2.CvtColor(resize, gray, ColorConversionCodes.BGR2GRAY);
+        //            else
+        //                resize.CopyTo(gray);
 
-    //            Cv2.AdaptiveThreshold(gray, result, 256, AdaptiveThresholdTypes.GaussianC,
-    //                ThresholdTypes.Binary, 11, 2);
-    //        }
-    //    }
-    //    else if (attempt == 4)
-    //    {
-    //        Mat kernel = Mat.FromArray(new float[,] {
-    //            { 0, -1, 0 },
-    //            { -1, 5, -1 },
-    //            { 0, -1, 0 }
-    //        });
-    //        Cv2.Filter2D(resize, result, -1, kernel);
-    //    }
-    //    else if (attempt == 5)
-    //    {
-    //        Mat kernel = Mat.FromArray(new float[,]
-    //        {
-    //            { -1, -1, -1 },
-    //            { -1, 9, -1 },
-    //            { -1, -1, -1 }
-    //        });
-    //        Cv2.Filter2D(resize, result, -1, kernel);
-    //    }
-    //    else if (attempt == 6)
-    //    {
-    //        Mat kernel = Mat.FromArray(new float[,]{
-    //            { -1, -1, -1 },
-    //            { -1, 10, -1 },
-    //            { -1, -1, -1 }
-    //        });
-    //        Cv2.Filter2D(resize, result, -1, kernel);
-    //    }
-    //    else
-    //    {
-    //        return image.Clone();
-    //    }
+        //            Cv2.AdaptiveThreshold(gray, result, 256, AdaptiveThresholdTypes.GaussianC,
+        //                ThresholdTypes.Binary, 11, 2);
+        //        }
+        //    }
+        //    else if (attempt == 4)
+        //    {
+        //        Mat kernel = Mat.FromArray(new float[,] {
+        //            { 0, -1, 0 },
+        //            { -1, 5, -1 },
+        //            { 0, -1, 0 }
+        //        });
+        //        Cv2.Filter2D(resize, result, -1, kernel);
+        //    }
+        //    else if (attempt == 5)
+        //    {
+        //        Mat kernel = Mat.FromArray(new float[,]
+        //        {
+        //            { -1, -1, -1 },
+        //            { -1, 9, -1 },
+        //            { -1, -1, -1 }
+        //        });
+        //        Cv2.Filter2D(resize, result, -1, kernel);
+        //    }
+        //    else if (attempt == 6)
+        //    {
+        //        Mat kernel = Mat.FromArray(new float[,]{
+        //            { -1, -1, -1 },
+        //            { -1, 10, -1 },
+        //            { -1, -1, -1 }
+        //        });
+        //        Cv2.Filter2D(resize, result, -1, kernel);
+        //    }
+        //    else
+        //    {
+        //        return image.Clone();
+        //    }
 
-    //    return result; 
-    //}
+        //    return result; 
+        //}
 
-    private static bool IsBase64String(string s)
+        private static bool IsBase64String(string s)
         {
             if (string.IsNullOrEmpty(s) || s.Length % 4 != 0)
                 return false;
-            return s.All(c => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=');
+            return s.All(c =>
+                (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' ||
+                c == '=');
         }
 
         private static string ParseTimestamp(string base64Timestamp)
@@ -925,6 +960,7 @@ namespace screen_file_transmit
                     // 尝试直接解析为数字（兼容旧格式）
                     unixSeconds = long.Parse(Encoding.UTF8.GetString(bytes));
                 }
+
                 var dt = DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime;
                 return dt.ToString("yyyy-MM-dd HH:mm:ss");
             }
@@ -984,19 +1020,22 @@ namespace screen_file_transmit
                             {
                                 result.ErrorCorrectionPercent = result.Metadata[6];
                             }
+
                             if (result.Metadata.Length >= 9)
                             {
                                 result.TotalQrCodeCount = (result.Metadata[7] << 8) | result.Metadata[8];
                             }
                         }
                     }
-                    catch { }
+                    catch
+                    {
+                    }
                 }
             }
 
             if (result.Metadata == null)
             {
-                throw new Exception("Cannot find page meta data" );
+                throw new Exception("Cannot find page meta data");
             }
 
             // 右侧：文件名条码、文件ID条码（#fileId#page 格式）
@@ -1016,7 +1055,9 @@ namespace screen_file_transmit
                         {
                             if (pageFromBarcode != result.CurrentPage)
                             {
-                                throw new Exception(string.Format("Page mismatch: barcode page {0} != metadata page {1}", pageFromBarcode, result.CurrentPage));
+                                throw new Exception(string.Format(
+                                    "Page mismatch: barcode page {0} != metadata page {1}", pageFromBarcode,
+                                    result.CurrentPage));
                             }
                         }
                     }
@@ -1024,6 +1065,7 @@ namespace screen_file_transmit
                     {
                         result.FileId = candidateFileId.TrimStart('#');
                     }
+
                     result.FileName = ordered.First(c => c != candidateFileId);
                 }
                 else
@@ -1069,6 +1111,7 @@ namespace screen_file_transmit
                     current = next;
                 }
             }
+
             merged.Add(current);
             return merged;
         }
@@ -1076,7 +1119,7 @@ namespace screen_file_transmit
         /// <summary>
         /// 更高效的实现方式（适用于单通道二值图像）
         /// </summary>
-        public static Mat RemoveBlackBorderFast(Mat binaryMat , byte threshold = 0, byte set = 255)
+        public static Mat RemoveBlackBorderFast(Mat binaryMat, byte threshold = 0, byte set = 255)
         {
             if (binaryMat.Empty() || binaryMat.Channels() != 1)
                 return binaryMat.Clone();
@@ -1096,6 +1139,7 @@ namespace screen_file_transmit
                     queue.Enqueue(new Point(x, 0));
                     visited[0, x] = true;
                 }
+
                 if (result.At<byte>(height - 1, x) <= threshold && !visited[height - 1, x])
                 {
                     queue.Enqueue(new Point(x, height - 1));
@@ -1110,6 +1154,7 @@ namespace screen_file_transmit
                     queue.Enqueue(new Point(0, y));
                     visited[y, 0] = true;
                 }
+
                 if (result.At<byte>(y, width - 1) <= threshold && !visited[y, width - 1])
                 {
                     queue.Enqueue(new Point(width - 1, y));
@@ -1120,9 +1165,9 @@ namespace screen_file_transmit
             // 8方向邻域（包括对角线）
             Point[] directions = new Point[]
             {
-            new Point(-1, -1), new Point(0, -1), new Point(1, -1),
-            new Point(-1, 0),                    new Point(1, 0),
-            new Point(-1, 1),  new Point(0, 1),  new Point(1, 1)
+                new Point(-1, -1), new Point(0, -1), new Point(1, -1),
+                new Point(-1, 0), new Point(1, 0),
+                new Point(-1, 1), new Point(0, 1), new Point(1, 1)
             };
 
             int fillCount = 0;
@@ -1215,7 +1260,8 @@ namespace screen_file_transmit
 
                                         if (area > 100)
                                         {
-                                            Console.WriteLine($"      rect [{r.X},{r.Y}] {r.Width}x{r.Height} ratio={ratio:F2} area={area}");
+                                            Console.WriteLine(
+                                                $"      rect [{r.X},{r.Y}] {r.Width}x{r.Height} ratio={ratio:F2} area={area}");
                                         }
 
                                         if (ratio < 0.5 && r.Height > 25 && area > 300)
@@ -1223,6 +1269,7 @@ namespace screen_file_transmit
                                             rawRects.Add(r);
                                         }
                                     }
+
                                     //if (debug)
                                     //    Cv2.ImShow($"{label} - 6 All Rects", debugRoi);
                                     Console.WriteLine($"    {label} rawRects after filter: {rawRects.Count}");
@@ -1235,6 +1282,7 @@ namespace screen_file_transmit
                     }
                 }
             }
+
             return result;
         }
     }
