@@ -273,10 +273,9 @@ namespace screen_file_transmit
             }
 
             CheckFileComplete();
-            ShowFileCompletenessWarnings();
         }
 
-        private void ShowFileCompletenessWarnings()
+        private bool ShowFileCompletenessWarnings()
         {
             var warnings = new List<string>();
 
@@ -338,6 +337,7 @@ namespace screen_file_transmit
                 warnings.Add(sb.ToString());
             }
 
+            return true;
             if (warnings.Count > 0)
             {
                 var message = Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessWarning")
@@ -345,6 +345,7 @@ namespace screen_file_transmit
                 MessageBox.Show(message,
                     Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessTitle"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
             }
         }
 
@@ -655,6 +656,11 @@ namespace screen_file_transmit
                 Directory.CreateDirectory(OutputFilePath);
             }
 
+            if (!ShowFileCompletenessWarnings())
+            {
+                return;
+            }
+
             var completeItems = FileItems.Where(f => f.IsComplete).ToList();
             if (completeItems.Count == 0)
             {
@@ -715,100 +721,102 @@ namespace screen_file_transmit
                         {
                             if (_cts.IsCancellationRequested)
                                 return failed;
-                        string outputFileName = group.Key.SaveFileName;
-                        if (string.IsNullOrWhiteSpace(outputFileName))
-                            outputFileName = Properties.Resources.ResourceManager.GetString("Default_DecodeFileName");
+                            string outputFileName = group.Key.SaveFileName;
+                            if (string.IsNullOrWhiteSpace(outputFileName))
+                                outputFileName =
+                                    Properties.Resources.ResourceManager.GetString("Default_DecodeFileName");
 
-                        outputFileName = ScreenCaptureHelper.SanitizeFileName(outputFileName);
-                        string outputPath = Path.Combine(OutputFilePath, outputFileName);
-                        outputPath = GetUniqueFilePath(outputPath);
+                            outputFileName = ScreenCaptureHelper.SanitizeFileName(outputFileName);
+                            string outputPath = Path.Combine(OutputFilePath, outputFileName);
+                            outputPath = GetUniqueFilePath(outputPath);
 
-                        using (var encryptedMs = new MemoryStream())
-                        {
-                            var sortedItems = group.OrderBy(f => f.CurrentPage).ToList();
-                            foreach (var item in sortedItems)
+                            using (var encryptedMs = new MemoryStream())
                             {
-                                // 检查暂停和取消
-                                try
+                                var sortedItems = group.OrderBy(f => f.CurrentPage).ToList();
+                                foreach (var item in sortedItems)
                                 {
-                                    _pauseEvent.Wait(_cts.Token);
-                                }
-                                catch (OperationCanceledException)
-                                {
-                                    return failed;
+                                    // 检查暂停和取消
+                                    try
+                                    {
+                                        _pauseEvent.Wait(_cts.Token);
+                                    }
+                                    catch (OperationCanceledException)
+                                    {
+                                        return failed;
+                                    }
+
+                                    if (_cts.IsCancellationRequested)
+                                        return failed;
+
+                                    processedCount++;
+
+                                    dispatcher.Invoke(() =>
+                                    {
+                                        item.Status =
+                                            string.Format(
+                                                Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
+                                                processedCount, completeItems.Count);
+                                        item.ProgressValue = 0;
+                                        ProgressValue = processedCount;
+                                    });
+
+                                    if (string.IsNullOrEmpty(item.FullPath))
+                                    {
+                                        dispatcher.Invoke(() =>
+                                            item.Status =
+                                                Properties.Resources.ResourceManager.GetString("Status_EmptyPath"));
+                                        failed = true;
+                                        continue;
+                                    }
+
+                                    try
+                                    {
+                                        if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
+                                        {
+                                            dispatcher.Invoke(() =>
+                                                item.Status =
+                                                    Properties.Resources.ResourceManager
+                                                        .GetString("Status_ParseFailed"));
+                                            failed = true;
+                                        }
+                                        else
+                                        {
+                                            dispatcher.Invoke(() =>
+                                            {
+                                                item.Status =
+                                                    Properties.Resources.ResourceManager.GetString("Status_Complete");
+                                                item.ProgressValue = 100;
+                                            });
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        dispatcher.Invoke(() =>
+                                            item.Status =
+                                                string.Format(
+                                                    Properties.Resources.ResourceManager.GetString("Error_ParseFailed"),
+                                                    ex.Message));
+                                        failed = true;
+                                    }
                                 }
 
                                 if (_cts.IsCancellationRequested)
                                     return failed;
 
-                                processedCount++;
-
-                                dispatcher.Invoke(() =>
+                                encryptedMs.Position = 0;
+                                using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
                                 {
-                                    item.Status =
-                                        string.Format(
-                                            Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
-                                            processedCount, completeItems.Count);
-                                    item.ProgressValue = 0;
-                                    ProgressValue = processedCount;
-                                });
-
-                                if (string.IsNullOrEmpty(item.FullPath))
-                                {
-                                    dispatcher.Invoke(() =>
-                                        item.Status =
-                                            Properties.Resources.ResourceManager.GetString("Status_EmptyPath"));
-                                    failed = true;
-                                    continue;
-                                }
-
-                                try
-                                {
-                                    if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
+                                    if (!string.IsNullOrEmpty(Password))
                                     {
-                                        dispatcher.Invoke(() =>
-                                            item.Status =
-                                                Properties.Resources.ResourceManager.GetString("Status_ParseFailed"));
-                                        failed = true;
+                                        CryptoHelper.DecryptStream(encryptedMs, fs, Password);
                                     }
                                     else
                                     {
-                                        dispatcher.Invoke(() =>
-                                        {
-                                            item.Status =
-                                                Properties.Resources.ResourceManager.GetString("Status_Complete");
-                                            item.ProgressValue = 100;
-                                        });
+                                        encryptedMs.CopyTo(fs);
                                     }
-                                }
-                                catch (Exception ex)
-                                {
-                                    dispatcher.Invoke(() =>
-                                        item.Status =
-                                            string.Format(
-                                                Properties.Resources.ResourceManager.GetString("Error_ParseFailed"),
-                                                ex.Message));
-                                    failed = true;
-                                }
-                            }
-
-                            if (_cts.IsCancellationRequested)
-                                return failed;
-
-                            encryptedMs.Position = 0;
-                            using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
-                            {
-                                if (!string.IsNullOrEmpty(Password))
-                                {
-                                    CryptoHelper.DecryptStream(encryptedMs, fs, Password);
-                                }
-                                else
-                                {
-                                    encryptedMs.CopyTo(fs);
                                 }
                             }
                         }
-                    }
                     }
                     catch (OperationCanceledException)
                     {
@@ -839,7 +847,8 @@ namespace screen_file_transmit
                 if (_cts == null || !_cts.IsCancellationRequested)
                 {
                     MessageBox.Show(e.Message);
-                    StatusText = string.Format(Properties.Resources.ResourceManager.GetString("Error_Error"), e.Message);
+                    StatusText = string.Format(Properties.Resources.ResourceManager.GetString("Error_Error"),
+                        e.Message);
                 }
             }
             finally
