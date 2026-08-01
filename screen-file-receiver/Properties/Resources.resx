@@ -71,6 +71,9 @@
   <data name="Error_NoCompleteFiles" xml:space="preserve"><value>没有可转换的完整文件</value></data>
   <data name="Error_PasswordRequired" xml:space="preserve"><value>存在需要密码的文件，请先输入密码</value></data>
   <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>存在未解析完成的文件，是否跳过这些文件继续转换？</value></data>
+  <data name="MsgBox_IncompleteItem_NoMeta" xml:space="preserve"><value>- {0}：元数据未解析，无法确定页码</value></data>
+  <data name="MsgBox_IncompleteItem_MissingPages" xml:space="preserve"><value>- {0}：共 {1} 页，缺少第 {2} 页</value></data>
+  <data name="MsgBox_IncompleteItem_HasDuplicate" xml:space="preserve"><value>- {0}：共 {1} 页，存在重复页码</value></data>
   <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>提示</value></data>
   <data name="Default_DecodeFileName" xml:space="preserve"><value>解码文件.bin</value></data>
   <data name="Status_ParsingFormat" xml:space="preserve"><value>正在解析 {0}/{1}</value></data>

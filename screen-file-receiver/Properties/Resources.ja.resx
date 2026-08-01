@@ -71,6 +71,9 @@
   <data name="Error_NoCompleteFiles" xml:space="preserve"><value>変換できる完全なファイルがありません</value></data>
   <data name="Error_PasswordRequired" xml:space="preserve"><value>パスワードが必要なファイルがあります。入力してください</value></data>
   <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>未解析のファイルがあります。スキップして続行しますか？</value></data>
+  <data name="MsgBox_IncompleteItem_NoMeta" xml:space="preserve"><value>- {0}：メタデータ未解析、ページ数を特定できません</value></data>
+  <data name="MsgBox_IncompleteItem_MissingPages" xml:space="preserve"><value>- {0}：全 {1} ページ、不足ページ：{2}</value></data>
+  <data name="MsgBox_IncompleteItem_HasDuplicate" xml:space="preserve"><value>- {0}：全 {1} ページ、ページ番号の重複あり</value></data>
   <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>通知</value></data>
   <data name="Default_DecodeFileName" xml:space="preserve"><value>decoded_file.bin</value></data>
   <data name="Status_ParsingFormat" xml:space="preserve"><value>解析中 {0}/{1}</value></data>

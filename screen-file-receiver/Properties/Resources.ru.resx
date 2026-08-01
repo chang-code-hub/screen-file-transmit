@@ -71,6 +71,9 @@
   <data name="Error_NoCompleteFiles" xml:space="preserve"><value>Нет полных файлов для преобразования</value></data>
   <data name="Error_PasswordRequired" xml:space="preserve"><value>Некоторые файлы требуют пароль. Введите его</value></data>
   <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>Есть неполные файлы. Пропустить их и продолжить?</value></data>
+  <data name="MsgBox_IncompleteItem_NoMeta" xml:space="preserve"><value>- {0}: метаданные не разобраны, невозможно определить страницы</value></data>
+  <data name="MsgBox_IncompleteItem_MissingPages" xml:space="preserve"><value>- {0}: всего {1} стр., отсутствует страница: {2}</value></data>
+  <data name="MsgBox_IncompleteItem_HasDuplicate" xml:space="preserve"><value>- {0}: всего {1} стр., есть дублирующиеся номера страниц</value></data>
   <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>Уведомление</value></data>
   <data name="Default_DecodeFileName" xml:space="preserve"><value>декодированный_файл.bin</value></data>
   <data name="Status_ParsingFormat" xml:space="preserve"><value>Анализ {0}/{1}</value></data>

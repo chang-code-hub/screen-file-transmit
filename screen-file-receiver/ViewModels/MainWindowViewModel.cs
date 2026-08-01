@@ -674,8 +674,26 @@ namespace screen_file_transmit
                 return;
             }
 
-            var incompleteItems = FileItems.Where(f => !f.IsComplete).ToList();
-            if (incompleteItems.Count > 0)
+            var incompleteGroups = FileItems.Where(f => !f.IsComplete)
+                .GroupBy(f => new { f.FileId, f.SaveFileName })
+                .Select(g =>
+                {
+                    var first = g.First();
+                    var presentPages = g.Select(f => f.CurrentPage).Where(p => p > 0).Distinct().OrderBy(p => p).ToList();
+                    var missingPages = first.TotalPages > 0
+                        ? Enumerable.Range(1, first.TotalPages).Except(presentPages).OrderBy(p => p).ToList()
+                        : new List<int>();
+                    return new
+                    {
+                        FileName = first.SaveFileName ?? first.ImageFileName,
+                        TotalPages = first.TotalPages,
+                        PresentPages = presentPages,
+                        MissingPages = missingPages
+                    };
+                })
+                .ToList();
+
+            if (incompleteGroups.Count > 0)
             {
                 var result =
                     MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_SkipIncompleteFiles"),

@@ -491,7 +491,6 @@ namespace screen_file_transmit
             _previewCts = new CancellationTokenSource();
             var token = _previewCts.Token;
 
-            IsPreviewLoading = true;
             CommandManager.InvalidateRequerySuggested();
 
             try
@@ -547,7 +546,6 @@ namespace screen_file_transmit
             }
             finally
             {
-                IsPreviewLoading = false;
                 CommandManager.InvalidateRequerySuggested();
                 UpdateAutoPageTimer();
             }
