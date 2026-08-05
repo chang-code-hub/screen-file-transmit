@@ -71,9 +71,6 @@
   <data name="Error_NoCompleteFiles" xml:space="preserve"><value>No hay archivos completos para convertir</value></data>
   <data name="Error_PasswordRequired" xml:space="preserve"><value>Algunos archivos requieren contraseña. Ingrésela</value></data>
   <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>Hay archivos incompletos. ¿Omitirlos y continuar?</value></data>
-  <data name="MsgBox_IncompleteItem_NoMeta" xml:space="preserve"><value>- {0}: metadatos no analizados, no se pueden determinar las páginas</value></data>
-  <data name="MsgBox_IncompleteItem_MissingPages" xml:space="preserve"><value>- {0}: {1} páginas en total, página(s) faltante(s): {2}</value></data>
-  <data name="MsgBox_IncompleteItem_HasDuplicate" xml:space="preserve"><value>- {0}: {1} páginas en total, números de página duplicados</value></data>
   <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>Aviso</value></data>
   <data name="Default_DecodeFileName" xml:space="preserve"><value>archivo_decodificado.bin</value></data>
   <data name="Status_ParsingFormat" xml:space="preserve"><value>Analizando {0}/{1}</value></data>

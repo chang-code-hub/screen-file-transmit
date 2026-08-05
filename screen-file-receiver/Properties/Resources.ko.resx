@@ -71,9 +71,6 @@
   <data name="Error_NoCompleteFiles" xml:space="preserve"><value>변환할 완전한 파일이 없습니다</value></data>
   <data name="Error_PasswordRequired" xml:space="preserve"><value>비밀번호가 필요한 파일이 있습니다. 입력하세요</value></data>
   <data name="MsgBox_SkipIncompleteFiles" xml:space="preserve"><value>미완성 파일이 있습니다. 건너뛰고 계속하시겠습니까?</value></data>
-  <data name="MsgBox_IncompleteItem_NoMeta" xml:space="preserve"><value>- {0}: 메타데이터 미해석, 페이지 수 확인 불가</value></data>
-  <data name="MsgBox_IncompleteItem_MissingPages" xml:space="preserve"><value>- {0}: 총 {1}페이지, 누락 페이지: {2}</value></data>
-  <data name="MsgBox_IncompleteItem_HasDuplicate" xml:space="preserve"><value>- {0}: 총 {1}페이지, 중복 페이지 번호 존재</value></data>
   <data name="MsgBox_Title_Prompt" xml:space="preserve"><value>알림</value></data>
   <data name="Default_DecodeFileName" xml:space="preserve"><value>decoded_file.bin</value></data>
   <data name="Status_ParsingFormat" xml:space="preserve"><value>분석 중 {0}/{1}</value></data>

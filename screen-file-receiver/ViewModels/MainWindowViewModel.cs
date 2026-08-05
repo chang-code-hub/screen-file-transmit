@@ -674,35 +674,6 @@ namespace screen_file_transmit
                 return;
             }
 
-            var incompleteGroups = FileItems.Where(f => !f.IsComplete)
-                .GroupBy(f => new { f.FileId, f.SaveFileName })
-                .Select(g =>
-                {
-                    var first = g.First();
-                    var presentPages = g.Select(f => f.CurrentPage).Where(p => p > 0).Distinct().OrderBy(p => p).ToList();
-                    var missingPages = first.TotalPages > 0
-                        ? Enumerable.Range(1, first.TotalPages).Except(presentPages).OrderBy(p => p).ToList()
-                        : new List<int>();
-                    return new
-                    {
-                        FileName = first.SaveFileName ?? first.ImageFileName,
-                        TotalPages = first.TotalPages,
-                        PresentPages = presentPages,
-                        MissingPages = missingPages
-                    };
-                })
-                .ToList();
-
-            if (incompleteGroups.Count > 0)
-            {
-                var result =
-                    MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_SkipIncompleteFiles"),
-                        Properties.Resources.ResourceManager.GetString("MsgBox_Title_Prompt"), MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
-                if (result == MessageBoxResult.No)
-                    return;
-            }
-
             var groups = completeItems.GroupBy(f => new { f.FileId, f.SaveFileName }).ToList();
 
             // 重置所有待转换文件的状态和错误信息

@@ -1125,6 +1125,8 @@ namespace screen_file_transmit
                 return;
             }
 
+            bool turnPage = false;
+
             Thread.Sleep(200);
             if (_isClosing) return;
             if (_lastProcessedPage != meta.CurrentPage)
@@ -1133,6 +1135,7 @@ namespace screen_file_transmit
                 if (_flipMethod == FlipMethod.Wait)
                     BlinkOnSave();
                 SaveCapture(bmp, meta);
+                turnPage = true;
             }
 
             bmp.Dispose();
@@ -1148,7 +1151,9 @@ namespace screen_file_transmit
                 return;
             }
 
-            SimulatePageTurn();
+            if(turnPage) { 
+                SimulatePageTurn();
+            }
         }
 
         private void StopAutoFlip()
