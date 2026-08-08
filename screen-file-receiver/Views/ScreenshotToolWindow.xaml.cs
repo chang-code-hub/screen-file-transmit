@@ -1139,7 +1139,11 @@ namespace screen_file_transmit
             }
 
             bmp.Dispose();
-            _lastProcessedPage = meta.CurrentPage;
+            if (_lastProcessedPage > 0)
+            {
+                _lastProcessedPage = meta.CurrentPage;
+            }
+
             if (meta.CurrentPage >= meta.TotalPages)
             {
                 StopAutoFlip();
