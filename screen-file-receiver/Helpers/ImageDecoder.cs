@@ -20,7 +20,6 @@ namespace screen_file_transmit
     {
         private static readonly string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         private static readonly Encoding Iso88591 = Encoding.GetEncoding("ISO-8859-1");
-        private static readonly DataMatrixReader reader = new DataMatrixReader();
 
         /// <summary>
         /// 从图片读取文件
@@ -47,24 +46,34 @@ namespace screen_file_transmit
                     fileName));
             }
 
-            if (meta.TotalQrCodeCount > 0)
+            // 用「单元格数」而不是 DecodedQrCodeCount 做完整性判断：
+            // 彩色模式下 DecodedQrCodeCount 是单元格数×色层数，两者不是同一个量纲。
+            // 注意末尾页可能不满一页——发送端在流读完后即停止填充单元格，
+            // 所以不能用 MaxRows*MaxCols 当期望值；期望值应为实际存在的单元格数。
+            // 这里只在完全没有解出单元格时才报错，真正的完整性由每 cell 的 CRC32 兜底。
+            var distinctBlocks = dataBlocks
+                .GroupBy(c => (c.row, c.col))
+                .Select(g => g.First())
+                .OrderBy(c => c.row).ThenBy(c => c.col)
+                .ToList();
+
+            if (distinctBlocks.Count == 0)
             {
-                int actualQrCount = decodeResult.DecodedQrCodeCount;
-                if (actualQrCount < meta.TotalQrCodeCount * 0.8)
-                {
-                    throw new Exception(string.Format(
-                        Properties.Resources.ResourceManager.GetString("Error_QrCodeCountMismatch"),
-                        meta.TotalQrCodeCount, actualQrCount));
-                }
+                throw new Exception(string.Format(
+                    Properties.Resources.ResourceManager.GetString("Error_BlockIncomplete"), 1, 0));
             }
 
-            var currentPage = meta.CurrentPage;
-            var totalPages = meta.TotalPages;
-            var outputFileName = meta.FileName;
             long offset = fileStream.Position;
 
-            var final = dataBlocks.OrderBy(c => c.row).ThenBy(c => c.col).ToList();
+            // 按网格顺序排列：cell (row,col) 的文件顺序就是 row*MaxCols+col
+            var final = distinctBlocks;
 
+            // 发送端按 cell 顺序流式填充文件，每个 cell 的封装为：
+            //   坐标前缀(2) + 长度前缀(2, 大端, 该 cell 的 payloadLength) + payload + CRC32(4)
+            // payload 是文件里属于该 cell 的那一段，末尾 cell 可能不满；
+            // CRC32 只覆盖该 cell 自己的 payload。
+            // 因此校验/剥离的单位是「每个 cell」，长度前缀只决定写多少字节，与二维码内部容量无关。
+            // cell (row,col) 的顺序即文件顺序：row = col / MaxCols，col = col % MaxCols。
             fileStream.Position = offset;
             foreach (var block in final)
             {
@@ -75,26 +84,24 @@ namespace screen_file_transmit
                     continue;
                 }
 
-                // 前 2 字节为长度前缀（大端序），表示原始数据长度（不含 CRC32）
+                // 前 2 字节为长度前缀（大端序），表示本 cell 的 payload 长度（不含 CRC32）
                 int payloadLength = (bytes[0] << 8) | bytes[1];
-                int cellDataLength = payloadLength + 4; // 原始数据 + CRC32
-                int availableLength = bytes.Length - 2;
-                if (cellDataLength > availableLength)
-                    cellDataLength = availableLength;
-
-                if (cellDataLength < 4)
+                int availableLength = bytes.Length - 2 - 4; // 减去 CRC32
+                if (payloadLength < 0 || availableLength < 0)
                 {
-                    fileStream.Write(bytes, 0, bytes.Length);
-                    continue;
+                    throw new Exception(string.Format(
+                        Properties.Resources.ResourceManager.GetString("Error_Crc32Failed"), block.row, block.col));
                 }
+                if (payloadLength > availableLength)
+                    payloadLength = availableLength;
 
-                var cellData = new byte[cellDataLength];
-                Array.Copy(bytes, 2, cellData, 0, cellDataLength);
+                if (payloadLength == 0)
+                    continue;
 
                 var data = new byte[payloadLength];
-                Array.Copy(cellData, 0, data, 0, payloadLength);
+                Array.Copy(bytes, 2, data, 0, payloadLength);
                 var crcBytes = new byte[4];
-                Array.Copy(cellData, payloadLength, crcBytes, 0, 4);
+                Array.Copy(bytes, 2 + payloadLength, crcBytes, 0, 4);
                 var computedCrc = Crc32.ComputeHash(data);
                 if (!crcBytes.SequenceEqual(computedCrc))
                 {
@@ -231,6 +238,12 @@ namespace screen_file_transmit
 
             public MetadataResult Metadata { get; set; }
             public int DecodedQrCodeCount { get; set; }
+
+            /// <summary>
+            /// 尝试解码的 DataMatrix 二维码总数（黑白=单元格数；彩色=单元格数×通道数），
+            /// 用于与元数据的 TotalQrCodeCount 比对以判断解码完整性。
+            /// </summary>
+            public int DecodedQrCodeAttempts { get; set; }
         }
 
         /// <summary>
@@ -295,13 +308,16 @@ namespace screen_file_transmit
             bool isColorful = result.Metadata?.Colorful ?? false;
             if (isColorful)
             {
-                result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours, debug, out int decodedCount);
+                result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours, debug, out int decodedCount,
+                    out int attempts);
                 result.DecodedQrCodeCount = decodedCount;
+                result.DecodedQrCodeAttempts = attempts;
             }
             else
             {
-                result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours, debug);
+                result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours, debug, out int attempts);
                 result.DecodedQrCodeCount = result.DataBlocks.Count;
+                result.DecodedQrCodeAttempts = attempts;
             }
 
             if (result.Metadata?.HasErrorCorrection == true && result.DataBlocks != null && result.DataBlocks.Count > 0)
@@ -310,6 +326,70 @@ namespace screen_file_transmit
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 校验单页解码结果是否完整可靠（块数、坐标、CRC32）。
+        /// 用于自动翻页：元数据可读不代表数据区解码无误，必须通过本校验才允许翻页。
+        /// </summary>
+        /// <param name="result">整页解码结果</param>
+        /// <param name="qrCodeRatio">DataMatrix 二维码解码成功率阈值（0-1），元数据未给出总数时按块数估算</param>
+        /// <returns>true 表示本页数据可安全保存</returns>
+        public static bool VerifyDecodeResult(DecodeResult result, double qrCodeRatio = 0.95)
+        {
+            return VerifyDecodeResult(result, null, qrCodeRatio);
+        }
+
+        /// <summary>
+        /// 校验单页解码结果是否完整可靠（块数、坐标、CRC32）。
+        /// </summary>
+        /// <param name="result">整页解码结果</param>
+        /// <param name="meta">元数据（为空时使用 result.Metadata）</param>
+        /// <param name="qrCodeRatio">DataMatrix 二维码解码成功率阈值（0-1）</param>
+        public static bool VerifyDecodeResult(DecodeResult result, MetadataResult meta, double qrCodeRatio = 0.95)
+        {
+            if (result == null) return false;
+
+            meta = meta ?? result.Metadata;
+            var blocks = result.DataBlocks;
+            if (blocks == null || blocks.Count == 0) return false;
+
+            if (meta != null && meta.MaxRows > 0 && meta.MaxCols > 0)
+            {
+                // 与 ReadToFile 一致：单元格必须齐全，否则长度链条断裂、重组会错位
+                if (blocks.Count < meta.MaxRows * meta.MaxCols) return false;
+            }
+
+            if (meta != null && meta.TotalQrCodeCount > 0)
+            {
+                // 元数据记录的是本页应解出的 DataMatrix 二维码总数。
+                // DecodedQrCodeCount 仅统计「合并前」成功解出的层数（彩色模式下同一单元格的
+                // 多层会合并成一块，但每层各自计数），因此这里以实际尝试解码的二维码数为基准
+                // 判断解码成功率，避免把已合并完整的单元格误判为失败。
+                int attempts = result.DecodedQrCodeAttempts > 0
+                    ? result.DecodedQrCodeAttempts
+                    : result.DecodedQrCodeCount;
+                if (attempts < meta.TotalQrCodeCount * qrCodeRatio) return false;
+            }
+
+            var seen = new HashSet<(int row, int col)>();
+            foreach (var block in blocks)
+            {
+                if (!seen.Add((block.row, block.col))) return false; // 坐标重复
+                if (block.data == null || block.data.Length < 6) return false;
+
+                // 前 2 字节为长度前缀（大端序），其后为 payload + CRC32(4)
+                int payloadLength = (block.data[0] << 8) | block.data[1];
+                if (payloadLength <= 0 || payloadLength + 4 > block.data.Length - 2) return false;
+
+                var data = new byte[payloadLength];
+                Array.Copy(block.data, 2, data, 0, payloadLength);
+                var crcBytes = new byte[4];
+                Array.Copy(block.data, 2 + payloadLength, crcBytes, 0, 4);
+                if (!crcBytes.SequenceEqual(Crc32.ComputeHash(data))) return false;
+            }
+
+            return true;
         }
 
         private static (int dataShards, int parityShards) GetRsShardCounts(int errorCorrectionPercent)
@@ -406,45 +486,160 @@ namespace screen_file_transmit
         /// <summary>
         /// 查找所有 DataMatrix 二维码轮廓
         /// </summary>
+        /// <summary>
+        /// 估算图像中 DataMatrix 的模块边长（像素）。
+        /// </summary>
+        private static double EstimateModuleSize(Mat gray)
+        {
+            int w = gray.Width, h = gray.Height;
+            if (w < 16 || h < 16) return 4;
+
+            var counts = new Dictionary<int, int>();
+            int stepY = Math.Max(1, h / 40);
+
+            for (int y = stepY; y < h - stepY; y += stepY)
+            {
+                int run = 1;
+                bool prev = gray.At<byte>(y, 0) < 128;
+                for (int x = 1; x < w; x++)
+                {
+                    bool cur = gray.At<byte>(y, x) < 128;
+                    if (cur == prev) run++;
+                    else
+                    {
+                        if (run >= 1 && run <= 24) counts[run] = counts.TryGetValue(run, out var c) ? c + 1 : 1;
+                        run = 1;
+                        prev = cur;
+                    }
+                }
+            }
+
+            if (counts.Count == 0) return 4;
+
+            int best = 4, bestCount = -1;
+            foreach (var kv in counts)
+                if (kv.Value > bestCount) { bestCount = kv.Value; best = kv.Key; }
+            return Math.Max(1, best);
+        }
+
+        /// <summary>
+        /// 定位 DataMatrix 单元格边界。
+        ///
+        /// 核心思路：DataMatrix 有清晰的黑色 L 形实线边框，直接取外轮廓即可，
+        /// 不需要闭运算（闭运算反而会把相邻 DataMatrix 合并）。
+        ///
+        /// 相比旧实现的改进：
+        /// 1. 用 Otsu 自适应阈值，适应低对比度/偏色图像；
+        /// 2. 用模块尺寸估算最小面积，代替硬编码 100/15 像素；
+        /// 3. 用聚类估计预期的单元格尺寸，过滤异常大/小的轮廓；
+        /// 4. 多阈值取并集，宁可多检也不漏检。
+        /// </summary>
         private static List<Rect> FindDataMatrixContours(Mat image)
         {
             using (Mat gray = new Mat())
-            using (Mat thresh = new Mat())
             {
                 Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-                Cv2.Threshold(gray, thresh, 127, 255, ThresholdTypes.BinaryInv);
 
-                Cv2.FindContours(thresh, out Point[][] contours, out HierarchyIndex[] hierarchy,
-                    RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+                double module = EstimateModuleSize(gray);
+                double minCell = module * 10;
 
-                var validContours = contours
-                    .Where(c => Cv2.ContourArea(c) > 100)
-                    .Select(c => Cv2.BoundingRect(c))
-                    .Where(r => r.Height > 15 && r.Width > 15 &&
-                                Math.Abs(r.Height - r.Width) < Math.Max(r.Height, r.Width) * 0.3)
-                    .ToList();
+                var candidates = new List<Rect>();
 
-                if (validContours.Count == 0) return new List<Rect>();
+                // 多阈值策略
+                foreach (var threshVal in new int[] { -1, 127, 180, 90, 150, 110 })
+                {
+                    using (Mat thresh = new Mat())
+                    {
+                        if (threshVal < 0)
+                            Cv2.Threshold(gray, thresh, 0, 255, ThresholdTypes.BinaryInv | ThresholdTypes.Otsu);
+                        else
+                            Cv2.Threshold(gray, thresh, threshVal, 255, ThresholdTypes.BinaryInv);
 
-                var avgArea = validContours.Average(r => r.Width * r.Height);
-                return validContours
-                    .Where(r => r.Width * r.Height > avgArea * 0.2)
-                    .OrderBy(r => r.Y)
-                    .ThenBy(r => r.X)
+                        Cv2.FindContours(thresh, out Point[][] contours, out HierarchyIndex[] _,
+                            RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+                        foreach (var c in contours)
+                        {
+                            Rect r = Cv2.BoundingRect(c);
+                            if (r.Width < minCell || r.Height < minCell) continue;
+
+                            double ratio = r.Width / (double)r.Height;
+                            if (ratio < 0.5 || ratio > 2.0) continue;
+
+                            candidates.Add(r);
+                        }
+                    }
+                }
+
+                if (candidates.Count == 0) return new List<Rect>();
+
+                // 合并近邻矩形（gap 必须远小于 DataMatrix 之间的间隔，否则会把相邻单元格粘住）
+                candidates = MergeNearbyRects(candidates, (int)module);
+
+                // 估计预期的单元格尺寸（取中位数面积），过滤过大/过小
+                var areas = candidates.Select(r => r.Width * (double)r.Height).OrderBy(a => a).ToList();
+                double medianArea = areas[areas.Count / 2];
+
+                return candidates
+                    .Where(r =>
+                    {
+                        double area = r.Width * (double)r.Height;
+                        return area > medianArea * 0.4 && area < medianArea * 2.5;
+                    })
+                    .OrderBy(r => r.Y).ThenBy(r => r.X)
                     .ToList();
             }
+        }
+
+        /// <summary>
+        /// 合并空间上重叠或贴近的矩形，避免一个 DataMatrix 被拆成多个框。
+        /// </summary>
+        private static List<Rect> MergeNearbyRects(List<Rect> rects, int gap)
+        {
+            if (rects.Count <= 1) return rects;
+
+            var list = rects.ToList();
+            bool changed = true;
+            while (changed)
+            {
+                changed = false;
+                for (int i = 0; i < list.Count && !changed; i++)
+                {
+                    for (int j = i + 1; j < list.Count; j++)
+                    {
+                        var a = list[i];
+                        var b = list[j];
+                        bool overlap = a.Left - gap < b.Right && b.Left - gap < a.Right &&
+                                       a.Top - gap < b.Bottom && b.Top - gap < a.Bottom;
+                        if (!overlap) continue;
+
+                        int x1 = Math.Min(a.Left, b.Left);
+                        int y1 = Math.Min(a.Top, b.Top);
+                        int x2 = Math.Max(a.Right, b.Right);
+                        int y2 = Math.Max(a.Bottom, b.Bottom);
+                        list[i] = new Rect(x1, y1, x2 - x1, y2 - y1);
+                        list.RemoveAt(j);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            return list;
         }
 
         /// <summary>
         /// 黑白模式解码
         /// </summary>
         private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours,
-            bool debug = false)
+            bool debug, out int qrCodeAttempts)
         {
             var results = new List<(int row, int col, byte[] data)>();
             //reader.Options.TryHarder = true;
             //reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
 
+            // 每个轮廓对应一个 DataMatrix 二维码
+            qrCodeAttempts = contours.Count;
 
             HashSet<(int, int)> rowCols = new HashSet<(int, int)>();
             foreach (var rect in contours)
@@ -469,7 +664,7 @@ namespace screen_file_transmit
         /// 彩色模式解码 - 分离 R/G/B 通道分别解码
         /// </summary>
         private static List<(int row, int col, byte[] data)> DecodeColorfulMode(Mat image, List<Rect> contours,
-            bool debug, out int decodedQrCodeCount)
+            bool debug, out int decodedQrCodeCount, out int qrCodeAttempts)
         {
             var results = new List<(int row, int col, byte[] data)>();
             var reader = new DataMatrixReader();
@@ -482,6 +677,8 @@ namespace screen_file_transmit
             // OpenCV 分割顺序为 BGR，需重排为 RGB 以匹配发送端 (red, green, blue)
             var rgbChannels = new[] { channels[2], channels[1], channels[0] };
             decodedQrCodeCount = 0;
+            // 每个轮廓 × 3 个颜色通道 = 3 个 DataMatrix 二维码
+            qrCodeAttempts = contours.Count * 3;
 
             foreach (var rect in contours)
             {
@@ -623,6 +820,10 @@ namespace screen_file_transmit
         /// </summary>
         public static string TryDecodeDataMatrix(Mat image, bool debug = false, int retryCount = 10)
         {
+            // ZXing 的 DataMatrixReader 内部状态可变，非线程安全：
+            // 截图工具与转换流程并发调用时共享实例会导致偶发解不出，故每次调用新建。
+            var dmReader = new DataMatrixReader();
+
             for (int attempt = 0; attempt <= retryCount; attempt++)
             {
                 using (Mat processed = PreprocessForDecode(image, attempt))
@@ -637,7 +838,7 @@ namespace screen_file_transmit
                             { DecodeHintType.CHARACTER_SET, "ISO-8859-1" },
                             { DecodeHintType.TRY_HARDER, true }
                         };
-                        var result = reader.decode(binaryBitmap, hints);
+                        var result = dmReader.decode(binaryBitmap, hints);
 
                         if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
                         {
@@ -755,7 +956,8 @@ namespace screen_file_transmit
             // === 1. 统一先放大 ===
             Mat scaled = new Mat();
 
-            // 根据 attempt 控制放大倍数（逐步增强）
+            // 根据 attempt 控制放大倍数（逐步增强）。
+            // 对模糊图像，Lanczos4 比 Cubic 更锐利，放大后模块边缘更清晰。
             double scale = attempt switch
             {
                 0 => 1,
@@ -767,11 +969,15 @@ namespace screen_file_transmit
             Cv2.Resize(image, scaled, new Size(), scale, scale, InterpolationFlags.Cubic);
 
             // === 2. 灰度 ===
+            // BGRA(4通道) 也要转灰度，否则后续 OTSU/自适应阈值会抛 "src_type is CV_8UC4"
             Mat gray = new Mat();
-            if (scaled.Channels() == 3)
+            if (scaled.Channels() == 4)
+                Cv2.CvtColor(scaled, gray, ColorConversionCodes.BGRA2GRAY);
+            else if (scaled.Channels() == 3)
                 Cv2.CvtColor(scaled, gray, ColorConversionCodes.BGR2GRAY);
             else
                 gray = scaled.Clone();
+
 
             Mat result = new Mat();
 

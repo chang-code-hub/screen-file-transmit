@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     x:Class="screen_file_transmit.AutoFlipConfigDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -41,6 +41,38 @@
                 x:Name="RbWait"
                 Margin="0,4"
                 Content="{Binding MethodWaitText}" />
+            <RadioButton
+                x:Name="RbMouseClick"
+                Margin="0,4"
+                Content="{Binding MethodMouseClickText}" />
+        </StackPanel>
+
+        <StackPanel
+            Grid.Row="2"
+            Margin="8,8,0,0"
+            Orientation="Vertical">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock
+                    Margin="0,0,8,0"
+                    VerticalAlignment="Center"
+                    Text="{Binding ClickPosText}" />
+                <TextBlock
+                    x:Name="TxtClickPos"
+                    Margin="0,0,8,0"
+                    VerticalAlignment="Center"
+                    FontWeight="Bold"
+                    Text="95% , 50%" />
+                <Button
+                    Padding="10,3"
+                    Click="BtnPickPoint_Click"
+                    Content="{Binding PickPointButtonText}" />
+            </StackPanel>
+            <TextBlock
+                Margin="0,6,0,0"
+                Foreground="Gray"
+                FontSize="11"
+                Text="{Binding PickPointHintText}"
+                TextWrapping="Wrap" />
         </StackPanel>
 
 <!--         <Button -->

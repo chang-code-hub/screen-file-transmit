@@ -337,7 +337,6 @@ namespace screen_file_transmit
                 warnings.Add(sb.ToString());
             }
 
-            return true;
             if (warnings.Count > 0)
             {
                 var message = Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessWarning")
@@ -347,6 +346,8 @@ namespace screen_file_transmit
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
+
+            return true;
         }
 
         private void CheckFileComplete()

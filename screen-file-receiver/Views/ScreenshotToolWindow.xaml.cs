@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
@@ -41,6 +41,20 @@ namespace screen_file_transmit
         private FlipMethod _flipMethod = FlipMethod.LeftRight;
         private DateTime _lastPageTurnTime;
         private const int AutoFlipTimeoutSeconds = 30;
+
+        // 自动翻页：模拟鼠标点击翻页
+        private bool _useClick;
+        private int _clickOffsetPercentX = 95;
+        private int _clickOffsetPercentY = 50;
+        private System.Drawing.Point _savedCursorPos;
+        private bool _cursorSaved;
+        private bool _cursorMoved;
+
+        // 自动翻页：数据校验（解码无误才翻页）
+        private int _pendingPage = -1;              // 待重试的页码
+        private int _pendingRetries;                // 当前页重试次数
+        private const int MaxPageRetries = 3;
+        private const double DecodeQrRatioThreshold = 0.95;
 
         // 编辑选区相关
         private bool _isEditMode;
@@ -958,6 +972,10 @@ namespace screen_file_transmit
             }
 
             _lastProcessedPage = -1;
+            _pendingPage = -1;
+            _pendingRetries = 0;
+            _cursorSaved = false;
+            _cursorMoved = false;
             _lastCapture?.Dispose();
             _lastCapture = bmp;
             UpdateActionButtonState();
@@ -1010,6 +1028,17 @@ namespace screen_file_transmit
             }
 
             var configDialog = new AutoFlipConfigDialog(_selectedHwnd);
+
+            // 区域选区时没有窗口句柄，把物理坐标区域传给对话框，供拾取点击位置换算百分比
+            if (_selectedHwnd == IntPtr.Zero && _selectedRegion.Width > 0 && _selectedRegion.Height > 0)
+            {
+                var physTL = ScreenCaptureHelper.LogicalToPhysical(this,
+                    new System.Windows.Point(_selectedRegion.X, _selectedRegion.Y));
+                var physBR = ScreenCaptureHelper.LogicalToPhysical(this,
+                    new System.Windows.Point(_selectedRegion.Right, _selectedRegion.Bottom));
+                configDialog.SetRegionRect((int)physTL.X, (int)physTL.Y, (int)physBR.X, (int)physBR.Y);
+            }
+
             configDialog.Owner = this;
             var configResult = configDialog.ShowDialog();
             if (configResult != true)
@@ -1020,6 +1049,9 @@ namespace screen_file_transmit
             }
 
             _flipMethod = configDialog.SelectedMethod;
+            _useClick = configDialog.UseMouseClick;
+            _clickOffsetPercentX = configDialog.ClickOffsetPercentX;
+            _clickOffsetPercentY = configDialog.ClickOffsetPercentY;
 
             Thread.Sleep(200);
             if (_isClosing) return;
@@ -1092,17 +1124,25 @@ namespace screen_file_transmit
             if (bmp == null) return;
 
             ImageDecoder.MetadataResult meta = null;
+            ImageDecoder.DecodeResult decodeResult = null;
+            bool decodeVerified = false;
             try
             {
                 using (var metaBmp = new Bitmap(bmp))
                 {
                     meta = ImageDecoder.ReadMetadata(metaBmp);
                 }
+
+                using (var tempBmp = new Bitmap(bmp))
+                {
+                    decodeResult = ImageDecoder.DecodeImageWithMetadata(tempBmp, false);
+                    // 元数据可读不代表数据区解码无误，必须整页校验通过才允许翻页
+                    decodeVerified = ImageDecoder.VerifyDecodeResult(decodeResult, meta, DecodeQrRatioThreshold);
+                }
             }
             catch (Exception ex)
             {
                 //ignore
-                // bmp.Save("D:/test.bmp");
             }
 
             if ((DateTime.Now - _lastPageTurnTime).TotalSeconds > AutoFlipTimeoutSeconds)
@@ -1125,24 +1165,54 @@ namespace screen_file_transmit
                 return;
             }
 
-            bool turnPage = false;
+            // 页面未变化：等待发送端完成翻页，不做任何处理
+            if (_lastProcessedPage == meta.CurrentPage)
+            {
+                bmp.Dispose();
+                return;
+            }
+
+            // 新页面：解码无误才保存并翻页，否则留在本页重试
+            if (!decodeVerified)
+            {
+                bmp.Dispose();
+                if (_pendingPage != meta.CurrentPage)
+                {
+                    _pendingPage = meta.CurrentPage;
+                    _pendingRetries = 0;
+                }
+
+                _pendingRetries++;
+                if (_pendingRetries > MaxPageRetries)
+                {
+                    StopAutoFlip();
+                    BtnAutoFlip.IsChecked = false;
+                    MessageBox.Show(
+                        string.Format(
+                            Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipVerifyFailed"),
+                            meta.CurrentPage, MaxPageRetries),
+                        Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    ShowSelectionBorder();
+                }
+
+                return;
+            }
 
             Thread.Sleep(200);
             if (_isClosing) return;
-            if (_lastProcessedPage != meta.CurrentPage)
-            {
-                //截图成功
-                if (_flipMethod == FlipMethod.Wait)
-                    BlinkOnSave();
-                SaveCapture(bmp, meta);
-                turnPage = true;
-            }
 
+            if (_flipMethod == FlipMethod.Wait)
+                BlinkOnSave();
+            SaveCapture(bmp, meta);
             bmp.Dispose();
-            if (_lastProcessedPage > 0)
-            {
-                _lastProcessedPage = meta.CurrentPage;
-            }
+
+            _lastProcessedPage = meta.CurrentPage;
+            _pendingPage = -1;
+            _pendingRetries = 0;
+            _autoFlipTotalPages = meta.TotalPages;
+            _autoFlipFileName = meta.FileName;
 
             if (meta.CurrentPage >= meta.TotalPages)
             {
@@ -1155,9 +1225,7 @@ namespace screen_file_transmit
                 return;
             }
 
-            if(turnPage) { 
-                SimulatePageTurn();
-            }
+            SimulatePageTurn();
         }
 
         private void StopAutoFlip()
@@ -1169,6 +1237,27 @@ namespace screen_file_transmit
                 _autoFlipTimer.Tick -= AutoFlipTick;
                 _autoFlipTimer = null;
             }
+
+            RestoreCursor();
+        }
+
+        /// <summary>
+        /// 鼠标点击翻页会移动光标，停止自动翻页时把光标还原到原位置
+        /// </summary>
+        private void RestoreCursor()
+        {
+            if (!_cursorSaved || !_cursorMoved) return;
+
+            try
+            {
+                NativeMethods.SetCursorPos(_savedCursorPos.X, _savedCursorPos.Y);
+            }
+            catch
+            {
+                //ignore
+            }
+
+            _cursorMoved = false;
         }
 
         private void SimulatePageTurn()
@@ -1183,6 +1272,12 @@ namespace screen_file_transmit
             {
                 NativeMethods.SetForegroundWindow(_selectedHwnd);
                 System.Threading.Thread.Sleep(50);
+            }
+
+            if (_useClick)
+            {
+                SimulateClick();
+                return;
             }
 
             byte vk;
@@ -1203,6 +1298,74 @@ namespace screen_file_transmit
             NativeMethods.keybd_event(vk, 0, 0, IntPtr.Zero);
             System.Threading.Thread.Sleep(50);
             NativeMethods.keybd_event(vk, 0, NativeMethods.KEYEVENTF_KEYUP, IntPtr.Zero);
+        }
+
+        /// <summary>
+        /// 在选区/目标窗口内模拟一次鼠标点击（用于点击翻页的发送端）
+        /// </summary>
+        private void SimulateClick()
+        {
+            var pt = ComputeClickPoint();
+            if (pt == null) return;
+
+            if (NativeMethods.GetCursorPos(out var cursor))
+            {
+                if (!_cursorSaved)
+                {
+                    _savedCursorPos = new System.Drawing.Point(cursor.X, cursor.Y);
+                    _cursorSaved = true;
+                }
+
+                if (cursor.X != pt.Value.X || cursor.Y != pt.Value.Y)
+                    _cursorMoved = true;
+            }
+
+            NativeMethods.SetCursorPos(pt.Value.X, pt.Value.Y);
+            System.Threading.Thread.Sleep(50);
+            NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, IntPtr.Zero);
+            System.Threading.Thread.Sleep(30);
+            NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
+
+            _lastPageTurnTime = DateTime.Now;
+        }
+
+        /// <summary>
+        /// 计算点击落点（物理屏幕坐标）：窗口/选区内按百分比位置
+        /// </summary>
+        private System.Drawing.Point? ComputeClickPoint()
+        {
+            System.Drawing.Rectangle rc;
+
+            if (_selectedHwnd != IntPtr.Zero)
+            {
+                NativeMethods.GetWindowRect(_selectedHwnd, out var wr);
+                if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
+                    wr = dwmRc;
+
+                rc = new System.Drawing.Rectangle(wr.Left, wr.Top, wr.Right - wr.Left, wr.Bottom - wr.Top);
+            }
+            else if (_selectedRegion.Width > 0 && _selectedRegion.Height > 0)
+            {
+                var physTL = ScreenCaptureHelper.LogicalToPhysical(this,
+                    new System.Windows.Point(_selectedRegion.X, _selectedRegion.Y));
+                var physBR = ScreenCaptureHelper.LogicalToPhysical(this,
+                    new System.Windows.Point(_selectedRegion.Right, _selectedRegion.Bottom));
+                rc = new System.Drawing.Rectangle((int)physTL.X, (int)physTL.Y,
+                    (int)(physBR.X - physTL.X), (int)(physBR.Y - physTL.Y));
+            }
+            else
+            {
+                return null;
+            }
+
+            if (rc.Width <= 0 || rc.Height <= 0) return null;
+
+            double px = Math.Min(100, Math.Max(0, _clickOffsetPercentX)) / 100.0;
+            double py = Math.Min(100, Math.Max(0, _clickOffsetPercentY)) / 100.0;
+
+            return new System.Drawing.Point(
+                rc.Left + (int)Math.Round(rc.Width * px),
+                rc.Top + (int)Math.Round(rc.Height * py));
         }
 
         protected override void OnClosed(EventArgs e)
