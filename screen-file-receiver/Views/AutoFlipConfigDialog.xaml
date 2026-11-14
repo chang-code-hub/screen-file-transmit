@@ -28,22 +28,27 @@
                 x:Name="RbMouseClick"
                 Margin="0,4"
                 IsChecked="True"
+                Checked="MethodRadio_CheckedChanged"
                 Content="{Binding MethodMouseClickText}" />
             <RadioButton
                 x:Name="RbLeftRight"
                 Margin="0,4"
+                Checked="MethodRadio_CheckedChanged"
                 Content="{Binding MethodLeftRightText}" />
             <RadioButton
                 x:Name="RbUpDown"
                 Margin="0,4"
+                Checked="MethodRadio_CheckedChanged"
                 Content="{Binding MethodUpDownText}" />
             <RadioButton
                 x:Name="RbPageUpDown"
                 Margin="0,4"
+                Checked="MethodRadio_CheckedChanged"
                 Content="{Binding MethodPageUpDownText}" />
             <RadioButton
                 x:Name="RbWait"
                 Margin="0,4"
+                Checked="MethodRadio_CheckedChanged"
                 Content="{Binding MethodWaitText}" />
         </StackPanel>
 

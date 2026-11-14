@@ -92,3 +92,4 @@ Migrations/
 /*.png
 /*.py
 test/*.png
+test/**/*.png

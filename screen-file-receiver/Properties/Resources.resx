@@ -119,6 +119,7 @@
   <data name="Error_BlockIncomplete" xml:space="preserve"><value>数据块不完整: 期望 {0} 个单元格，实际解析到 {1} 个，无法安全重组文件</value></data>
   <data name="Error_Crc32Failed" xml:space="preserve"><value>CRC32 校验失败: 数据块 ({0}, {1})</value></data>
   <data name="Error_LoadImageFailed" xml:space="preserve"><value>加载图片失败: {0}</value></data>
+  <data name="Error_Underfull" xml:space="preserve"><value>本页未满载，非末页不应出现此情况，可能存在解码遗漏</value></data>
   <data name="ToolTip_AutoFlip" xml:space="preserve"><value>自动翻页</value></data>
   <data name="MsgBox_AutoFlipConfirm" xml:space="preserve"><value>请确认发送端已处于预览模式，且当前画面有操作权限。点击"确定"开始自动翻页截图。</value></data>
   <data name="MsgBox_AutoFlipNoData" xml:space="preserve"><value>未找到数据，请检查选区是否正确。</value></data>

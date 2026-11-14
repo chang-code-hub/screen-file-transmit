@@ -5,16 +5,15 @@ using System.Windows.Data;
 namespace screen_file_transmit
 {
     /// <summary>
-    /// 把「非末页不满载」标记转成文件列表显示文本：true → 未满，false → 空。
+    /// 判断状态文本是否表示错误（包含"错误"/"失败"关键字），用于表格行高亮。
     /// </summary>
-    public class UnderfullTextConverter : IValueConverter
+    public class StatusErrorConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            bool underfull = value is bool b && b;
-            return underfull
-                ? Properties.Resources.ResourceManager.GetString("Mark_Underfull")
-                : string.Empty;
+            var status = value as string;
+            if (string.IsNullOrEmpty(status)) return false;
+            return status.Contains("错误") || status.Contains("失败");
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

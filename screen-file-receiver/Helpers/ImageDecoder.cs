@@ -214,9 +214,49 @@ namespace screen_file_transmit
         public static bool ReadToFile(string fileName, Stream fileStream, bool debug,
             Action<int, int> progress = null)
         {
-            var decodeResult = DecodeImageWithMetadata(fileName, debug, progress);
+            // 统一用 Bitmap 加载（与截图工具、转换探针 ProbeUnderfull 同源），
+            // 避免 Cv2.ImRead 与 System.Drawing 解码路径在个别图上产生像素差异导致解码结果不一致。
+            ImageDecoder.DecodeResult decodeResult;
+            using (var bmp = new Bitmap(fileName))
+                decodeResult = DecodeImageWithMetadata(bmp, debug, progress);
             var meta = decodeResult.Metadata;
             var dataBlocks = decodeResult.DataBlocks;
+
+            // 默认路径解码出问题（元数据不可读、没有解出任何 block、或未通过完整性校验）时，
+            // 临时屏蔽放大算法，用降级路径对同一张图重试一次，覆盖「放大反而干扰识别」的情况。
+            // 仅在打开文件这一条路径触发，截图工具的自动翻页降级由 ScreenshotToolWindow 自己管理，
+            // 两者互不影响（各自用完即恢复 DisableUpscale=false）。
+            if (meta?.Metadata == null || meta.Metadata.Length < 4
+                || dataBlocks == null || dataBlocks.Count == 0
+                || !VerifyDecodeResult(decodeResult, meta))
+            {
+                DisableUpscale = true;
+                try
+                {
+                    ImageDecoder.DecodeResult retryResult;
+                    using (var bmp = new Bitmap(fileName))
+                        retryResult = DecodeImageWithMetadata(bmp, debug, progress);
+                    var retryMeta = retryResult.Metadata;
+                    var retryBlocks = retryResult.DataBlocks;
+
+                    if (retryMeta?.Metadata != null && retryMeta.Metadata.Length >= 4
+                        && retryBlocks != null && retryBlocks.Count > 0
+                        && VerifyDecodeResult(retryResult, retryMeta))
+                    {
+                        decodeResult = retryResult;
+                        meta = retryMeta;
+                        dataBlocks = retryBlocks;
+                    }
+                }
+                catch (Exception)
+                {
+                    // 降级重试本身异常：保留默认路径的结果/异常，走原来的报错逻辑
+                }
+                finally
+                {
+                    DisableUpscale = false;
+                }
+            }
 
             if (meta?.Metadata == null || meta.Metadata.Length < 4)
             {
@@ -228,6 +268,14 @@ namespace screen_file_transmit
             {
                 throw new Exception(string.Format(Properties.Resources.ResourceManager.GetString("Error_NoDataBlocks"),
                     fileName));
+            }
+
+            // 非末页但解码结果标记为「未满」：说明这一帧没有解出全部单元格
+            // （可能是截图时机问题，也可能是个别 cell 解码失败），按错误处理，
+            // 让上层把这一行状态标为错误，而不是当作正常满页继续转换。
+            if (decodeResult != null && decodeResult.IsUnderfull)
+            {
+                throw new Exception(Properties.Resources.ResourceManager.GetString("Error_Underfull"));
             }
 
             // 用「单元格数」而不是 DecodedQrCodeCount 做完整性判断：
@@ -546,20 +594,43 @@ namespace screen_file_transmit
 
             var dataMatrixContours = FindDataMatrixContours(image);
 
+            // 进度汇报用「元数据声明的二维码总数」做分母，而不是轮廓候选数——
+            // 否则补救阶段（RetryDecodeWithFailedRects / TryDecodeCellAtGrid）不在 DecodeInParallel 内，
+            // 分母会与真实数量脱节，界面上显示的"已解析 x/总数"会错。
+            var meta = result.Metadata;
+            int expectedQrCount = (meta != null && meta.TotalQrCodeCount > 0)
+                ? meta.TotalQrCodeCount
+                : dataMatrixContours.Count * (meta?.Colorful == true ? 3 : 1);
+            int reportedDone = 0;
+            Action<int, int> wrappedProgress = (done, total) =>
+            {
+                // done 是「本轮并行已处理数」，加上之前补救已解出的数量才是真实进度
+                Interlocked.Exchange(ref reportedDone, done);
+                progress?.Invoke(reportedDone, expectedQrCount);
+            };
+
             bool isColorful = result.Metadata?.Colorful ?? false;
             if (isColorful)
             {
-                result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours, debug, out int decodedCount,
-                    out int attempts, progress);
-                result.DecodedQrCodeCount = decodedCount;
+                result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours, result.Metadata, debug,
+                    out int decodedCount, out int attempts, wrappedProgress);
+                // decodedCount 为「轮廓阶段」成功解出的层数，不含补救。
+                // 补救结果若被并入 results，会与 DecodeColorfulMode 的 decodedCount 脱节，
+                // 这里改为：DecodedQrCodeAttempts 保持「尝试总数」（= 轮廓数 × 3 层），
+                // DecodedQrCodeCount 用「最终解出的层数」= 最终结果数 × 3（彩色模式下每 cell 3 层）。
                 result.DecodedQrCodeAttempts = attempts;
+                result.DecodedQrCodeCount = result.DataBlocks.Count * 3;
             }
             else
             {
-                result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours, debug, out int attempts, progress);
-                result.DecodedQrCodeCount = result.DataBlocks.Count;
+                result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours, result.Metadata, debug,
+                    out int attempts, wrappedProgress);
                 result.DecodedQrCodeAttempts = attempts;
+                result.DecodedQrCodeCount = result.DataBlocks.Count;
             }
+
+            // 解码+补救全部完成后，汇报最终真实进度（覆盖中途可能不准的值）
+            progress?.Invoke(result.DecodedQrCodeCount, expectedQrCount);
 
             if (result.Metadata?.HasErrorCorrection == true && result.DataBlocks != null && result.DataBlocks.Count > 0)
             {
@@ -688,6 +759,16 @@ namespace screen_file_transmit
                     ? result.DecodedQrCodeAttempts
                     : result.DecodedQrCodeCount;
                 if (attempts < meta.TotalQrCodeCount * qrCodeRatio) return false;
+            }
+
+            // 严格校验：实际成功解出的 DataMatrix 数量必须等于元数据声明的数量，
+            // 少一个都算解码失败（而不是「未满」）——防止个别 cell 解不出导致
+            // 字节数被低估、误判为未满而跳过降级/重试路径。
+            // TotalQrCodeCount = cell数 × (彩色?3:1)，DecodedQrCodeCount 是合并前的层数，
+            // 两者量纲一致，直接比对。
+            if (meta != null && meta.TotalQrCodeCount > 0 && result.DecodedQrCodeCount > 0)
+            {
+                if (result.DecodedQrCodeCount < meta.TotalQrCodeCount) return false;
             }
 
             var seen = new HashSet<(int row, int col)>();
@@ -962,6 +1043,63 @@ namespace screen_file_transmit
             }
         }
 
+        /// <summary>
+        /// 按「第 row 行第 col 列」的网格位置，在整图上估算该 cell 的包围盒并解码。
+        /// 用于轮廓检测漏检时的补救——不依赖轮廓检测，只按网格几何推算位置。
+        /// 内部会走完整的 24 种（放大变体×预处理策略）组合，按历史成功率排序。
+        /// </summary>
+        /// <param name="layer">彩色模式下的色层（0=R,1=G,2=B），黑白模式传 -1</param>
+        private static (int row, int col, byte[] data)? TryDecodeCellAtGrid(Mat image, int row, int col,
+            MetadataResult meta, bool debug, int layer = -1)
+        {
+            if (meta == null || meta.MaxRows <= 0 || meta.MaxCols <= 0) return null;
+
+            // 网格单元格等距分布：用宽高除以行列数估算每个 cell 的步长和尺寸
+            int cellW = image.Width / meta.MaxCols;
+            int cellH = image.Height / meta.MaxRows;
+            if (cellW <= 0 || cellH <= 0) return null;
+
+            // 留一点 padding，覆盖数据矩阵内部模块的边界抖动
+            int pad = Math.Max(2, Math.Min(cellW, cellH) / 8);
+            int x = col * cellW - pad;
+            int y = row * cellH - pad;
+            int w = cellW + 2 * pad;
+            int h = cellH + 2 * pad;
+
+            // 裁剪到图像范围内
+            x = Math.Max(0, x);
+            y = Math.Max(0, y);
+            w = Math.Min(image.Width - x, w);
+            h = Math.Min(image.Height - y, h);
+            if (w <= 0 || h <= 0) return null;
+
+            using (Mat roi = new Mat(image, new Rect(x, y, w, h)))
+            {
+                if (layer >= 0)
+                {
+                    // 彩色模式：先分离出对应色层再解码
+                    Mat[] channels = new Mat[3];
+                    Cv2.Split(roi, out channels);
+                    try
+                    {
+                        // OpenCV 分割顺序 BGR → RGB，与 DecodeColorfulMode 一致
+                        var channel = channels[2 - layer];
+                        using (Mat bgr = new Mat())
+                        {
+                            Cv2.CvtColor(channel, bgr, ColorConversionCodes.GRAY2BGR);
+                            return DecodeDataMatrixAt(bgr, new Rect(0, 0, bgr.Width, bgr.Height), debug);
+                        }
+                    }
+                    finally
+                    {
+                        foreach (var ch in channels) ch.Dispose();
+                    }
+                }
+
+                return DecodeDataMatrixAt(roi, new Rect(0, 0, roi.Width, roi.Height), debug);
+            }
+        }
+
         private static List<Rect> FindDataMatrixContours(Mat image)
         {
             Mat work = image;
@@ -1073,10 +1211,12 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 黑白模式解码
+        /// 黑白模式解码。meta 传入后按网格预期数做缺失补救：
+        /// 优先用「解码失败的轮廓矩形」重试（坐标精确），
+        /// 再退回按网格几何推算包围盒。
         /// </summary>
         private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours,
-            bool debug, out int qrCodeAttempts, Action<int, int> progress = null)
+            MetadataResult meta, bool debug, out int qrCodeAttempts, Action<int, int> progress = null)
         {
             // 每个轮廓对应一个 DataMatrix 二维码
             qrCodeAttempts = contours.Count;
@@ -1087,21 +1227,62 @@ namespace screen_file_transmit
 
             var results = new List<(int row, int col, byte[] data)>();
             var rowCols = new HashSet<(int, int)>();
-            foreach (var item in decoded)
+            var failedRects = new List<Rect>();
+
+            for (int i = 0; i < decoded.Length; i++)
             {
-                if (item == null) continue;
-                if (!rowCols.Add((item.Value.row, item.Value.col))) continue;
-                results.Add(item.Value);
+                if (decoded[i] == null)
+                {
+                    failedRects.Add(contours[i]);
+                    continue;
+                }
+                var item = decoded[i].Value;
+                if (!rowCols.Add((item.row, item.col))) continue;
+                results.Add(item);
+            }
+
+            // 轮廓检测可能漏检/解码失败，按网格预期数做缺失补救：
+            // 1. 先用解码失败的轮廓矩形重试（坐标来自轮廓检测，准确）
+            // 2. 再退回网格几何推算（轮廓可能根本没检测到）
+            if (meta != null && meta.TotalQrCodeCount > 0 && meta.MaxRows > 0 && meta.MaxCols > 0)
+            {
+                int gridExpectation = meta.Colorful ? meta.TotalQrCodeCount / 3 : meta.TotalQrCodeCount;
+                if (gridExpectation > 0 && results.Count < gridExpectation)
+                {
+                    // 1. 失败矩形重试
+                    foreach (var rect in failedRects)
+                    {
+                        if (results.Count >= gridExpectation) break;
+
+                        var cell = RetryDecodeWithFailedRects(image, new List<Rect> { rect }, debug);
+                        if (cell != null && rowCols.Add((cell.Value.row, cell.Value.col)))
+                            results.Add(cell.Value);
+                    }
+
+                    // 2. 网格几何推算兜底（轮廓检测完全没找到时）
+                    for (int row = 0; row < meta.MaxRows && results.Count < gridExpectation; row++)
+                    {
+                        for (int col = 0; col < meta.MaxCols && results.Count < gridExpectation; col++)
+                        {
+                            if (rowCols.Contains((row, col))) continue;
+
+                            var cell = TryDecodeCellAtGrid(image, row, col, meta, debug);
+                            if (cell != null && rowCols.Add((cell.Value.row, cell.Value.col)))
+                                results.Add(cell.Value);
+                        }
+                    }
+                }
             }
 
             return results.OrderBy(x => x.row).ThenBy(x => x.col).ToList();
         }
 
         /// <summary>
-        /// 彩色模式解码 - 分离 R/G/B 通道分别解码
+        /// 彩色模式解码 - 分离 R/G/B 通道分别解码。meta 传入后按网格预期数做缺失补救。
         /// </summary>
         private static List<(int row, int col, byte[] data)> DecodeColorfulMode(Mat image, List<Rect> contours,
-            bool debug, out int decodedQrCodeCount, out int qrCodeAttempts, Action<int, int> progress = null)
+            MetadataResult meta, bool debug, out int decodedQrCodeCount, out int qrCodeAttempts,
+            Action<int, int> progress = null)
         {
             Mat[] channels = new Mat[3];
             Cv2.Split(image, out channels);
@@ -1132,11 +1313,76 @@ namespace screen_file_transmit
                 }, progress);
 
                 var results = new List<(int row, int col, byte[] data)>();
-                foreach (var blockResults in perContour)
+                var failedRects = new List<Rect>();
+                for (int i = 0; i < perContour.Length; i++)
                 {
-                    if (blockResults == null) continue;
+                    var blockResults = perContour[i];
+                    if (blockResults == null)
+                    {
+                        failedRects.Add(contours[i]);
+                        continue;
+                    }
                     decodedQrCodeCount += blockResults.Count;
                     results.Add(MergeLayerData(blockResults));
+                }
+
+                // 轮廓漏检补救：优先用「解码失败的轮廓矩形」重试（坐标精确），
+                // 再退回按网格几何推算包围盒（轮廓完全没检测到时）。每 cell 3 层都解出才算成功。
+                if (meta != null && meta.TotalQrCodeCount > 0 && meta.MaxRows > 0 && meta.MaxCols > 0)
+                {
+                    int gridExpectation = meta.Colorful ? meta.TotalQrCodeCount / 3 : meta.TotalQrCodeCount;
+                    if (gridExpectation > 0 && results.Count < gridExpectation)
+                    {
+                        var found = new HashSet<(int row, int col)>(results.Select(r => (r.row, r.col)));
+
+                        // 1. 失败矩形重试（坐标来自轮廓检测，准确）
+                        foreach (var rect in failedRects)
+                        {
+                            if (results.Count >= gridExpectation) break;
+
+                            var blockResults = new List<(int layer, int row, int col, byte[] data)>();
+                            for (int layer = 0; layer < 3; layer++)
+                            {
+                                var decoded = DecodeDataMatrixFromChannel(rgbChannels[layer], rect, layer, debug);
+                                if (decoded != null)
+                                    blockResults.Add((layer, decoded.Value.row, decoded.Value.col, decoded.Value.data));
+                            }
+
+                            if (blockResults.Count == 3)
+                            {
+                                var merged = MergeLayerData(blockResults);
+                                if (found.Add((merged.row, merged.col)))
+                                {
+                                    results.Add(merged);
+                                    decodedQrCodeCount += blockResults.Count;
+                                }
+                            }
+                        }
+
+                        // 2. 网格几何推算兜底
+                        for (int row = 0; row < meta.MaxRows && results.Count < gridExpectation; row++)
+                        {
+                            for (int col = 0; col < meta.MaxCols && results.Count < gridExpectation; col++)
+                            {
+                                if (found.Contains((row, col))) continue;
+
+                                var blockResults = new List<(int layer, int row, int col, byte[] data)>();
+                                for (int layer = 0; layer < 3; layer++)
+                                {
+                                    var decoded = TryDecodeCellAtGrid(image, row, col, meta, debug, layer);
+                                    if (decoded != null)
+                                        blockResults.Add((layer, decoded.Value.row, decoded.Value.col, decoded.Value.data));
+                                }
+
+                                if (blockResults.Count == 3)
+                                {
+                                    results.Add(MergeLayerData(blockResults));
+                                    found.Add((row, col));
+                                    decodedQrCodeCount += blockResults.Count;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 return results;
@@ -1157,7 +1403,7 @@ namespace screen_file_transmit
             if (count == 0) return results;
 
             int done = 0;
-            int dop = Math.Min(DecodeParallelism, count);
+            int dop = Debugger.IsAttached ? 1 :  Math.Min(DecodeParallelism, count); 
 
             // 数量太少没必要起线程池
             if (dop <= 1)
@@ -1240,6 +1486,22 @@ namespace screen_file_transmit
         /// <summary>
         /// 在指定位置解码 DataMatrix（用于黑白模式）
         /// </summary>
+        /// <summary>
+        /// 解码 DataMatrix 的 (row,col) 坐标前缀并返回完整块数据。
+        /// </summary>
+        private static (int row, int col, byte[] data)? ParseRowCol(string decoded)
+        {
+            if (string.IsNullOrEmpty(decoded) || decoded.Length < 2) return null;
+
+            int row = rcString.IndexOf(decoded[0]);
+            int col = rcString.IndexOf(decoded[1]);
+            if (row < 0 || col < 0) return null;
+
+            string payload = decoded.Substring(2);
+            byte[] bytes = Iso88591.GetBytes(payload);
+            return (row, col, bytes);
+        }
+
         private static (int row, int col, byte[] data)? DecodeDataMatrixAt(Mat image, Rect rect, bool debug)
         {
             int padding = 5;
@@ -1250,22 +1512,23 @@ namespace screen_file_transmit
 
             using (Mat roi = new Mat(image, new Rect(x, y, w, h)))
             {
-                string decoded = TryDecodeDataMatrix(roi, debug);
-
-                if (!string.IsNullOrEmpty(decoded) && decoded.Length >= 2)
-                {
-                    int row = rcString.IndexOf(decoded[0]);
-                    int col = rcString.IndexOf(decoded[1]);
-
-                    if (row >= 0 && col >= 0)
-                    {
-                        string payload = decoded.Substring(2);
-                        byte[] bytes = Iso88591.GetBytes(payload);
-                        return (row, col, bytes);
-                    }
-                }
+                return ParseRowCol(TryDecodeDataMatrix(roi, debug));
             }
+        }
 
+        /// <summary>
+        /// 解码失败的轮廓矩形重试：用默认 24 种组合都失败的候选矩形坐标，
+        /// 在所有变体重排完成后按「历史成功率优先级」再试一轮。
+        /// 这比网格几何硬算位置准确——矩形来自轮廓检测，坐标本身就是真实 DataMatrix 的包围盒。
+        /// </summary>
+        private static (int row, int col, byte[] data)? RetryDecodeWithFailedRects(
+            Mat image, List<Rect> failedRects, bool debug)
+        {
+            foreach (var rect in failedRects)
+            {
+                var decoded = DecodeDataMatrixAt(image, rect, debug);
+                if (decoded != null) return decoded;
+            }
             return null;
         }
 
@@ -1319,9 +1582,6 @@ namespace screen_file_transmit
         public static string TryDecodeDataMatrix(Mat image, bool debug = false,
             IEnumerable<string> allowedVariants = null)
         {
-            // ZXing 的 DataMatrixReader 内部状态可变，非线程安全：
-            // 截图工具与转换流程并发调用时共享实例会导致偶发解不出，故每次调用新建。
-            var dmReader = new DataMatrixReader();
 
             // 取当前排序（成功率高的在前），未统计到的保持默认顺序
             List<string> order = VariantOrder.ToList();
@@ -1335,20 +1595,29 @@ namespace screen_file_transmit
                 // 只保留排序里真实存在的名字，避免白名单含无效名导致空遍历
                 order = order.Where(n => allowedSet.Contains(n)).ToList();
             }
+             
 
             foreach (var vName in order)
             {
                 var variant = variantByName[vName];
-                for (int strategy = 0; strategy < StrategiesPerVariant; strategy++)
-                {
-                    // 固定 attempt 编号（按初始变体定义），与运行期排序无关
-                    int attemptNo = AttemptNo(variant, strategy);
 
-                    using (Mat processed = PreprocessForDecode(image, variant, strategy))
+                // 放大+灰度是 4 个策略共用的前置步骤，每个变体只算一次，避免重复 Resize。
+                using (Mat gray = ScaleAndGrayscale(image, variant))
+                {
+                    for (int strategy = 0; strategy < StrategiesPerVariant; strategy++)
                     {
-                        using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(processed))
+                        // 固定 attempt 编号（按初始变体定义），与运行期排序无关
+                        int attemptNo = AttemptNo(variant, strategy);
+
+                        using (Mat processed = ApplyStrategy(gray, strategy))
                         {
-                            var source = new BitmapLuminanceSource(bitmap);
+                            // processed 已是单通道 CV_8UC1 灰度图，直接拷贝像素数据构造
+                            // LuminanceSource，跳过 Mat -> System.Drawing.Bitmap -> LuminanceSource
+                            // 的两次跨边界拷贝（BitmapLuminanceSource 需要 Bitmap，这里用
+                            // RGBLuminanceSource 的 is8Bit 重载直接吃 byte[]）。
+                            byte[] luminance = new byte[processed.Width * processed.Height];
+                            System.Runtime.InteropServices.Marshal.Copy(processed.Data, luminance, 0, luminance.Length);
+                            var source = new RGBLuminanceSource(luminance, processed.Width, processed.Height, RGBLuminanceSource.BitmapFormat.Gray8);
                             var binarizer = new HybridBinarizer(source);
                             var binaryBitmap = new BinaryBitmap(binarizer);
                             var hints = new Dictionary<DecodeHintType, object>
@@ -1356,28 +1625,39 @@ namespace screen_file_transmit
                                 { DecodeHintType.CHARACTER_SET, "ISO-8859-1" },
                                 { DecodeHintType.TRY_HARDER, true }
                             };
+                            // ZXing 的 DataMatrixReader 内部状态可变，非线程安全：
+                            // 截图工具与转换流程并发调用时共享实例会导致偶发解不出，故每次调用新建。
+                            var dmReader = new DataMatrixReader();
                             var result = dmReader.decode(binaryBitmap, hints);
 
-                            if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
+                            if (result != null && !String.IsNullOrEmpty(result.Text) && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
                             {
+
                                 // 记录命中的这个具体 attempt 成功
                                 RecordAttempt(attemptNo, true);
                                 ReorderBySuccessRate();
                                 return result.Text;
                             }
+                            else
+                            { 
+                                if (debug)
+                                {
+                                    Cv2.ImShow($"{vName} - {strategy}", processed); 
+                                }
+                            }
                         }
-                    }
 
-                    // 该 attempt 未命中，记一次失败
-                    RecordAttempt(attemptNo, false);
+                        // 该 attempt 未命中，记一次失败
+                        RecordAttempt(attemptNo, false);
+                    }
                 }
             }
 
             if (debug)
             {
                 image.SaveImage(Directory.GetCurrentDirectory() + "/dm.png");
-                Cv2.ImShow("DM", image);
-                // Cv2.WaitKey();
+                Cv2.ImShow("DM", image); 
+                Cv2.WaitKey();
             }
 
             return null;
@@ -1466,12 +1746,9 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 解码预处理
-        /// </summary> 
-        /// <summary>
-        /// 对指定放大变体做指定策略的预处理。
+        /// 解码预处理：放大 + 转灰度（同一变体下 4 个策略共用，每个变体只算一次）。
         /// </summary>
-        private static Mat PreprocessForDecode(Mat image, UpscaleVariant variant, int strategy)
+        private static Mat ScaleAndGrayscale(Mat image, UpscaleVariant variant)
         {
             // === 1. 放大 ===
             // DisableUpscale=true 时跳过放大，只保留灰度+预处理策略，
@@ -1492,7 +1769,14 @@ namespace screen_file_transmit
             else
                 gray = scaled.Clone();
 
-            // === 3. 每个放大变体都尝试同样的 4 种预处理策略 ===
+            return gray;
+        }
+
+        /// <summary>
+        /// 对已放大的灰度图做指定策略的预处理（4 种策略各算各的，共享同一个 gray 输入）。
+        /// </summary>
+        private static Mat ApplyStrategy(Mat gray, int strategy)
+        {
             Mat result = new Mat();
             switch (strategy)
             {
@@ -1530,8 +1814,7 @@ namespace screen_file_transmit
                 default:
                     result = gray.Clone();
                     break;
-            }
-
+            } 
             return result;
         }
         //private static Mat PreprocessForDecode(Mat image, int attempt)

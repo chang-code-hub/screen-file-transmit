@@ -3,8 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Media;
 using System.Windows;
 using System.Runtime.InteropServices;
@@ -35,6 +37,7 @@ namespace screen_file_transmit
         private readonly ManualResetEventSlim _pauseEvent = new ManualResetEventSlim(true);
         private bool _isPaused;
         private string _pauseButtonText = Properties.Resources.ResourceManager.GetString("Button_Pause");
+        private bool _isBatchAdding;
 
         public ObservableCollection<FileItem> FileItems
         {
@@ -64,6 +67,16 @@ namespace screen_file_transmit
             {
                 _statusText = value?.Trim();
                 OnPropertyChanged(nameof(StatusText));
+            }
+        }
+
+        public bool IsBatchAdding
+        {
+            get => _isBatchAdding;
+            set
+            {
+                _isBatchAdding = value;
+                OnPropertyChanged(nameof(IsBatchAdding));
             }
         }
 
@@ -136,7 +149,8 @@ namespace screen_file_transmit
             {
                 _selectedFileItem = value;
                 OnPropertyChanged(nameof(SelectedFileItem));
-                LoadPreview();
+                if (!_isBatchAdding)
+                    LoadPreview();
             }
         }
 
@@ -271,48 +285,140 @@ namespace screen_file_transmit
             }
         }
 
+        // 获取 CPU 线程数：物理核心数 × 2（超线程），非超线程则为物理核心数；失败时回退到 Environment.ProcessorCount
+        // 调试器附加时强制单线程（maxDop=1），避免并发任务在断点/单步时互相干扰。
+        private static int GetCpuThreadCount()
+        {
+            if (Debugger.IsAttached)
+                return 1;
+
+            int physicalCores = GetPhysicalCoreCount();
+            if (physicalCores > 0)
+            {
+                // NumberOfLogicalProcessors > NumberOfCores 表示开启了超线程
+                int logical = Environment.ProcessorCount;
+                return logical > physicalCores ? logical : physicalCores * 2;
+            }
+            return Environment.ProcessorCount;
+        }
+
+        // 通过 WMI 查询物理核心数，失败返回 0
+        private static int GetPhysicalCoreCount()
+        {
+            try
+            {
+                using (var searcher = new ManagementObjectSearcher(
+                    "SELECT NumberOfCores FROM Win32_Processor"))
+                {
+                    int cores = 0;
+                    foreach (ManagementObject obj in searcher.Get())
+                        cores += Convert.ToInt32(obj["NumberOfCores"]);
+                    return cores;
+                }
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
         public async Task AddFilesAsync(IEnumerable<string> files)
         {
             var existingPaths = new HashSet<string>(FileItems.Select(f => f.FullPath));
             var fileList = files.OrderBy(c => c).ToList();
 
-            foreach (var file in fileList)
+            IsBatchAdding = true;
+            try
             {
-                if (existingPaths.Contains(file))
-                    continue;
-
-                var item = await Task.Run(() => CreateFileItem(file));
-                if (item != null)
+                var maxDop = Math.Max(1, GetCpuThreadCount() - 2);
+                using (var throttle = new SemaphoreSlim(maxDop, maxDop))
                 {
-                    // 重截替换：同 EffectiveFileId + 同 CurrentPage 视为同一行，覆盖而非新增
-                    var dup = FileItems.FirstOrDefault(f =>
-                        f.EffectiveFileId == item.EffectiveFileId &&
-                        f.CurrentPage == item.CurrentPage &&
-                        f.TotalPages == item.TotalPages &&
-                        f.EffectiveFileId.Length > 0);
-                    if (dup != null)
+                    var tasks = fileList.Select(async file =>
                     {
-                        dup.FullPath = item.FullPath;
-                        dup.ImageFileName = item.ImageFileName;
-                        dup.IsUnderfull = item.IsUnderfull;
-                        dup.MetadataInfo = item.MetadataInfo;
-                        dup.Status = item.Status;
-                        existingPaths.Add(file);
-                        continue;
-                    }
+                        if (existingPaths.Contains(file))
+                            return;
 
-                    // 行号在加入时一次性确定，之后不随排序变化
-                    item.RowNumber = FileItems.Count + 1;
-                    item.PropertyChanged += FileItem_PropertyChanged;
-                    FileItems.Add(item);
-                    existingPaths.Add(file);
-                    SelectedFileItem = item;
-                    await Task.Yield();
+                        await throttle.WaitAsync();
+                        try
+                        {
+                            var item = await Task.Run(() => CreateFileItem(file));
+                            if (item == null)
+                                return;
+
+                            // UI 更新必须在 UI 线程上串行执行
+                            await Application.Current.Dispatcher.InvokeAsync(() =>
+                            {
+                                // 重截替换：同 EffectiveFileId + 同 CurrentPage 视为同一行，覆盖而非新增
+                                var dup = FileItems.FirstOrDefault(f =>
+                                    f.EffectiveFileId == item.EffectiveFileId &&
+                                    f.CurrentPage == item.CurrentPage &&
+                                    f.TotalPages == item.TotalPages &&
+                                    f.EffectiveFileId.Length > 0);
+                                if (dup != null)
+                                {
+                                    dup.FullPath = item.FullPath;
+                                    dup.ImageFileName = item.ImageFileName;
+                                    dup.IsUnderfull = item.IsUnderfull;
+                                    dup.MetadataInfo = item.MetadataInfo;
+                                    dup.Status = item.Status;
+                                    existingPaths.Add(file);
+                                    return;
+                                }
+
+                                // 行号在加入时一次性确定，之后不随排序变化
+                                item.RowNumber = FileItems.Count + 1;
+                                item.PropertyChanged += FileItem_PropertyChanged;
+                                FileItems.Add(item);
+                                existingPaths.Add(file);
+                                SelectedFileItem = item;
+                            }).Task;
+                        }
+                        finally
+                        {
+                            throttle.Release();
+                        }
+                    }).ToList();
+
+                    await Task.WhenAll(tasks);
                 }
             }
+            finally
+            {
+                IsBatchAdding = false;
+            }
 
+            SortFileItemsByPage();
             RemoveDuplicateItems();
             CheckFileComplete();
+        }
+
+        /// <summary>
+        /// 批量添加完成后按页码排序：同一文件ID内按 CurrentPage 升序，
+        /// 文件ID之间保持首次出现顺序（稳定分组，不打乱不同文件的相对位置）。
+        /// </summary>
+        private void SortFileItemsByPage()
+        {
+            // 按 EffectiveFileId 分组，保持组的首次出现顺序（GroupBy 本身是稳定的）
+            var groups = FileItems
+                .GroupBy(f => f.EffectiveFileId ?? "")
+                .Select(g => g
+                    .OrderBy(f => f.CurrentPage)
+                    .ToList())
+                .ToList();
+
+            var sorted = groups.SelectMany(g => g).ToList();
+
+            // ObservableCollection 没有整体重排 API，逐项移动到新位置
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                var currentIndex = FileItems.IndexOf(sorted[i]);
+                if (currentIndex != i)
+                    FileItems.Move(currentIndex, i);
+            }
+
+            // 排序后重新分配行号
+            for (int i = 0; i < FileItems.Count; i++)
+                FileItems[i].RowNumber = i + 1;
         }
 
         private bool ShowFileCompletenessWarnings()
@@ -377,14 +483,17 @@ namespace screen_file_transmit
                 warnings.Add(sb.ToString());
             }
 
-            if (warnings.Count > 0)
+            if (!Debugger.IsAttached)
             {
-                var message = Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessWarning")
-                              + "\n\n" + string.Join("\n", warnings);
-                MessageBox.Show(message,
-                    Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessTitle"),
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return false;
+                if (warnings.Count > 0)
+                {
+                    var message = Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessWarning")
+                                  + "\n\n" + string.Join("\n", warnings);
+                    MessageBox.Show(message,
+                        Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessTitle"),
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
             }
 
             return true;
@@ -440,17 +549,10 @@ namespace screen_file_transmit
                 item.EffectiveFileId = item.FileId;
                 if (meta.TotalPages > 0)
                 {
-                    // 解码取 length 自洽信息，标记「非末页不满载」（不影响解码成败）
-                    try
-                    {
-                        var dec = ImageDecoder.DecodeImageWithMetadata(filePath, false);
-                        item.IsUnderfull = dec?.IsUnderfull ?? false;
-                    }
-                    catch
-                    {
-                        // 解码异常时不标记，交由后续转换/状态列反映
-                        item.IsUnderfull = false;
-                    }
+                    // 添加文件只解析元数据，不做整页二维码解码——
+                    // 「未满」状态由自动翻页流程（AutoFlipTick）识别到未满时计算并标记，
+                    // 这里不预先解码，避免添加时就触发耗时的整页解码。
+                    item.IsUnderfull = false;
 
                     //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
                     //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
@@ -934,11 +1036,14 @@ namespace screen_file_transmit
                 return;
             }
 
-            var completeItems = FileItems.Where(f => f.IsComplete).ToList();
+            var completeItems = FileItems.Where(f => Debugger.IsAttached || f.IsComplete).ToList();
             if (completeItems.Count == 0)
             {
-                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_NoCompleteFiles"));
-                return;
+                if (!Debugger.IsAttached)
+                {
+                    MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_NoCompleteFiles"));
+                    return;
+                }
             }
 
             if (completeItems.Any(f => f.HasPassword && string.IsNullOrEmpty(Password)))
@@ -1013,29 +1118,45 @@ namespace screen_file_transmit
                                     processedCount++;
                                     int currentNo = processedCount;
 
+                                    // 主界面底部进度条 + StatusText 按「已解析文件数 / 总文件数」推进，
+                                    // 两者同源计算，不依赖 decodeProgress 回调是否触发，避免时有时无。
+                                    int totalFiles = completeItems.Count;
                                     dispatcher.Invoke(() =>
                                     {
-                                        item.Status = string.Format(
-                                            Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
-                                            currentNo, completeItems.Count);
+                                        //item.Status = string.Format(
+                                        //    Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
+                                        //    currentNo, totalFiles);
                                         item.ProgressValue = 0;
                                         ProgressValue = currentNo;
+                                        double overallPercent = totalFiles <= 0
+                                            ? 0.0
+                                            :  ((currentNo - 1) * 100.0 / totalFiles);
+                                        StatusText = string.Format(
+                                            Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
+                                            currentNo, totalFiles) + $" {overallPercent:0.00}%";
                                     });
 
                                     // 解码过程中实时刷新该行进度：已解码二维码数 / 总数
-                                    int lastPercent = -1;
+                                    double lastPercent = -1;
                                     Action<int, int> decodeProgress = (done, total) =>
                                     {
-                                        int percent = total <= 0 ? 0 : (int)(done * 100.0 / total);
+                                        double percent = total <= 0 ? 0.0 :  (done * 100.0 / total);
                                         if (percent == lastPercent) return;
                                         lastPercent = percent;
 
                                         dispatcher.Invoke(() =>
                                         {
-                                            item.ProgressValue = percent;
                                             item.Status = string.Format(
                                                 Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
-                                                currentNo, completeItems.Count) + $" {percent}%";
+                                                currentNo, totalFiles) + $" {percent:0.00}%";
+                                            // 底部进度条只跟「文件数」走，这里不动 ProgressValue，
+                                            // 只用文件进度刷新 StatusText 的百分比（已解析文件数占比）。
+                                            int overallPercent = totalFiles <= 0
+                                                ? 0
+                                                : (int)((currentNo - 1) * 100.0 / totalFiles);
+                                            StatusText = string.Format(
+                                                Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
+                                                currentNo, totalFiles) + $" {overallPercent}%";
                                         });
                                     };
 

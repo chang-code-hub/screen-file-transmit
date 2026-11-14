@@ -19,7 +19,7 @@
     mc:Ignorable="d">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
-        <local:UnderfullTextConverter x:Key="BoolToUnderfullTextConverter" />
+        <local:StatusErrorConverter x:Key="StatusErrorConverter" />
     </Window.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -102,110 +102,120 @@
 
             </StackPanel>
         </Grid>
-        <Border
-            Grid.Row="3"
-            Margin="110,0,0,10"
-            BorderBrush="Gray"
-            BorderThickness="1">
-            <DataGrid
-                x:Name="FileDataGrid"
-                AutoGenerateColumns="False"
-                CanUserAddRows="False"
-                ItemsSource="{Binding FileItems}"
-                SelectedItem="{Binding SelectedFileItem}"
-                SelectionChanged="FileDataGrid_SelectionChanged"
-                SelectionMode="Extended"
-                SelectionUnit="FullRow"
-                Sorting="FileDataGrid_Sorting">
-                <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsComplete}" Value="True">
-                                <Setter Property="Background" Value="LightYellow" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding IsUnderfull}" Value="True">
-                                <Setter Property="Background" Value="LightSalmon" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </DataGrid.RowStyle>
-                <DataGrid.Columns>
-                    <!--<DataGridCheckBoxColumn
-                            Width="40"
-                            Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                            Header="选择" />-->
-                    <DataGridTextColumn
-                        Width="50"
-                        Binding="{Binding RowNumber}"
-                        Header="{loc:Loc Column_RowNumber}"
-                        IsReadOnly="True"
-                        CanUserSort="False" />
-                    <DataGridTextColumn
-                        Width="70"
-                        Binding="{Binding CurrentPage, StringFormat={}{0}}"
-                        Header="{loc:Loc Column_PageNumber}"
-                        IsReadOnly="True"
-                        SortMemberPath="CurrentPage" />
-                    <DataGridTextColumn
-                        Width="180"
-                        Binding="{Binding ImageFileName}"
-                        Header="{loc:Loc Column_ImageFileName}"
-                        IsReadOnly="True" />
-                    <DataGridTextColumn
-                        Width="100"
-                        Binding="{Binding FileId}"
-                        Header="{loc:Loc Column_FileId}"
-                        IsReadOnly="True" />
-                    <DataGridTextColumn
-                        Width="120"
-                        Binding="{Binding SaveFileName}"
-                        Header="{loc:Loc Column_SaveFileName}" />
-                    <DataGridTextColumn
-                        Width="220"
-                        Binding="{Binding MetadataInfo}"
-                        Header="{loc:Loc Column_Metadata}"
-                        IsReadOnly="True" />
-                    <DataGridTextColumn
-                        MinWidth="80"
-                        Binding="{Binding Status}"
-                        Header="{loc:Loc Column_Status}"
-                        IsReadOnly="True" />
-                    <DataGridTextColumn
-                        Width="70"
-                        Binding="{Binding IsUnderfull, Converter={StaticResource BoolToUnderfullTextConverter}}"
-                        Header="{loc:Loc Column_Underfull}"
-                        IsReadOnly="True" />
-                    <DataGridTemplateColumn Width="120" Header="{loc:Loc Column_ParseProgress}">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <ProgressBar
-                                    Height="16"
-                                    Maximum="{Binding ProgressMaximum}"
-                                    Value="{Binding ProgressValue}" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <!--<DataGridTemplateColumn Width="40" Header="操作">
+        <Grid Grid.Row="3" Margin="110,0,0,10">
+            <Border
+                BorderBrush="Gray"
+                BorderThickness="1">
+                <DataGrid
+                    x:Name="FileDataGrid"
+                    AutoGenerateColumns="False"
+                    CanUserAddRows="False"
+                    ItemsSource="{Binding FileItems}"
+                    SelectedItem="{Binding SelectedFileItem}"
+                    SelectionChanged="FileDataGrid_SelectionChanged"
+                    SelectionMode="Extended"
+                    SelectionUnit="FullRow"
+                    Sorting="FileDataGrid_Sorting">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsComplete}" Value="True">
+                                    <Setter Property="Background" Value="LightYellow" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusErrorConverter}}" Value="True">
+                                    <Setter Property="Background" Value="LightSalmon" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <!--<DataGridCheckBoxColumn
+                                Width="40"
+                                Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                Header="选择" />-->
+                        <DataGridTextColumn
+                            Width="50"
+                            Binding="{Binding RowNumber}"
+                            Header="{loc:Loc Column_RowNumber}"
+                            IsReadOnly="True"
+                            CanUserSort="False" />
+                        <DataGridTextColumn
+                            Width="70"
+                            Binding="{Binding CurrentPage, StringFormat={}{0}}"
+                            Header="{loc:Loc Column_PageNumber}"
+                            IsReadOnly="True"
+                            SortMemberPath="CurrentPage" />
+                        <DataGridTextColumn
+                            Width="180"
+                            Binding="{Binding ImageFileName}"
+                            Header="{loc:Loc Column_ImageFileName}"
+                            IsReadOnly="True" />
+                        <DataGridTextColumn
+                            Width="100"
+                            Binding="{Binding FileId}"
+                            Header="{loc:Loc Column_FileId}"
+                            IsReadOnly="True" />
+                        <DataGridTextColumn
+                            Width="120"
+                            Binding="{Binding SaveFileName}"
+                            Header="{loc:Loc Column_SaveFileName}" />
+                        <DataGridTextColumn
+                            Width="220"
+                            Binding="{Binding MetadataInfo}"
+                            Header="{loc:Loc Column_Metadata}"
+                            IsReadOnly="True" />
+                        <DataGridTextColumn
+                            MinWidth="80"
+                            Binding="{Binding Status}"
+                            Header="{loc:Loc Column_Status}"
+                            IsReadOnly="True" />
+                        <DataGridTemplateColumn Width="120" Header="{loc:Loc Column_ParseProgress}">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button
-                                            Margin="2,0"
-                                            Command="{Binding DeleteCommand}"
-                                            Content="删除" />
-                    -->
-                    <!--<Button
-                                            Margin="2,0"
-                                            Command="{Binding RetryCommand}"
-                                            Content="重试" />-->
-                    <!--
-                                    </StackPanel>
+                                    <ProgressBar
+                                        Height="16"
+                                        Maximum="{Binding ProgressMaximum}"
+                                        Value="{Binding ProgressValue}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>-->
-                </DataGrid.Columns>
-            </DataGrid>
-        </Border>
+                        </DataGridTemplateColumn>
+                        <!--<DataGridTemplateColumn Width="40" Header="操作">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button
+                                                Margin="2,0"
+                                                Command="{Binding DeleteCommand}"
+                                                Content="删除" />
+                        -->
+                        <!--<Button
+                                                Margin="2,0"
+                                                Command="{Binding RetryCommand}"
+                                                Content="重试" />-->
+                        <!--
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>-->
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+            <!-- 批量添加 loading 遮罩 -->
+            <Border
+                Background="#80FFFFFF"
+                Visibility="{Binding IsBatchAdding, Converter={StaticResource BoolToVis}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal">
+                    <ProgressBar
+                        Width="160"
+                        Height="16"
+                        IsIndeterminate="True" />
+                    <TextBlock
+                        Margin="10,0,0,0"
+                        VerticalAlignment="Center"
+                        Text="正在加载文件..." />
+                </StackPanel>
+            </Border>
+        </Grid>
 
         <!--  Preview  -->
         <Grid Grid.Row="4" Margin="0,0,0,10">

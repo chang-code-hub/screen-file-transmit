@@ -46,11 +46,25 @@ namespace screen_file_transmit
         /// <summary>是否使用模拟鼠标点击翻页</summary>
         public bool UseMouseClick => SelectedMethod == FlipMethod.MouseClick;
 
+        /// <summary>
+        /// 百分比变化回调（拾取或条码计算后触发），
+        /// 让调用方（ScreenshotToolWindow）实时更新选区框上的点击位置高亮。
+        /// </summary>
+        public Action<double, double> OnPercentChanged { get; set; }
+
         /// <summary>点击位置横向百分比（0-100）</summary>
         public double ClickOffsetPercentX { get; set; } = 99;
 
         /// <summary>点击位置纵向百分比（0-100）</summary>
         public double ClickOffsetPercentY { get; set; } = 15;
+
+        // 从截图条码算出的默认百分比（模拟鼠标方案用）
+        private bool _hasAutoPercent;
+        private double _autoPercentX, _autoPercentY;
+
+        // 用户手动拾取过的百分比（优先于条码计算值）
+        private bool _hasPickedPercent;
+        private double _pickedPercentX, _pickedPercentY;
 
         public string TitleText { get; set; } = "自动翻页设置";
         public string InstructionText { get; set; } = "请先在发送端窗口中测试键盘翻页，然后选择要使用的翻页方式：";
@@ -193,7 +207,38 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 预览拾取位置（不改变已确认的百分比，仅更新显示）。
+        /// 把百分比写入显示并回调给调用方刷新选区框高亮。
+        /// </summary>
+        private void ApplyClickPercent(double px, double py)
+        {
+            ClickOffsetPercentX = Math.Min(100, Math.Max(0, px));
+            ClickOffsetPercentY = Math.Min(100, Math.Max(0, py));
+            TxtClickPos.Text = $"{ClickOffsetPercentX:F1}% , {ClickOffsetPercentY:F1}%";
+            OnPercentChanged?.Invoke(ClickOffsetPercentX, ClickOffsetPercentY);
+        }
+
+        /// <summary>
+        /// 选中「模拟鼠标点击」时，应用该方案的默认点击百分比：
+        /// 优先用户手动拾取值，否则用条码计算值，再否则保持 99/15。
+        /// 默认选项即模拟鼠标，所以对话框打开后需立即调用一次。
+        /// </summary>
+        private void ApplyMouseClickPercent()
+        {
+            if (_hasPickedPercent)
+                ApplyClickPercent(_pickedPercentX, _pickedPercentY);
+            else if (_hasAutoPercent)
+                ApplyClickPercent(_autoPercentX, _autoPercentY);
+        }
+
+        private void MethodRadio_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // 只有选中模拟鼠标时才显示/应用点击位置百分比
+            if (SelectedMethod == FlipMethod.MouseClick)
+                ApplyMouseClickPercent();
+        }
+
+        /// <summary>
+        /// 预览拾取位置：把拾取坐标换算成选区百分比，记录并应用。
         /// 百分比与蒙版同源：都基于选区控件的 DIP 矩形，拾取坐标(物理)先换算成 DIP 再算，
         /// 保证 Windows 缩放下分子/分母/蒙版三者同一基准，不偏移。
         /// </summary>
@@ -222,10 +267,12 @@ namespace screen_file_transmit
             double px = (cx - l) * 100.0 / w;
             double py = (cy - t) * 100.0 / h;
 
-            ClickOffsetPercentX = Math.Min(100, Math.Max(0, px));
-            ClickOffsetPercentY = Math.Min(100, Math.Max(0, py));
+            // 记住用户手动拾取值，切方案再切回来时优先使用
+            _hasPickedPercent = true;
+            _pickedPercentX = Math.Min(100, Math.Max(0, px));
+            _pickedPercentY = Math.Min(100, Math.Max(0, py));
 
-            TxtClickPos.Text = $"{ClickOffsetPercentX:F1}% , {ClickOffsetPercentY:F1}%";
+            ApplyClickPercent(_pickedPercentX, _pickedPercentY);
         }
 
         /// <summary>
@@ -314,9 +361,9 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 设置选区截图（截图像素），用于计算默认点击位置的百分比。
-        /// 直接把截图交给 ImageDecoder.TryDetectClickPercent，
-        /// 用左右条码框定内容区域后取 99%/15% 处的点。
+        /// 设置选区截图（截图像素），用左右条码框定内容区域后取 99%/15% 处的点，
+        /// 作为「模拟鼠标点击」方案的默认百分比。
+        /// 若当前已选中模拟鼠标（默认选项即是），立即应用。
         /// </summary>
         public void SetScreenshot(Bitmap screenshot)
         {
@@ -326,9 +373,13 @@ namespace screen_file_transmit
             {
                 if (ImageDecoder.TryDetectClickPercent(mat, out double px, out double py))
                 {
-                    ClickOffsetPercentX = px;
-                    ClickOffsetPercentY = py;
-                    TxtClickPos.Text = $"{ClickOffsetPercentX:F1}% , {ClickOffsetPercentY:F1}%";
+                    _hasAutoPercent = true;
+                    _autoPercentX = px;
+                    _autoPercentY = py;
+
+                    // 当前选中模拟鼠标（默认即是）则立即应用
+                    if (SelectedMethod == FlipMethod.MouseClick)
+                        ApplyMouseClickPercent();
                 }
             }
         }

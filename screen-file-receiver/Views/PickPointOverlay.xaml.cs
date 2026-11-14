@@ -101,8 +101,11 @@ namespace screen_file_transmit
                 y = pt.Y;
             }
 
-            Finish();
+            // 先回调再关闭：让调用方在蒙版还活着的时候更新 UI，
+            // 否则 Finish() 关掉蒙版后 Activate() 时对话框可能还没就绪，
+            // TxtClickPos 的更新会被吞掉。
             _onPicked?.Invoke(x, y);
+            Finish();
         }
 
         protected override void OnPreviewKeyDown(KeyEventArgs e)

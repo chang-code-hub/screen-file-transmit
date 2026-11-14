@@ -74,7 +74,8 @@ namespace qr_codec_test
                 ProbeQrMetrics.Run(args[1]);
                 return;
             }
-            if (args.Length > 2 && args[0] == "--underfull")
+
+                        if (args.Length > 2 && args[0] == "--underfull")
             {
                 ProbeUnderfull.Run(args[1], args[2]);
                 return;

@@ -1045,6 +1045,7 @@ namespace screen_file_transmit
             }
             catch (Exception ex)
             {
+                //ignore
                 //bmp.Save("D:/test.bmp");
             }
 
@@ -1076,6 +1077,14 @@ namespace screen_file_transmit
             }
 
             var configDialog = new AutoFlipConfigDialog(_selectedHwnd);
+
+            // 拾取/条码算出百分比后，实时同步到本窗口字段并刷新选区框上的点击位置高亮
+            configDialog.OnPercentChanged = (px, py) =>
+            {
+                _clickOffsetPercentX = px;
+                _clickOffsetPercentY = py;
+                SyncClickMarker();
+            };
 
             // 直接把选区控件的 DIP 坐标传给对话框，蒙版用它显示，避免重新计算导致错位
             var border = _selectionBorderWindow;

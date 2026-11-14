@@ -95,6 +95,12 @@ dotnet run --project screen-file-receiver
 关键解码类：
 - `screen-file-receiver/DataMatrixReader.cs` - OpenCV 轮廓检测、ZXing 解码、重试逻辑
 
+#### 调试/探针注意事项
+
+调用 `ImageDecoder` / `ProbeXxx` 相关解码方法时，`debug` 参数**必须传 `false`**。
+传 `true` 会触发 `Cv2.ImShow` 弹窗和 `Cv2.WaitKey()` 阻塞等待按键，
+在无人值守的脚本/探针场景下会卡死无法继续，务必显式传 `false`。
+
 ### DataMatrix 版本映射
 
 发送端实现使用硬编码版本表映射尺寸到 ASCII 容量（例如 144x144 → 1558 字符）。
