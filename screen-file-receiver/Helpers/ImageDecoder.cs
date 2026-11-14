@@ -1187,7 +1187,7 @@ namespace screen_file_transmit
             {
                 image.SaveImage(Directory.GetCurrentDirectory() + "/dm.png");
                 Cv2.ImShow("DM", image);
-                Cv2.WaitKey();
+                // Cv2.WaitKey();
             }
 
             return null;

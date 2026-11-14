@@ -744,8 +744,10 @@ namespace screen_file_transmit
                 using (var metaBmp = new Bitmap(bmp))
                 {
                     var meta = ImageDecoder.ReadMetadata(metaBmp);
+                    // 与自动翻页 SaveCapture 保持一致：{meta.FileName}_{meta.FileId}_{meta.CurrentPage:00000}.png
                     if (!string.IsNullOrWhiteSpace(meta.FileName))
-                        fileName = meta.FileName;
+                        fileName = Path.GetFileNameWithoutExtension(meta.FileName) +
+                                   $"_{meta.FileId}_{meta.CurrentPage:00000}.png";
                 }
             }
             catch
@@ -756,10 +758,6 @@ namespace screen_file_transmit
             {
                 fileName =
                     $"{Properties.Resources.ResourceManager.GetString("Screenshot_FileNamePrefix")}{DateTime.Now:yyyyMMdd_HHmmss}.png";
-            }
-            else
-            {
-                fileName = Path.ChangeExtension(fileName, ".png");
             }
 
             fileName = ScreenCaptureHelper.SanitizeFileName(fileName);
@@ -891,7 +889,7 @@ namespace screen_file_transmit
             }
         }
 
-        private async Task<String> SaveCapture(Bitmap bmp, ImageDecoder.MetadataResult meta)
+        private async Task<String> SaveCapture(Bitmap bmp, ImageDecoder.MetadataResult meta, bool overwrite = false)
         {
             string outputDir = _mainVm?.OutputFilePath;
             if (string.IsNullOrWhiteSpace(outputDir))
@@ -918,7 +916,9 @@ namespace screen_file_transmit
 
             fileName = ScreenCaptureHelper.SanitizeFileName(fileName);
             string fullPath = Path.Combine(outputDir, fileName);
-            fullPath = ScreenCaptureHelper.GetUniqueFilePath(fullPath);
+            // 重截替换：覆盖同名（不加 unique 后缀），确保落到同一文件路径
+            if (!overwrite)
+                fullPath = ScreenCaptureHelper.GetUniqueFilePath(fullPath);
 
             try
             {
@@ -1216,6 +1216,59 @@ namespace screen_file_transmit
                 return;
             }
 
+            // 解码通过但「非末页未满载」：留在本页重截，不保存不翻页，直到截到满或重试耗尽。
+            // IsUnderfull 内部已含末页判定（末页天然不满为 false），故无需再判末页。
+            if (decodeResult != null && decodeResult.IsUnderfull)
+            {
+                if (_pendingPage != meta.CurrentPage)
+                {
+                    _pendingPage = meta.CurrentPage;
+                    _pendingRetries = 0;
+                }
+
+                _pendingRetries++;
+                if (_pendingRetries > MaxPageRetries)
+                {
+                    // 重试耗尽仍不满：保底保存这张未满的（文件列表会标记 IsUnderfull），继续翻页不丢数据
+                    Thread.Sleep(200);
+                    if (_isClosing)
+                    {
+                        bmp.Dispose();
+                        return;
+                    }
+
+                    if (_flipMethod == FlipMethod.Wait)
+                        BlinkOnSave();
+                    SaveCapture(bmp, meta, overwrite: true);
+                    bmp.Dispose();
+
+                    _lastProcessedPage = meta.CurrentPage;
+                    _pendingPage = -1;
+                    _pendingRetries = 0;
+                    _autoFlipTotalPages = meta.TotalPages;
+                    _autoFlipFileName = meta.FileName;
+
+                    if (meta.CurrentPage >= meta.TotalPages)
+                    {
+                        StopAutoFlip();
+                        BtnAutoFlip.IsChecked = false;
+                        MessageBox.Show(
+                            Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"),
+                            Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                        ShowSelectionBorder();
+                        return;
+                    }
+
+                    SimulatePageTurn();
+                    return;
+                }
+
+                // 未超重试上限：不保存，留在本页，下一 tick 重截
+                bmp.Dispose();
+                return;
+            }
+
             Thread.Sleep(200);
             if (_isClosing) return;
 
@@ -1315,7 +1368,6 @@ namespace screen_file_transmit
 
             try
             {
-                // _savedCursorPos 是物理像素，SetCursorPos 在 DPI-unaware 进程接收虚拟化坐标
                 var v = PhysicalToVirtualPoint(_savedCursorPos);
                 NativeMethods.SetCursorPos(v.X, v.Y);
             }
@@ -1375,7 +1427,7 @@ namespace screen_file_transmit
             var pt = ComputeClickPoint();
             if (pt == null) return;
 
-            // 与 pt.Value 同为真物理像素基准，保存/比较才正确
+            // pt.Value 是物理像素；光标保存/比较也用物理，保证同基准
             if (TryGetPhysicalCursorPos(out var cursor))
             {
                 if (!_cursorSaved)
@@ -1388,7 +1440,7 @@ namespace screen_file_transmit
                     _cursorMoved = true;
             }
 
-            // SetCursorPos 在 DPI-unaware 进程里接收虚拟化坐标，需把物理点换算回去
+            // SetCursorPos 在 DPI-unaware 进程接收虚拟化坐标，物理点需换算
             var vpt = PhysicalToVirtualPoint(pt.Value);
             NativeMethods.SetCursorPos(vpt.X, vpt.Y);
             System.Threading.Thread.Sleep(50);
@@ -1400,13 +1452,24 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 取光标真物理像素坐标（不受进程 DPI 虚拟化影响），失败回退 GetCursorPos
+        /// 取光标真物理像素坐标，失败回退 GetCursorPos
         /// </summary>
         private static bool TryGetPhysicalCursorPos(out NativeMethods.POINT pt)
         {
             if (NativeMethods.GetPhysicalCursorPos(out pt))
                 return true;
             return NativeMethods.GetCursorPos(out pt);
+        }
+
+        /// <summary>
+        /// 把真物理像素点换算为 DPI 虚拟化坐标（SetCursorPos 接收的坐标系）
+        /// </summary>
+        private System.Drawing.Point PhysicalToVirtualPoint(System.Drawing.Point p)
+        {
+            double s = GetDpiScaleFactor();
+            return new System.Drawing.Point(
+                (int)Math.Round(p.X / s),
+                (int)Math.Round(p.Y / s));
         }
 
         /// <summary>
@@ -1425,28 +1488,14 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 把真物理像素点换算为 DPI 虚拟化坐标（SetCursorPos/GetWindowRect 用的坐标系）
-        /// </summary>
-        private System.Drawing.Point PhysicalToVirtualPoint(System.Drawing.Point p)
-        {
-            double s = GetDpiScaleFactor();
-            return new System.Drawing.Point(
-                (int)Math.Round(p.X / s),
-                (int)Math.Round(p.Y / s));
-        }
-
-        /// <summary>
-        /// 取 DIP→物理 缩放比。
-        /// 统一以 WPF 的 TransformToDevice 为准（与 ScreenCaptureHelper.LogicalToPhysical 同源），
-        /// 保证区域/边框的 DIP 换算和窗口物理矩形在同一基准上。
+        /// 取 DIP→物理 缩放比。以 WPF TransformToDevice 为准，与 ScreenCaptureHelper.LogicalToPhysical 同源。
         /// </summary>
         private double GetDpiScaleFactor()
         {
             try
             {
                 var m = ScreenCaptureHelper.GetDpiScale(this);
-                if (m.M11 > 0 && m.M22 > 0)
-                    return m.M11;
+                if (m.M11 > 0 && m.M22 > 0) return m.M11;
             }
             catch
             {
@@ -1475,7 +1524,8 @@ namespace screen_file_transmit
 
             if (_selectedHwnd != IntPtr.Zero)
             {
-                // 与拾取点击位置用的矩形保持同一坐标系（真物理像素），避免 DPI 缩放下百分比错位
+                // 与拾取百分比、区域分支同为物理像素基准：GetWindowRect 是虚拟化坐标须换算，
+                // TryGetExtendedFrameBounds 本身就是物理，优先用它
                 NativeMethods.RECT wr;
                 if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
                     wr = dwmRc;

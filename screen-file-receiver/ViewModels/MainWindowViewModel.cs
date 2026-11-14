@@ -284,6 +284,23 @@ namespace screen_file_transmit
                 var item = await Task.Run(() => CreateFileItem(file));
                 if (item != null)
                 {
+                    // 重截替换：同 EffectiveFileId + 同 CurrentPage 视为同一行，覆盖而非新增
+                    var dup = FileItems.FirstOrDefault(f =>
+                        f.EffectiveFileId == item.EffectiveFileId &&
+                        f.CurrentPage == item.CurrentPage &&
+                        f.TotalPages == item.TotalPages &&
+                        f.EffectiveFileId.Length > 0);
+                    if (dup != null)
+                    {
+                        dup.FullPath = item.FullPath;
+                        dup.ImageFileName = item.ImageFileName;
+                        dup.IsUnderfull = item.IsUnderfull;
+                        dup.MetadataInfo = item.MetadataInfo;
+                        dup.Status = item.Status;
+                        existingPaths.Add(file);
+                        continue;
+                    }
+
                     // 行号在加入时一次性确定，之后不随排序变化
                     item.RowNumber = FileItems.Count + 1;
                     item.PropertyChanged += FileItem_PropertyChanged;
@@ -532,6 +549,21 @@ namespace screen_file_transmit
             }
 
             _isSyncingProperty = false;
+            RenumberRows();
+        }
+
+        /// <summary>
+        /// 删除/移除后重算行号，保持 1..N 连续。
+        /// </summary>
+        private void RenumberRows()
+        {
+            for (int i = 0; i < FileItems.Count; i++)
+            {
+                var item = FileItems[i];
+                int newNumber = i + 1;
+                if (item.RowNumber != newNumber)
+                    item.RowNumber = newNumber;
+            }
         }
 
         /// <summary>
@@ -693,6 +725,7 @@ namespace screen_file_transmit
                 }
             }
 
+            RenumberRows();
             CheckFileComplete();
         }
 
@@ -723,6 +756,7 @@ namespace screen_file_transmit
             }
 
             item.PropertyChanged -= FileItem_PropertyChanged;
+            RenumberRows();
         }
 
         //private void RetryItem(FileItem item)
