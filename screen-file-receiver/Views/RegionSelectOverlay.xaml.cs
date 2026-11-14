@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,6 +12,7 @@ namespace screen_file_transmit
         private Point _startPoint;
         private bool _isDragging;
         private IntPtr _keyboardHook;
+        private MouseClickBlocker _clickBlocker;
         private NativeMethods.LowLevelKeyboardProc _keyboardProc;
 
         public Rect SelectedRegion { get; private set; }
@@ -38,6 +39,15 @@ namespace screen_file_transmit
         }
         private void RegionSelectOverlay_Loaded(object sender, RoutedEventArgs e)
         {
+            // 系统层吞掉选区期间的点击，防止 VdSession 等全局监听工具/下层应用收到。
+            // 仅放行落在本蒙版窗口上的点击（供拖拽选区使用），其余一律吞掉。
+            var selfHwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            _clickBlocker = new MouseClickBlocker(pt =>
+            {
+                var hwnd = NativeMethods.WindowFromPoint(pt);
+                return hwnd != IntPtr.Zero && NativeMethods.GetAncestor(hwnd, NativeMethods.GA_ROOT) == selfHwnd;
+            });
+
             _keyboardProc = KeyboardHookCallback;
             _keyboardHook = NativeMethods.SetWindowsHookEx(
                 NativeMethods.WH_KEYBOARD_LL,
@@ -48,6 +58,9 @@ namespace screen_file_transmit
 
         private void RegionSelectOverlay_Closed(object sender, EventArgs e)
         {
+            _clickBlocker?.Dispose();
+            _clickBlocker = null;
+
             if (_keyboardHook != IntPtr.Zero)
             {
                 NativeMethods.UnhookWindowsHookEx(_keyboardHook);
@@ -78,8 +91,13 @@ namespace screen_file_transmit
             return NativeMethods.CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
         }
 
-        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        protected override void OnPreviewMouseLeftButtonDown(MouseButtonEventArgs e)
         {
+            base.OnPreviewMouseLeftButtonDown(e);
+
+            // Preview 阶段吞掉按下，确保这次点击不传递到蒙版下方的界面元素
+            e.Handled = true;
+
             _isDragging = true;
             _startPoint = e.GetPosition(this);
             SelectionRect.Visibility = Visibility.Visible;
@@ -90,8 +108,13 @@ namespace screen_file_transmit
             CaptureMouse();
         }
 
-        private void Window_MouseMove(object sender, MouseEventArgs e)
+        protected override void OnPreviewMouseMove(MouseEventArgs e)
         {
+            base.OnPreviewMouseMove(e);
+
+            // 拖拽期间吞掉移动事件，避免漏到下方元素
+            e.Handled = true;
+
             if (!_isDragging)
                 return;
 
@@ -107,8 +130,13 @@ namespace screen_file_transmit
             SelectionRect.Height = h;
         }
 
-        private void Window_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        protected override void OnPreviewMouseLeftButtonUp(MouseButtonEventArgs e)
         {
+            base.OnPreviewMouseLeftButtonUp(e);
+
+            // Preview 阶段吞掉抬起，防止触发下方按钮等控件
+            e.Handled = true;
+
             if (!_isDragging)
                 return;
 

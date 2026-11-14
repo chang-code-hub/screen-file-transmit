@@ -2,8 +2,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -626,8 +624,13 @@ namespace screen_file_transmit
 
             if (meta != null && meta.MaxRows > 0 && meta.MaxCols > 0)
             {
-                // 与 ReadToFile 一致：单元格必须齐全，否则长度链条断裂、重组会错位
-                if (blocks.Count < meta.MaxRows * meta.MaxCols) return false;
+                int gridCells = meta.MaxRows * meta.MaxCols;
+                // 防「超出网格」的幻影块
+                if (blocks.Count > gridCells) return false;
+
+                // 末页发送端只画部分 cell（流读完即停），块数 < 网格总数属正常；
+                // 非末页要求单元格齐全，否则长度链条断裂、重组会错位。
+                if (!IsLastPage(meta) && blocks.Count < gridCells) return false;
             }
 
             if (meta != null && meta.TotalQrCodeCount > 0)

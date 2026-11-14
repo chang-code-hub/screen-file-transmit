@@ -1,4 +1,4 @@
-<Window x:Class="screen_file_transmit.RegionSelectOverlay"
+﻿<Window x:Class="screen_file_transmit.RegionSelectOverlay"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStyle="None"
@@ -12,10 +12,7 @@
         Width="{x:Static SystemParameters.VirtualScreenWidth}"
         Height="{x:Static SystemParameters.VirtualScreenHeight}"
         Cursor="Cross"
-        PreviewKeyDown="Window_PreviewKeyDown"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown"
-        MouseMove="Window_MouseMove"
-        MouseLeftButtonUp="Window_MouseLeftButtonUp">
+        PreviewKeyDown="Window_PreviewKeyDown">
     <Canvas>
         <Rectangle x:Name="SelectionRect"
                    Fill="#20FFFFFF"

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -47,14 +47,27 @@ namespace screen_file_transmit
 
         public bool IsResizing => _isResizing;
 
+        /// <summary>
+        /// 选区红框在屏幕上的物理像素矩形（含边框），供圆点摆到框外。
+        /// </summary>
+        public System.Drawing.Rectangle ScreenRectPx
+        {
+            get
+            {
+                var hwnd = new WindowInteropHelper(this).Handle;
+                if (hwnd == IntPtr.Zero)
+                    return System.Drawing.Rectangle.Empty;
+
+                NativeMethods.GetWindowRect(hwnd, out var rc);
+                return System.Drawing.Rectangle.FromLTRB(rc.Left, rc.Top, rc.Right, rc.Bottom);
+            }
+        }
+
         private const double HandleSize = 8;
         private const double EdgeDetectThickness = 6;
 
-        private DispatcherTimer _blinkTimer;
-        private int _blinkCount;
-        private const double NormalThickness = 2;
-        private const double BoldThickness = 4;
-        private const int BlinkTotalTicks = 4;
+        /// <summary>选区边框线宽（物理像素）。截图后按此宽度裁掉红框。</summary>
+        public const int BorderThicknessPx = 2;
 
         private enum ResizeEdge
         {
@@ -74,34 +87,6 @@ namespace screen_file_transmit
             SizeChanged += OnSizeChanged;
         }
 
-        public bool Blinking { get; private set; }
-        public void BlinkBorder()
-        {
-            _blinkTimer?.Stop();
-            _blinkCount = 0;
-            Blinking = true;
-            var originalBrush = BorderElement.BorderBrush;
-            var greenBrush = new SolidColorBrush(Colors.Green);
-            _blinkTimer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(200) };
-            _blinkTimer.Tick += (s, e) =>
-            {
-                _blinkCount++;
-                if (_blinkCount >= BlinkTotalTicks)
-                {
-                    _blinkTimer.Stop();
-                    BorderElement.BorderThickness = new Thickness(NormalThickness);
-                    BorderElement.BorderBrush = originalBrush;
-                    Blinking = false;
-                    return;
-                }
-                bool bold = (_blinkCount % 2) == 1;
-                BorderElement.BorderThickness = new Thickness(bold ? BoldThickness : 0);
-                //BorderElement.BorderBrush = bold ? greenBrush : originalBrush;
-            };
-            BorderElement.BorderThickness = new Thickness(BoldThickness);
-            BorderElement.BorderBrush = greenBrush;
-            _blinkTimer.Start();
-        }
 
         protected override void OnSourceInitialized(EventArgs e)
         {

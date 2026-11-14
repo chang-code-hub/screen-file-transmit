@@ -22,6 +22,10 @@ namespace screen_file_transmit
         private NativeMethods.RECT _pickRect;
         private PickPointOverlay _pickOverlay;
 
+        // 选区控件的 DIP 坐标（Left/Top/Width/Height），蒙版直接用它显示
+        private bool _hasMaskDip;
+        private double _maskDipLeft, _maskDipTop, _maskDipWidth, _maskDipHeight;
+
         public FlipMethod SelectedMethod
         {
             get
@@ -42,10 +46,10 @@ namespace screen_file_transmit
         public bool UseMouseClick => SelectedMethod == FlipMethod.MouseClick;
 
         /// <summary>点击位置横向百分比（0-100）</summary>
-        public int ClickOffsetPercentX { get; set; } = 95;
+        public int ClickOffsetPercentX { get; set; } = 99;
 
         /// <summary>点击位置纵向百分比（0-100）</summary>
-        public int ClickOffsetPercentY { get; set; } = 50;
+        public int ClickOffsetPercentY { get; set; } = 15;
 
         public string TitleText { get; set; } = "自动翻页设置";
         public string InstructionText { get; set; } = "请先在发送端窗口中测试键盘翻页，然后选择要使用的翻页方式：";
@@ -139,9 +143,20 @@ namespace screen_file_transmit
 
             // 只在选区/目标窗口范围内覆盖一层蒙版并高亮，把拾取的这次点击挡在蒙版内，
             // 避免传递到该区域下方的界面；其余屏幕不遮挡。只把这一次点击作为拾取结果。
-            _pickOverlay = new PickPointOverlay(
-                rect.Value.Left, rect.Value.Top,
-                rect.Value.Right - rect.Value.Left, rect.Value.Bottom - rect.Value.Top,
+            // 蒙版优先用选区控件的 DIP 坐标直接显示，保证与选区同大小同坐标。
+            double mL, mT, mW, mH;
+            if (_hasMaskDip)
+            {
+                mL = _maskDipLeft; mT = _maskDipTop; mW = _maskDipWidth; mH = _maskDipHeight;
+            }
+            else
+            {
+                mL = rect.Value.Left; mT = rect.Value.Top;
+                mW = rect.Value.Right - rect.Value.Left;
+                mH = rect.Value.Bottom - rect.Value.Top;
+            }
+
+            _pickOverlay = new PickPointOverlay(mL, mT, mW, mH, _hasMaskDip,
                 OnPickPoint, OnPickCancelled)
             {
                 Owner = this
@@ -177,17 +192,34 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 预览拾取位置（不改变已确认的百分比，仅更新显示）
+        /// 预览拾取位置（不改变已确认的百分比，仅更新显示）。
+        /// 百分比与蒙版同源：都基于选区控件的 DIP 矩形，拾取坐标(物理)先换算成 DIP 再算，
+        /// 保证 Windows 缩放下分子/分母/蒙版三者同一基准，不偏移。
         /// </summary>
         private void PreviewPickedPoint(int screenX, int screenY)
         {
-            var r = _pickRect;
-            int w = r.Right - r.Left;
-            int h = r.Bottom - r.Top;
+            // 优先用选区控件 DIP 矩形（与蒙版显示同源）
+            double l, t, w, h;
+            if (_hasMaskDip)
+            {
+                l = _maskDipLeft; t = _maskDipTop; w = _maskDipWidth; h = _maskDipHeight;
+            }
+            else
+            {
+                // 回退物理矩形
+                var r = _pickRect;
+                l = r.Left; t = r.Top; w = r.Right - r.Left; h = r.Bottom - r.Top;
+            }
+
             if (w <= 0 || h <= 0) return;
 
-            double px = (screenX - r.Left) * 100.0 / w;
-            double py = (screenY - r.Top) * 100.0 / h;
+            // 拾取坐标是物理像素，换算成 DIP 以匹配选区 DIP 矩形
+            double scale = GetDpiScaleFactor();
+            double cx = screenX / scale;
+            double cy = screenY / scale;
+
+            double px = (cx - l) * 100.0 / w;
+            double py = (cy - t) * 100.0 / h;
 
             ClickOffsetPercentX = (int)Math.Round(Math.Min(100, Math.Max(0, px)));
             ClickOffsetPercentY = (int)Math.Round(Math.Min(100, Math.Max(0, py)));
@@ -265,6 +297,19 @@ namespace screen_file_transmit
         public void SetRegionRect(int left, int top, int right, int bottom)
         {
             _regionRect = new NativeMethods.RECT { Left = left, Top = top, Right = right, Bottom = bottom };
+        }
+
+        /// <summary>
+        /// 设置蒙版显示矩形（WPF DIP，直接来自选区控件的 Left/Top/Width/Height），
+        /// 蒙版用它原样显示，不重新计算，保证与选区同大小、同坐标。
+        /// </summary>
+        public void SetMaskRectDip(double left, double top, double width, double height)
+        {
+            _hasMaskDip = true;
+            _maskDipLeft = left;
+            _maskDipTop = top;
+            _maskDipWidth = width;
+            _maskDipHeight = height;
         }
 
         protected override void OnClosed(EventArgs e)

@@ -26,6 +26,11 @@ namespace qr_codec_test
 
         private static void Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "--dpi")
+            {
+                ProbeDpi.Run();
+                return;
+            }
             if (args.Length > 1 && args[0] == "--afverify")
             {
                 for (int i = 1; i < args.Length; i++)

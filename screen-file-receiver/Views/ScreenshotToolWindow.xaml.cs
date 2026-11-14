@@ -44,8 +44,8 @@ namespace screen_file_transmit
 
         // 自动翻页：模拟鼠标点击翻页
         private bool _useClick;
-        private int _clickOffsetPercentX = 95;
-        private int _clickOffsetPercentY = 50;
+        private int _clickOffsetPercentX = 99;
+        private int _clickOffsetPercentY = 15;
         private System.Drawing.Point _savedCursorPos;
         private bool _cursorSaved;
         private bool _cursorMoved;
@@ -59,6 +59,7 @@ namespace screen_file_transmit
         private int _pendingRetries;                // 当前页重试次数
         private const int MaxPageRetries = 3;
         private const double DecodeQrRatioThreshold = 0.95;
+        private string _clickRectDebug = "";
 
         // 编辑选区相关
         private bool _isEditMode;
@@ -70,11 +71,7 @@ namespace screen_file_transmit
         private bool _isClosing = false;
 
         // 保存闪烁相关
-        private DispatcherTimer _blinkTimer;
-        private int _blinkCount;
-        private const double NormalBorderThickness = 1;
-        private const double BoldBorderThickness = 4;
-        private const int BlinkTotalTicks = 4;
+
 
         public ScreenshotToolWindow(MainWindowViewModel mainVm)
         {
@@ -391,7 +388,8 @@ namespace screen_file_transmit
         private void ShowSelectionBorder(Rect region)
         {
             EnsureSelectionBorderWindow();
-            if (_selectionBorderWindow.Blinking)
+            // 闪烁中不要挪边框，否则圆点的摆放基准会跟着跳
+            if (_blinkDotOverlay != null && _blinkDotOverlay.Blinking)
             {
                 return;
             }
@@ -716,6 +714,11 @@ namespace screen_file_transmit
                     (int)(physBR.X - physTL.X),
                     (int)(physBR.Y - physTL.Y));
                 bmp = ScreenCaptureHelper.CaptureRegion(rc);
+
+                // 与 CaptureSelection 保持一致：裁掉叠加在选区上的红框残留。
+                // 红框虽然已 Hide，但 Hide 不保证立刻刷新屏幕合成，
+                // 这道裁切兜住偶发的红框入画。
+                bmp = ScreenCaptureHelper.StripBorder(bmp, SelectionBorderWindow.BorderThicknessPx);
             }
             else
             {
@@ -878,6 +881,9 @@ namespace screen_file_transmit
                         (int)(physBR.X - physTL.X),
                         (int)(physBR.Y - physTL.Y));
                     bmp = ScreenCaptureHelper.CaptureRegion(rc);
+
+                    // 选区截图会带上叠加在选区上的红框，按线宽把四周裁掉
+                    bmp = ScreenCaptureHelper.StripBorder(bmp, SelectionBorderWindow.BorderThicknessPx);
                 }
 
                 return bmp;
@@ -1044,14 +1050,11 @@ namespace screen_file_transmit
 
             var configDialog = new AutoFlipConfigDialog(_selectedHwnd);
 
-            // 区域选区时没有窗口句柄，把物理坐标区域传给对话框，供拾取点击位置换算百分比
-            if (_selectedHwnd == IntPtr.Zero && _selectedRegion.Width > 0 && _selectedRegion.Height > 0)
+            // 直接把选区控件的 DIP 坐标传给对话框，蒙版用它显示，避免重新计算导致错位
+            var border = _selectionBorderWindow;
+            if (border != null)
             {
-                var physTL = ScreenCaptureHelper.LogicalToPhysical(this,
-                    new System.Windows.Point(_selectedRegion.X, _selectedRegion.Y));
-                var physBR = ScreenCaptureHelper.LogicalToPhysical(this,
-                    new System.Windows.Point(_selectedRegion.Right, _selectedRegion.Bottom));
-                configDialog.SetRegionRect((int)physTL.X, (int)physTL.Y, (int)physBR.X, (int)physBR.Y);
+                configDialog.SetMaskRectDip(border.Left, border.Top, border.Width, border.Height);
             }
 
             configDialog.Owner = this;
@@ -1070,8 +1073,7 @@ namespace screen_file_transmit
 
             Thread.Sleep(200);
             if (_isClosing) return;
-            if (_flipMethod == FlipMethod.Wait)
-                BlinkOnSave();
+            BlinkOnSave();
             SaveCapture(bmp, meta);
             _lastProcessedPage = meta.CurrentPage;
             _autoFlipTotalPages = meta.TotalPages;
@@ -1100,36 +1102,34 @@ namespace screen_file_transmit
             _autoFlipTimer.Start();
         }
 
+        /// <summary>
+        /// 保存成功后在选区红框外侧右上角闪一个绿色小圆点。
+        /// 圆点在独立的小窗口里，不落在红框上，也不会进截图。
+        /// 注意：不能用「边框是否可见」做前置判断 —— 截图时边框被 Hide 了，
+        /// 而本方法紧跟在截图之后调用，那时边框还没 Show 回来。
+        /// </summary>
         private void BlinkOnSave()
         {
-            if (_selectionBorderWindow != null && _selectionBorderWindow.IsVisible)
-            {
-                _selectionBorderWindow.BlinkBorder();
+            if (_selectionBorderWindow == null)
                 return;
-            }
 
-            //_blinkTimer?.Stop();
-            //_blinkCount = 0;
-            //var originalBrush = RootBorder.BorderBrush;
-            //var greenBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Green);
-            //_blinkTimer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(200) };
-            //_blinkTimer.Tick += (s, e) =>
-            //{
-            //    _blinkCount++;
-            //    if (_blinkCount >= BlinkTotalTicks)
-            //    {
-            //        _blinkTimer.Stop();
-            //        RootBorder.BorderThickness = new Thickness(NormalBorderThickness);
-            //        RootBorder.BorderBrush = originalBrush;
-            //        return;
-            //    }
-            //    bool bold = (_blinkCount % 2) == 1;
-            //    RootBorder.BorderThickness = new Thickness(bold ? BoldBorderThickness : 0);
-            //    //RootBorder.BorderBrush = bold ? greenBrush : originalBrush;
-            //};
-            //RootBorder.BorderThickness = new Thickness(BoldBorderThickness);
-            //RootBorder.BorderBrush = greenBrush;
-            //_blinkTimer.Start();
+            var rc = _selectionBorderWindow.ScreenRectPx;
+            if (rc.IsEmpty || rc.Width <= 0 || rc.Height <= 0)
+                return;
+
+            EnsureBlinkDotOverlay();
+            _blinkDotOverlay.PositionOutsideTopRight(rc.Left, rc.Top, rc.Right);
+            _blinkDotOverlay.StartBlink();
+        }
+
+        private BlinkDotOverlay _blinkDotOverlay;
+
+        private void EnsureBlinkDotOverlay()
+        {
+            if (_blinkDotOverlay != null) return;
+
+            _blinkDotOverlay = new BlinkDotOverlay();
+            // 不设 Owner，避免被工具窗口的位置/激活牵连
         }
 
         private void AutoFlipTick(object sender, EventArgs e)
@@ -1272,8 +1272,7 @@ namespace screen_file_transmit
             Thread.Sleep(200);
             if (_isClosing) return;
 
-            if (_flipMethod == FlipMethod.Wait)
-                BlinkOnSave();
+            BlinkOnSave();
             SaveCapture(bmp, meta);
             bmp.Dispose();
 
@@ -1440,10 +1439,11 @@ namespace screen_file_transmit
                     _cursorMoved = true;
             }
 
-            // SetCursorPos 在 DPI-unaware 进程接收虚拟化坐标，物理点需换算
-            var vpt = PhysicalToVirtualPoint(pt.Value);
-            NativeMethods.SetCursorPos(vpt.X, vpt.Y);
+            // 落点是物理像素，与拾取 GetPhysicalCursorPos 同基准，直接喂 SetCursorPos
+            NativeMethods.SetCursorPos(pt.Value.X, pt.Value.Y);
             System.Threading.Thread.Sleep(50);
+
+            // 真实点击
             NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, IntPtr.Zero);
             System.Threading.Thread.Sleep(30);
             NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
@@ -1516,49 +1516,45 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 计算点击落点（物理屏幕坐标）：窗口/选区内按百分比位置
+        /// 计算点击落点：一律基于「选区」计算（选区控件矩形），与拾取百分比同源，
+        /// 不基于选中窗口，避免 Windows 缩放下基准不一致导致落点偏移。
+        /// 返回物理屏幕坐标。
         /// </summary>
         private System.Drawing.Point? ComputeClickPoint()
         {
-            System.Drawing.Rectangle rc;
-
-            if (_selectedHwnd != IntPtr.Zero)
+            // 优先用选区控件的 DIP 矩形（与拾取百分比 _maskDip 同源）
+            double l, t, w, h;
+            var border = _selectionBorderWindow;
+            if (border != null)
             {
-                // 与拾取百分比、区域分支同为物理像素基准：GetWindowRect 是虚拟化坐标须换算，
-                // TryGetExtendedFrameBounds 本身就是物理，优先用它
-                NativeMethods.RECT wr;
-                if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
-                    wr = dwmRc;
-                else
-                {
-                    NativeMethods.GetWindowRect(_selectedHwnd, out var raw);
-                    wr = VirtualToPhysicalRect(raw);
-                }
-
-                rc = new System.Drawing.Rectangle(wr.Left, wr.Top, wr.Right - wr.Left, wr.Bottom - wr.Top);
+                l = border.Left; t = border.Top; w = border.Width; h = border.Height;
             }
             else if (_selectedRegion.Width > 0 && _selectedRegion.Height > 0)
             {
-                var physTL = ScreenCaptureHelper.LogicalToPhysical(this,
-                    new System.Windows.Point(_selectedRegion.X, _selectedRegion.Y));
-                var physBR = ScreenCaptureHelper.LogicalToPhysical(this,
-                    new System.Windows.Point(_selectedRegion.Right, _selectedRegion.Bottom));
-                rc = new System.Drawing.Rectangle((int)physTL.X, (int)physTL.Y,
-                    (int)(physBR.X - physTL.X), (int)(physBR.Y - physTL.Y));
+                l = _selectedRegion.X; t = _selectedRegion.Y; w = _selectedRegion.Width; h = _selectedRegion.Height;
             }
             else
             {
                 return null;
             }
 
-            if (rc.Width <= 0 || rc.Height <= 0) return null;
+            if (w <= 0 || h <= 0) return null;
+
+            _clickRectDebug = $"({l:F1},{t:F1}) {w:F1}x{h:F1}(DIP)";
 
             double px = Math.Min(100, Math.Max(0, _clickOffsetPercentX)) / 100.0;
             double py = Math.Min(100, Math.Max(0, _clickOffsetPercentY)) / 100.0;
 
+            // 在选区 DIP 空间按百分比算落点，再换算到物理像素。
+            // 拾取用 GetPhysicalCursorPos(物理)，SetCursorPos 与之配套也走物理像素，
+            // 故落点必须转物理；直接喂 DIP 会因缩放被「缩小」而偏移。
+            double dipX = l + w * px;
+            double dipY = t + h * py;
+            double scale = GetDpiScaleFactor();
+
             return new System.Drawing.Point(
-                rc.Left + (int)Math.Round(rc.Width * px),
-                rc.Top + (int)Math.Round(rc.Height * py));
+                (int)Math.Round(dipX * scale),
+                (int)Math.Round(dipY * scale));
         }
 
         protected override void OnClosed(EventArgs e)

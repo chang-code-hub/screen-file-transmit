@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -331,8 +331,13 @@ namespace screen_file_transmit
             return false;
         }
 
-        private void Window_MouseMove(object sender, MouseEventArgs e)
+        protected override void OnPreviewMouseMove(MouseEventArgs e)
         {
+            base.OnPreviewMouseMove(e);
+
+            // 拖拽高亮期间吞掉移动事件，避免漏到下方元素
+            e.Handled = true;
+
             if(_borderWindow==null) return;
             if (!NativeMethods.GetCursorPos(out var pt))
             {
@@ -396,8 +401,13 @@ namespace screen_file_transmit
             }
         }
 
-        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        protected override void OnPreviewMouseLeftButtonDown(MouseButtonEventArgs e)
         {
+            base.OnPreviewMouseLeftButtonDown(e);
+
+            // Preview 阶段吞掉点击，防止传递到蒙版下方的界面元素
+            e.Handled = true;
+
             SelectedHwnd = _hoverHwnd;
             Trace.WriteLine($"SELECT WINDOW {SelectedHwnd}");
             ReleaseMouseCapture();

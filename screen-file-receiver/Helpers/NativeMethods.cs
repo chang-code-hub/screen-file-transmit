@@ -15,6 +15,15 @@ namespace screen_file_transmit
         public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
         [DllImport("user32.dll")]
+        public static extern int GetSystemMetrics(int nIndex);
+
+        // 虚拟屏（多屏并集）边界，物理像素
+        public const int SM_XVIRTUALSCREEN = 76;
+        public const int SM_YVIRTUALSCREEN = 77;
+        public const int SM_CXVIRTUALSCREEN = 78;
+        public const int SM_CYVIRTUALSCREEN = 79;
+
+        [DllImport("user32.dll")]
         public static extern IntPtr WindowFromPoint(POINT point);
 
         [DllImport("user32.dll")]
@@ -183,6 +192,33 @@ namespace screen_file_transmit
         public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
         public const int WH_KEYBOARD_LL = 13;
+
+        // ===== 低级鼠标钩子：系统层吞掉点击，防止 VdSession 等全局监听工具/下层应用收到 =====
+        public delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+
+        public const int WH_MOUSE_LL = 14;
+
+        public const uint WM_LBUTTONDOWN = 0x0201;
+        public const uint WM_LBUTTONUP = 0x0202;
+        public const uint WM_LBUTTONDBLCLK = 0x0203;
+        public const uint WM_RBUTTONDOWN = 0x0204;
+        public const uint WM_RBUTTONUP = 0x0205;
+        public const uint WM_MBUTTONDOWN = 0x0207;
+        public const uint WM_MBUTTONUP = 0x0208;
+        public const uint WM_MOUSEMOVE = 0x0200;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MSLLHOOKSTRUCT
+        {
+            public POINT pt;
+            public uint mouseData;
+            public uint flags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
         public const uint WM_KEYDOWN = 0x0100;
         public const uint WM_SYSKEYDOWN = 0x0104;
 

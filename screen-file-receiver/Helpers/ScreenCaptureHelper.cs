@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -67,6 +67,40 @@ namespace screen_file_transmit
                 gfx.CopyFromScreen(rect.Location, System.Drawing.Point.Empty, rect.Size);
             }
             return bmp;
+        }
+
+        /// <summary>
+        /// 裁掉截图四周的选区红框。
+        /// 红框是 SelectionBorderWindow 叠在选区上的 BorderElement，
+        /// 线宽 SelectionBorderWindow.BorderThicknessPx，贴着截图边缘。
+        /// 裁完后画面比选区小一圈，但不包含红框。
+        /// </summary>
+        /// <param name="source">原截图（会被释放）</param>
+        /// <param name="borderPx">四周要裁掉的像素数</param>
+        /// <returns>裁边后的图；裁不动时返回原图</returns>
+        public static Bitmap StripBorder(Bitmap source, int borderPx)
+        {
+            if (source == null || borderPx <= 0)
+                return source;
+
+            // 四周各裁 borderPx，剩余不足则整图不动
+            if (source.Width <= borderPx * 2 || source.Height <= borderPx * 2)
+                return source;
+
+            var rect = new Rectangle(borderPx, borderPx,
+                source.Width - borderPx * 2, source.Height - borderPx * 2);
+            Bitmap cropped;
+            try
+            {
+                cropped = source.Clone(rect, source.PixelFormat);
+            }
+            catch
+            {
+                return source;
+            }
+
+            source.Dispose();
+            return cropped;
         }
 
         public static BitmapSource ToBitmapSource(Bitmap bitmap)

@@ -15,11 +15,12 @@ namespace screen_file_transmit
         private readonly Action<int, int> _onPicked;
         private readonly Action _onCancelled;
 
-        /// <param name="leftPhys">蒙版左边界（真实物理像素屏幕坐标）</param>
-        /// <param name="topPhys">蒙版上边界</param>
-        /// <param name="widthPhys">蒙版宽度</param>
-        /// <param name="heightPhys">蒙版高度</param>
-        public PickPointOverlay(double leftPhys, double topPhys, double widthPhys, double heightPhys,
+        /// <param name="left">蒙版左边界（isDip=true 时为 WPF DIP，否则为物理像素）</param>
+        /// <param name="top">蒙版上边界</param>
+        /// <param name="width">蒙版宽度</param>
+        /// <param name="height">蒙版高度</param>
+        /// <param name="isDip">true 表示传入已是 WPF DIP（选区控件坐标），直接使用不换算</param>
+        public PickPointOverlay(double left, double top, double width, double height, bool isDip,
             Action<int, int> onPicked, Action onCancelled)
         {
             _onPicked = onPicked;
@@ -27,27 +28,43 @@ namespace screen_file_transmit
             InitializeComponent();
             Loaded += (s, e) =>
             {
-                ApplyMaskRect(leftPhys, topPhys, widthPhys, heightPhys);
+                ApplyMaskRect(left, top, width, height, isDip);
                 CaptureMouse();
             };
         }
 
         /// <summary>
-        /// 把窗口定位到蒙版范围。传入的是真实物理像素坐标。
-        /// 用 SetWindowPos 按物理像素直接摆放 Win32 窗口，与拾取光标、选区物理矩形同基准。
+        /// 把窗口定位到蒙版范围。isDip=true 时直接用传入的选区 DIP 坐标，否则物理换算。
         /// </summary>
-        private void ApplyMaskRect(double leftPhys, double topPhys, double widthPhys, double heightPhys)
+        private void ApplyMaskRect(double left, double top, double width, double height, bool isDip)
         {
-            var hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero) return;
+            // isDip=true：传入已是选区控件的 WPF DIP 坐标，原样使用，保证与选区同大小同坐标
+            if (isDip)
+            {
+                Left = left;
+                Top = top;
+                Width = Math.Max(1, width);
+                Height = Math.Max(1, height);
+                return;
+            }
 
-            int x = (int)Math.Round(leftPhys);
-            int y = (int)Math.Round(topPhys);
-            int w = Math.Max(1, (int)Math.Round(widthPhys));
-            int h = Math.Max(1, (int)Math.Round(heightPhys));
+            // 物理像素：按 WPF 设备变换换算成 DIP 后定位
+            double scale = 1.0;
+            try
+            {
+                var source = PresentationSource.FromVisual(this);
+                var m = source?.CompositionTarget?.TransformToDevice ?? System.Windows.Media.Matrix.Identity;
+                if (m.M11 > 0 && m.M22 > 0) scale = m.M11;
+            }
+            catch
+            {
+                //ignore
+            }
 
-            NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
-                NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+            Left = left / scale;
+            Top = top / scale;
+            Width = Math.Max(1, width / scale);
+            Height = Math.Max(1, height / scale);
         }
 
         /// <summary>
