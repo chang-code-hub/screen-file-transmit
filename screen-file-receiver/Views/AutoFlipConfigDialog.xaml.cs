@@ -243,38 +243,36 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 取系统的 DPI 缩放比（相对 96 DPI）。优先按窗口句柄，回退系统 DPI。
+        /// 取 DIP→物理 缩放比。
+        /// 统一以 WPF 的 TransformToDevice 为准（与 LogicalToPhysical 同源），
+        /// 避免和区域选区传入的物理矩形因 DPI 换算基准不一致而错位；
+        /// 无窗口源时才回退 Win32 系统 DPI。
         /// </summary>
         private double GetDpiScaleFactor()
         {
-            uint dpi = 96;
-            if (_targetHwnd != IntPtr.Zero)
+            try
             {
-                try
-                {
-                    var h = NativeMethods.GetDpiForWindow(_targetHwnd);
-                    if (h != 0) dpi = h;
-                }
-                catch
-                {
-                    //ignore
-                }
+                var source = PresentationSource.FromVisual(this);
+                var m = source?.CompositionTarget?.TransformToDevice ?? System.Windows.Media.Matrix.Identity;
+                if (m.M11 > 0 && m.M22 > 0)
+                    return m.M11;
+            }
+            catch
+            {
+                //ignore
             }
 
-            if (dpi == 96)
+            try
             {
-                try
-                {
-                    var sd = NativeMethods.GetDpiForSystem();
-                    if (sd != 0) dpi = sd;
-                }
-                catch
-                {
-                    //ignore
-                }
+                var sd = NativeMethods.GetDpiForSystem();
+                if (sd != 0) return sd / 96.0;
+            }
+            catch
+            {
+                //ignore
             }
 
-            return dpi / 96.0;
+            return 1.0;
         }
 
         /// <summary>

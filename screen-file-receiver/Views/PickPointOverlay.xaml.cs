@@ -33,35 +33,22 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 把窗口定位到蒙版范围。WPF 窗口 Left/Top/Width/Height 是 DIP，需按 DPI 换算。
+        /// 把窗口定位到蒙版范围。
+        /// 直接用 SetWindowPos 按真实物理像素摆放 Win32 窗口，绕开 WPF 的 DIP 换算，
+        /// 这样在 Windows 显示缩放下不会因 DIP/物理坐标基准不一致而偏移。
         /// </summary>
         private void ApplyMaskRect(double leftPhys, double topPhys, double widthPhys, double heightPhys)
         {
-            double scale = GetDpiScaleFactor();
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero) return;
 
-            Left = leftPhys / scale;
-            Top = topPhys / scale;
-            Width = Math.Max(1, widthPhys / scale);
-            Height = Math.Max(1, heightPhys / scale);
-        }
+            int x = (int)Math.Round(leftPhys);
+            int y = (int)Math.Round(topPhys);
+            int w = Math.Max(1, (int)Math.Round(widthPhys));
+            int h = Math.Max(1, (int)Math.Round(heightPhys));
 
-        /// <summary>
-        /// 取系统 DPI 缩放比（相对 96 DPI），用于物理像素与 DIP 互转
-        /// </summary>
-        private double GetDpiScaleFactor()
-        {
-            uint dpi = 96;
-            try
-            {
-                var sd = NativeMethods.GetDpiForSystem();
-                if (sd != 0) dpi = sd;
-            }
-            catch
-            {
-                //ignore
-            }
-
-            return dpi / 96.0;
+            NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
+                NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
         }
 
         protected override void OnSourceInitialized(EventArgs e)

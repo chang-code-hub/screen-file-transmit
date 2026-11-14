@@ -1315,7 +1315,9 @@ namespace screen_file_transmit
 
             try
             {
-                NativeMethods.SetCursorPos(_savedCursorPos.X, _savedCursorPos.Y);
+                // _savedCursorPos 是物理像素，SetCursorPos 在 DPI-unaware 进程接收虚拟化坐标
+                var v = PhysicalToVirtualPoint(_savedCursorPos);
+                NativeMethods.SetCursorPos(v.X, v.Y);
             }
             catch
             {
@@ -1373,7 +1375,8 @@ namespace screen_file_transmit
             var pt = ComputeClickPoint();
             if (pt == null) return;
 
-            if (NativeMethods.GetCursorPos(out var cursor))
+            // 与 pt.Value 同为真物理像素基准，保存/比较才正确
+            if (TryGetPhysicalCursorPos(out var cursor))
             {
                 if (!_cursorSaved)
                 {
@@ -1394,6 +1397,16 @@ namespace screen_file_transmit
             NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
 
             _lastPageTurnTime = DateTime.Now;
+        }
+
+        /// <summary>
+        /// 取光标真物理像素坐标（不受进程 DPI 虚拟化影响），失败回退 GetCursorPos
+        /// </summary>
+        private static bool TryGetPhysicalCursorPos(out NativeMethods.POINT pt)
+        {
+            if (NativeMethods.GetPhysicalCursorPos(out pt))
+                return true;
+            return NativeMethods.GetCursorPos(out pt);
         }
 
         /// <summary>
@@ -1423,38 +1436,34 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 取系统的 DPI 缩放比（相对 96 DPI）
+        /// 取 DIP→物理 缩放比。
+        /// 统一以 WPF 的 TransformToDevice 为准（与 ScreenCaptureHelper.LogicalToPhysical 同源），
+        /// 保证区域/边框的 DIP 换算和窗口物理矩形在同一基准上。
         /// </summary>
         private double GetDpiScaleFactor()
         {
-            uint dpi = 96;
-            if (_selectedHwnd != IntPtr.Zero)
+            try
             {
-                try
-                {
-                    var h = NativeMethods.GetDpiForWindow(_selectedHwnd);
-                    if (h != 0) dpi = h;
-                }
-                catch
-                {
-                    //ignore
-                }
+                var m = ScreenCaptureHelper.GetDpiScale(this);
+                if (m.M11 > 0 && m.M22 > 0)
+                    return m.M11;
+            }
+            catch
+            {
+                //ignore
             }
 
-            if (dpi == 96)
+            try
             {
-                try
-                {
-                    var sd = NativeMethods.GetDpiForSystem();
-                    if (sd != 0) dpi = sd;
-                }
-                catch
-                {
-                    //ignore
-                }
+                var sd = NativeMethods.GetDpiForSystem();
+                if (sd != 0) return sd / 96.0;
+            }
+            catch
+            {
+                //ignore
             }
 
-            return dpi / 96.0;
+            return 1.0;
         }
 
         /// <summary>
