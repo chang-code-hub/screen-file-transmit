@@ -39,6 +39,9 @@ namespace screen_file_transmit
         private string _pauseButtonText = Properties.Resources.ResourceManager.GetString("Button_Pause");
         private bool _isBatchAdding;
 
+        /// <summary>Application version, injected at build time (see npm/publish.js).</summary>
+        public string Version => AppVersion.Info;
+
         public ObservableCollection<FileItem> FileItems
         {
             get => _fileItems;

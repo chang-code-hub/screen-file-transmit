@@ -10,7 +10,8 @@
 		<ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<ApplicationIcon>icon.ico</ApplicationIcon>
-		<Version>2.0</Version>
+		<!-- 版本号（AssemblyVersion/AssemblyFileVersion/AssemblyInformationalVersion）由 npm/publish.js 发布时
+		     写入 Properties/AssemblyInfo.cs；本项目 GenerateAssemblyInfo=false，SDK 不会自动生成版本属性。 -->
 	</PropertyGroup>
 	<ItemGroup>
 		<Resource Include="icon.ico" />

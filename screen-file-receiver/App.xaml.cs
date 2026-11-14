@@ -18,13 +18,18 @@ namespace screen_file_transmit
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Handle `-v` / `--version` before the main window is shown or
+            // native DLLs are extracted.
+            if (VersionFlag.Handle(e.Args))
+                return; // VersionFlag exits the process itself
+
             base.OnStartup(e);
             ExtractUnmanagedDlls();
         }
 
         private static void ExtractUnmanagedDlls()
         {
-            var dllNames = new[] { "OpenCvSharpExtern.dll", "opencv_videoio_ffmpeg4130_64.dll" };
+            var dllNames = new[] { "OpenCvSharpExtern.dll" };
             var assembly = Assembly.GetExecutingAssembly();
             var targetDir = AppDomain.CurrentDomain.BaseDirectory;
 

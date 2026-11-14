@@ -5,13 +5,14 @@
     <NoWarn>$(NoWarn);NU1507</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Costura.Fody" Version="6.0.0" />
+    <PackageVersion Include="Costura.Fody" Version="6.2.0" />
     <PackageVersion Include="Emgu.CV" Version="4.3.0.3890" />
     <PackageVersion Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageVersion Include="Obfuscar" Version="2.2.50" />
-    <PackageVersion Include="OpenCvSharp4" Version="4.13.0.20260330" />
-    <PackageVersion Include="OpenCvSharp4.Extensions" Version="4.13.0.20260330" />
-    <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260302" />
+    <PackageVersion Include="OpenCvSharp4" Version="4.13.0.20261107" />
+    <PackageVersion Include="OpenCvSharp4.Extensions" Version="4.13.0.20261107" />
+    <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.13.0.20261107" />
+    <PackageVersion Include="OpenCvSharp4.runtime.win.slim" Version="4.13.0.20261107" />
     <PackageVersion Include="PropertyChanged.Fody" Version="4.1.0" />
     <PackageVersion Include="ReedSolomon" Version="2.0.0" />
     <PackageVersion Include="System.Data.DataSetExtensions" Version="4.5.0" />

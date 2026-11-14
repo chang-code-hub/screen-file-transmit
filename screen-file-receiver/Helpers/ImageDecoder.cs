@@ -1645,11 +1645,13 @@ namespace screen_file_transmit
                                 return result.Text;
                             }
                             else
-                            { 
+                            {
+#if DEBUG
                                 if (debug)
                                 {
                                     Cv2.ImShow($"{vName} - {strategy}", processed); 
                                 }
+#endif
                             }
                         }
 
@@ -1659,13 +1661,14 @@ namespace screen_file_transmit
                 }
             }
 
+#if DEBUG
             if (debug)
             {
                 image.SaveImage(Directory.GetCurrentDirectory() + "/dm.png");
                 Cv2.ImShow("DM", image); 
                 Cv2.WaitKey();
             }
-
+#endif
             return null;
         }
 
@@ -2210,40 +2213,54 @@ namespace screen_file_transmit
                 Cv2.MedianBlur(gray, gray, 5);
                 Cv2.GaussianBlur(gray, gray, new Size(7, 7), 0);
 
+#if DEBUG
                 if (debug) Cv2.ImShow($"{label} - 1 Gray", gray);
-
+#endif
                 var noBorder = RemoveBlackBorderFast(gray, 224);
+
+#if DEBUG
                 if (debug)
                     Cv2.ImShow($"{label} - 3.1 RmBorder", noBorder);
+#endif
 
                 using (Mat gradX = new Mat())
                 {
                     Cv2.Sobel(noBorder, gradX, MatType.CV_32F, 1, 0, ksize: 3);
                     Cv2.ConvertScaleAbs(gradX, gradX);
 
+#if DEBUG
                     if (debug) Cv2.ImShow($"{label} - 2 Sobel X", gradX);
 
+#endif
                     using (Mat binary = new Mat())
                     {
                         Cv2.Threshold(gradX, binary, 64, 255, ThresholdTypes.Binary);
+
+#if DEBUG
                         if (debug)
                             Cv2.ImShow($"{label} - 3 Binary", binary);
+#endif
+
 
                         using (Mat closed = new Mat())
                         using (Mat kernelClose = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(35, 1)))
                         {
                             Cv2.MorphologyEx(binary, closed, MorphTypes.Close, kernelClose);
 
+#if DEBUG
                             if (debug) Cv2.ImShow($"{label} - 4 Close", closed);
-
+#endif
                             using (Mat dilated = new Mat())
                             using (Mat eroded = new Mat())
                             using (Mat kernelSmall = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3)))
                             {
                                 Cv2.Dilate(closed, dilated, kernelSmall, null, 1);
                                 Cv2.Erode(dilated, eroded, kernelSmall, null, 1);
+
+#if DEBUG
                                 if (debug)
                                     Cv2.ImShow($"{label} - 5 OpenClose", eroded);
+#endif
 
                                 Cv2.FindContours(eroded, out Point[][] contours, out HierarchyIndex[] hierarchy,
                                     RetrievalModes.External, ContourApproximationModes.ApproxSimple);

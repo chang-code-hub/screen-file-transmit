@@ -63,6 +63,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="32" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="32" />
                     </Grid.ColumnDefinitions>
                     <Label>
@@ -80,6 +81,13 @@
                         FontWeight="Bold"
                         Foreground="White"
                         Text="{loc:Loc BannerTitle}" />
+                    <TextBlock
+                        Grid.Column="2"
+                        Margin="0,0,5,0"
+                        VerticalAlignment="Center"
+                        Foreground="#AAAAAA"
+                        FontSize="12"
+                        Text="{Binding Version}" />
                 </Grid>
             </Border>
 

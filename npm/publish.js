@@ -15,11 +15,15 @@
  *   --pack     - Build and create local .tgz tarball only (no publish)
  *
  * Steps:
- *   1. Build the .NET project in Release mode
- *   2. Copy build artifacts to npm/<package>/dist/
- *   3. Bump version (auto patch or use fixed version)
- *   4. Run npm publish / npm publish --dry-run / npm pack
- *   5. Git commit and tag (publish mode only)
+ *   1. Resolve the final version (fixed or auto-bumped patch)
+ *   2. Write AssemblyVersion / AssemblyFileVersion / AssemblyInformationalVersion
+ *      into each project's Properties/AssemblyInfo.cs (these projects set
+ *      GenerateAssemblyInfo=false, so the SDK's Version property alone has no
+ *      effect — the attributes must be written directly)
+ *   3. Build the .NET projects in Release mode
+ *   4. Copy build artifacts to npm/<package>/bin/
+ *   5. Run npm publish / npm publish --dry-run / npm pack
+ *   6. Git commit and tag (publish mode only)
  */
 const fs = require('fs');
 const path = require('path');
@@ -49,6 +53,7 @@ const packages = {
     dir: 'screen-file-sender',
     name: '@chang-code-hub/screen-file-sender',
     proj: 'screen-file-sender/screen-file-sender.csproj',
+    assemblyInfo: 'screen-file-sender/Properties/AssemblyInfo.cs',
     sourceDir: 'screen-file-sender/bin/Release',
     files: [
       'screen-file-sender.exe',
@@ -60,7 +65,8 @@ const packages = {
     dir: 'screen-file-receiver',
     name: '@chang-code-hub/screen-file-receiver',
     proj: 'screen-file-receiver/screen-file-receiver.csproj',
-      sourceDir: 'screen-file-receiver/bin/Release',
+    assemblyInfo: 'screen-file-receiver/Properties/AssemblyInfo.cs',
+    sourceDir: 'screen-file-receiver/bin/Release',
     files: [
       'screen-file-receiver.exe',
       'screen-file-receiver.exe.config'
@@ -71,8 +77,54 @@ const packages = {
   },
 };
 
+// Parse a SemVer-ish version into a 4-part numeric version for
+// AssemblyVersion / AssemblyFileVersion (e.g. "2.2.37" -> "2.2.37.0").
+// Any non-numeric prerelease/build suffix is dropped.
+function toFourPartVersion(version) {
+  const numeric = version.split('-')[0].split('+')[0];
+  const parts = numeric.split('.').map(p => parseInt(p, 10));
+  while (parts.length < 4) parts.push(0);
+  return parts.slice(0, 4).join('.');
+}
+
+// Write AssemblyVersion / AssemblyFileVersion / AssemblyInformationalVersion
+// into the project's AssemblyInfo.cs, replacing any previously injected values.
+// This is required because these projects set GenerateAssemblyInfo=false, which
+// disables the SDK's automatic version-attribute generation entirely.
+function writeAssemblyVersion(pkgKey, version) {
+  const pkg = packages[pkgKey];
+  const assemblyInfoPath = path.join(rootDir, pkg.assemblyInfo);
+
+  let content = fs.readFileSync(assemblyInfoPath, 'utf8');
+
+  const fourPart = toFourPartVersion(version);
+  const injectionBlock =
+    `// Version injected by npm/publish.js at publish time (from the npm package version).\r\n` +
+    `// AssemblyVersion / AssemblyFileVersion need a 4-part numeric version; AssemblyInformationalVersion keeps the original SemVer format.\r\n` +
+    `[assembly: AssemblyVersion("${fourPart}")]\r\n` +
+    `[assembly: AssemblyFileVersion("${fourPart}")]\r\n` +
+    `[assembly: AssemblyInformationalVersion("${version}")]\r\n`;
+
+  // Remove any previously injected block (from a marker comment through the
+  // AssemblyInformationalVersion attribute), then append the fresh block.
+  const injectionPattern =
+    /\/\/ Version injected by npm\/publish\.js[\s\S]*?\[assembly: AssemblyInformationalVersion\("[^"]*"\)\]\r?\n/g;
+
+  content = content.replace(injectionPattern, '');
+
+  // Ensure the file ends with a newline before appending.
+  if (!content.endsWith('\n')) {
+    content += '\r\n';
+  }
+
+  content = content.replace(/\s*$/, '\r\n') + injectionBlock;
+
+  fs.writeFileSync(assemblyInfoPath, content);
+  console.log(`Injected version ${version} into ${pkg.assemblyInfo}`);
+}
+
 function buildProject() {
-  console.log(`Cleaning ...`); 
+  console.log(`Cleaning ...`);
   execSync(`if exist "screen-file-receiver\\bin\\Release" rd /s /q "screen-file-receiver\\bin\\Release"`, {
     cwd: rootDir,
     stdio: 'inherit',
@@ -81,7 +133,7 @@ function buildProject() {
     cwd: rootDir,
     stdio: 'inherit',
   });
-  console.log(`Building ...`); 
+  console.log(`Building ...`);
   execSync(`msbuild  /t:Clean,Build /p:Configuration=Release`, {
     cwd: rootDir,
     stdio: 'inherit',
@@ -156,7 +208,7 @@ function getRemoteVersion(pkgName) {
   }
 }
 
-function bumpVersion(pkgKey, fixedVersion) {
+function resolveVersion(pkgKey, fixedVersion) {
   const pkg = packages[pkgKey];
   const pkgDir = path.join(rootDir, 'npm', pkg.dir);
   const pkgJsonPath = path.join(pkgDir, 'package.json');
@@ -288,9 +340,6 @@ function main() {
   }
 
   const keys = target === 'all' ? Object.keys(packages) : [target];
-  const changes = [];
-  buildProject();
-
   for (const key of keys) {
     if (!packages[key]) {
       console.error(`Unknown package: ${key}`);
@@ -298,17 +347,27 @@ function main() {
       console.error(`Flags: --dry-run, --pack`);
       process.exit(1);
     }
+  }
 
+  // Resolve the final version for each package first, then inject it into
+  // AssemblyInfo.cs and build — so the compiled exe carries the real npm
+  // package version (shown in the UI and via `sfr -v` / `sfs -v`).
+  const changes = [];
+  for (const key of keys) {
+    const bumpResult = resolveVersion(key, fixedVersion);
+    writeAssemblyVersion(key, bumpResult.newVersion);
+    changes.push(bumpResult);
+  }
+
+  buildProject();
+
+  for (const key of keys) {
     console.log(`\n========== ${packages[key].name} [${mode}] ==========\n`);
     copyFiles(key);
-    const bumpResult = bumpVersion(key, fixedVersion);
-    if (bumpResult.changed) {
-      changes.push(bumpResult);
-    }
     publishPackage(key, mode);
   }
 
-  gitCommitAndTag(changes, mode);
+  gitCommitAndTag(changes.filter(c => c.changed), mode);
 
   console.log('\nDone!');
 }

@@ -10,21 +10,22 @@
 		<Platforms>x64</Platforms>
 		<RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
 		<ApplicationIcon>icon.ico</ApplicationIcon>
-		<LangVersion>Latest</LangVersion>
-		<Version>2.0</Version>
+		<LangVersion>Latest</LangVersion> 
+		<!-- 版本号（AssemblyVersion/AssemblyFileVersion/AssemblyInformationalVersion）由 npm/publish.js 发布时
+		     写入 Properties/AssemblyInfo.cs；本项目 GenerateAssemblyInfo=false，SDK 不会自动生成版本属性。 -->
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	</PropertyGroup> 
+	</PropertyGroup>
 	<ItemGroup>
 		<None Remove="icon.ico" />
-	</ItemGroup>
+	</ItemGroup> 
 	<ItemGroup>
 		<Reference Include="System.Management" />
+  		<EmbeddedResource Remove="**\opencv_videoio_ffmpeg*.dll" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="Microsoft.CSharp" />
 		<PackageReference Include="OpenCvSharp4" />
 		<PackageReference Include="OpenCvSharp4.Extensions" />
-		<PackageReference Include="OpenCvSharp4.runtime.win" />
 		<PackageReference Include="Costura.Fody">
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
@@ -35,6 +36,12 @@
 		<PackageReference Include="System.Data.DataSetExtensions" />
 		<PackageReference Include="System.Linq.Expressions" />
 		<PackageReference Include="ZXing.Net" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(Configuration)' == 'Debug'">
+		<PackageReference Include="OpenCvSharp4.runtime.win" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(Configuration)' == 'Release'">
+		<PackageReference Include="OpenCvSharp4.runtime.win.slim" />
 	</ItemGroup>
 	<ItemGroup>
 		<Resource Include="icon.ico" />

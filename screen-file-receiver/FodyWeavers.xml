@@ -5,7 +5,9 @@
 	<Costura IncludeDebugSymbols='false' DisableCleanup='true'>
 		<UnmanagedWinX64Assemblies>
 			OpenCvSharpExtern
-			opencv_videoio_ffmpeg4130_64
 		</UnmanagedWinX64Assemblies>
+		<ExcludeAssemblies>
+			opencv_videoio_ffmpeg4130_64
+		</ExcludeAssemblies>
 	</Costura>
 </Weavers>

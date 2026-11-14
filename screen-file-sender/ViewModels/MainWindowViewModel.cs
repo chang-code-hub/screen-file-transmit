@@ -39,6 +39,9 @@ namespace screen_file_transmit
         private string _filePath;
         private bool _isConverting;
 
+        /// <summary>Application version, injected at build time (see npm/publish.js).</summary>
+        public string Version => AppVersion.Info;
+
         public string FilePath
         {
             get => _filePath;
