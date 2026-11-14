@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     x:Class="screen_file_transmit.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -113,7 +113,8 @@
                 SelectedItem="{Binding SelectedFileItem}"
                 SelectionChanged="FileDataGrid_SelectionChanged"
                 SelectionMode="Extended"
-                SelectionUnit="FullRow">
+                SelectionUnit="FullRow"
+                Sorting="FileDataGrid_Sorting">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
                         <Style.Triggers>
@@ -128,6 +129,18 @@
                             Width="40"
                             Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             Header="选择" />-->
+                    <DataGridTextColumn
+                        Width="50"
+                        Binding="{Binding RowNumber}"
+                        Header="{loc:Loc Column_RowNumber}"
+                        IsReadOnly="True"
+                        CanUserSort="False" />
+                    <DataGridTextColumn
+                        Width="70"
+                        Binding="{Binding CurrentPage, StringFormat={}{0}}"
+                        Header="{loc:Loc Column_PageNumber}"
+                        IsReadOnly="True"
+                        SortMemberPath="CurrentPage" />
                     <DataGridTextColumn
                         Width="180"
                         Binding="{Binding ImageFileName}"

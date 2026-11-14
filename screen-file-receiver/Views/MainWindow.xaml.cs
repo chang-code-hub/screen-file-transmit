@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace screen_file_transmit
@@ -33,6 +34,35 @@ namespace screen_file_transmit
         private void FileDataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             viewModel.SelectedFileItems = FileDataGrid.SelectedItems.Cast<FileItem>().ToList();
+        }
+
+        /// <summary>
+        /// 处理表头排序。页码按数值排序（WPF 默认按字符串排序会让 10 排在 2 前面）。
+        /// 行号是每行固定的标识，不随排序变化。
+        /// </summary>
+        private void FileDataGrid_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            var column = e.Column;
+
+            // 只接管页码列，其余列交给 DataGrid 默认排序
+            if (column.SortMemberPath != "CurrentPage")
+                return;
+
+            // 自行按数值排序，避免 DataGrid 的字符串排序
+            e.Handled = true;
+
+            var direction = column.SortDirection == ListSortDirection.Ascending
+                ? ListSortDirection.Descending
+                : ListSortDirection.Ascending;
+
+            var view = System.Windows.Data.CollectionViewSource.GetDefaultView(FileDataGrid.Items);
+            using (view.DeferRefresh())
+            {
+                view.SortDescriptions.Clear();
+                view.SortDescriptions.Add(new SortDescription("CurrentPage", direction));
+            }
+
+            column.SortDirection = direction;
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 
 namespace screen_file_transmit
 {
@@ -8,6 +8,7 @@ namespace screen_file_transmit
     public class FileItem : INotifyPropertyChanged
     {
         private bool _isSelected;
+        private int _rowNumber;
         private string _imageFileName;
         private string _fileId;
         private string _saveFileName;
@@ -27,6 +28,22 @@ namespace screen_file_transmit
                 {
                     _isSelected = value;
                     OnPropertyChanged(nameof(IsSelected));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 表格行号，加入表格时一次性确定，之后固定不变（不随排序变化）
+        /// </summary>
+        public int RowNumber
+        {
+            get => _rowNumber;
+            set
+            {
+                if (_rowNumber != value)
+                {
+                    _rowNumber = value;
+                    OnPropertyChanged(nameof(RowNumber));
                 }
             }
         }

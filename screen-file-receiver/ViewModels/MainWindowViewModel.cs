@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -264,6 +264,8 @@ namespace screen_file_transmit
                 var item = await Task.Run(() => CreateFileItem(file));
                 if (item != null)
                 {
+                    // 行号在加入时一次性确定，之后不随排序变化
+                    item.RowNumber = FileItems.Count + 1;
                     item.PropertyChanged += FileItem_PropertyChanged;
                     FileItems.Add(item);
                     existingPaths.Add(file);
@@ -401,8 +403,9 @@ namespace screen_file_transmit
                 {
                     //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
                     //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
+                    // 页码单独成列，不再混在元数据里
                     item.MetadataInfo =
-                        $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? Properties.Resources.ResourceManager.GetString("Meta_Colorful") : Properties.Resources.ResourceManager.GetString("Meta_BlackWhite"))} D={item.ColorDepth} DM={item.TotalQrCodeCount} P={item.CurrentPage}/{item.TotalPages}{(item.HasPassword ? " " + Properties.Resources.ResourceManager.GetString("Meta_HasPassword") : "")}{(item.HasErrorCorrection ? " " + string.Format(Properties.Resources.ResourceManager.GetString("Meta_ErrorCorrection"), item.ErrorCorrectionPercent) : "")}";
+                        $"{item.MaxRows}x{item.MaxCols} {(item.Colorful ? Properties.Resources.ResourceManager.GetString("Meta_Colorful") : Properties.Resources.ResourceManager.GetString("Meta_BlackWhite"))} D={item.ColorDepth} DM={item.TotalQrCodeCount}{(item.HasPassword ? " " + Properties.Resources.ResourceManager.GetString("Meta_HasPassword") : "")}{(item.HasErrorCorrection ? " " + string.Format(Properties.Resources.ResourceManager.GetString("Meta_ErrorCorrection"), item.ErrorCorrectionPercent) : "")}";
                 }
                 else
                 {
