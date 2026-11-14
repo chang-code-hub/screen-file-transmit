@@ -2,7 +2,7 @@
 using System.ComponentModel;
 using System.Threading;
 using System.Windows;
-using System.Windows.Threading;
+using System.Windows.Input;
 
 namespace screen_file_transmit
 {
@@ -20,9 +20,7 @@ namespace screen_file_transmit
         private readonly IntPtr _targetHwnd;
         private NativeMethods.RECT _regionRect;
         private NativeMethods.RECT _pickRect;
-        private bool _pickPending;
-        private DispatcherTimer _pickTimer;
-        private const int VK_LBUTTON = 0x01;
+        private bool _picking;
 
         public FlipMethod SelectedMethod
         {
@@ -106,14 +104,24 @@ namespace screen_file_transmit
 
         private void BtnOk_Click(object sender, RoutedEventArgs e)
         {
-            DialogResult = true;
-            Close();
+            CloseWithResult(true);
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)
         {
-            DialogResult = false;
-            Close();
+            CloseWithResult(false);
+        }
+
+        /// <summary>
+        /// DialogResult 只能在 ShowDialog 期间设置；否则抛 InvalidOperationException。
+        /// 这里按模态状态分别处理，避免任何情况下崩溃。
+        /// </summary>
+        private void CloseWithResult(bool result)
+        {
+            if (System.Windows.Interop.ComponentDispatcher.IsThreadModal)
+                DialogResult = result;
+            else
+                Close();
         }
 
         private void BtnPickPoint_Click(object sender, RoutedEventArgs e)
@@ -127,37 +135,86 @@ namespace screen_file_transmit
                 return;
             }
 
-            // 记录待拾取的区域，隐藏对话框，等待用户在目标画面中点击一次
             _pickRect = rect.Value;
-            _pickPending = true;
-            _pickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
-            _pickTimer.Tick += PickTimer_Tick;
-            Hide();
-            _pickTimer.Start();
+            _picking = true;
+
+            // 不隐藏对话框：保持 ShowDialog 的模态状态，改为捕获鼠标，
+            // 用户在发送端画面上点击一次即记录落点（对话框始终可见）。
+            Mouse.Capture(this);
         }
 
-        private void PickTimer_Tick(object sender, EventArgs e)
+        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
         {
-            if (!_pickPending) return;
+            base.OnPreviewMouseDown(e);
+            if (!_picking) return;
 
-            short state = NativeMethods.GetAsyncKeyState(VK_LBUTTON);
-            if ((state & 0x8000) == 0) return; // 尚未按下左键
+            // Preview 阶段吞掉按下事件，避免冒泡到子控件（OK/Cancel 等）。
+            // 这里不结束拾取——抬起才算一次完整点击。
+            e.Handled = true;
+        }
 
-            _pickPending = false;
-            _pickTimer.Stop();
-            _pickTimer = null;
+        protected override void OnPreviewMouseUp(MouseButtonEventArgs e)
+        {
+            base.OnPreviewMouseUp(e);
+            if (!_picking) return;
 
-            if (NativeMethods.GetCursorPos(out var pt))
+            // 抬起时完成拾取并记录落点，同时吞掉抬起事件，避免其冒泡触发按钮 Click
+            EndPick(true);
+            e.Handled = true;
+        }
+
+        protected override void OnPreviewMouseMove(MouseEventArgs e)
+        {
+            base.OnPreviewMouseMove(e);
+            if (!_picking) return;
+
+            // 捕获期间鼠标可能移出窗口，移动时跟随更新预览位置
+            if (NativeMethods.GetCursorPos(out var p))
+                PreviewPickedPoint(p.X, p.Y);
+
+            e.Handled = true;
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (!_picking) return;
+            if (e.Key == Key.Escape)
+            {
+                EndPick(false);
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// 结束鼠标拾取。成功则用当前光标位置计算百分比，取消则保留原值。
+        /// </summary>
+        private void EndPick(bool apply)
+        {
+            if (!_picking) return;
+            _picking = false;
+
+            var h = Mouse.Captured;
+            if (h != null) Mouse.Capture(null);
+
+            if (apply && NativeMethods.GetCursorPos(out var pt))
                 ApplyPickedPoint(pt.X, pt.Y);
 
-            Show();
             Activate();
         }
 
         /// <summary>
-        /// 用拾取到的屏幕坐标反算在选区内的百分比位置
+        /// 用拾取到的屏幕坐标反算在选区内的百分比位置并提交
         /// </summary>
         private void ApplyPickedPoint(int screenX, int screenY)
+        {
+            PreviewPickedPoint(screenX, screenY);
+        }
+
+        /// <summary>
+        /// 预览拾取位置（不改变已确认的百分比，仅更新显示）
+        /// </summary>
+        private void PreviewPickedPoint(int screenX, int screenY)
         {
             var r = _pickRect;
             int w = r.Right - r.Left;
@@ -199,12 +256,9 @@ namespace screen_file_transmit
 
         protected override void OnClosed(EventArgs e)
         {
-            _pickPending = false;
-            if (_pickTimer != null)
-            {
-                _pickTimer.Stop();
-                _pickTimer = null;
-            }
+            _picking = false;
+            if (Mouse.Captured != null)
+                Mouse.Capture(null);
 
             base.OnClosed(e);
         }
