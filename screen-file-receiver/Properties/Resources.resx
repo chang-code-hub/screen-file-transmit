@@ -33,6 +33,8 @@
   <data name="Hint_NoScaling" xml:space="preserve"><value>请确保截图时显示比例为100%，避免缩放导致二维码变形。</value></data>
   <data name="Hint_ClearImage" xml:space="preserve"><value>请确保截图清晰完整，不要裁剪边缘的元数据条码。</value></data>
   <data name="Label_Tips" xml:space="preserve"><value>提示：</value></data>
+  <data name="Column_RowNumber" xml:space="preserve"><value>行号</value></data>
+  <data name="Column_PageNumber" xml:space="preserve"><value>页码</value></data>
   <data name="Column_ImageFileName" xml:space="preserve"><value>图片文件名</value></data>
   <data name="Column_FileId" xml:space="preserve"><value>文件ID</value></data>
   <data name="Column_SaveFileName" xml:space="preserve"><value>保存文件名</value></data>

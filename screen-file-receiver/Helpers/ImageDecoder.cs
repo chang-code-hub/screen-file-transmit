@@ -818,7 +818,7 @@ namespace screen_file_transmit
         /// <summary>
         /// 尝试解码 DataMatrix
         /// </summary>
-        public static string TryDecodeDataMatrix(Mat image, bool debug = false, int retryCount = 10)
+        public static string TryDecodeDataMatrix(Mat image, bool debug = false, int retryCount = 20)
         {
             // ZXing 的 DataMatrixReader 内部状态可变，非线程安全：
             // 截图工具与转换流程并发调用时共享实例会导致偶发解不出，故每次调用新建。
@@ -956,17 +956,25 @@ namespace screen_file_transmit
             // === 1. 统一先放大 ===
             Mat scaled = new Mat();
 
-            // 根据 attempt 控制放大倍数（逐步增强）。
-            // 对模糊图像，Lanczos4 比 Cubic 更锐利，放大后模块边缘更清晰。
+            // attempt 0~10 走原有 Cubic 递增放大；
+            // attempt 11~15 走 Nearest(最近邻) 2 倍；attempt 16~20 走 Nearest 3 倍。
+            // Nearest 不插值、像素块状放大，黑白模块边界零过渡、不放大噪声，
+            // 对二维码这类二值图案通常比 Cubic 更利于解码。
             double scale = attempt switch
             {
                 0 => 1,
                 1 => 2,
                 2 => 3,
-                _ => 3
+                <= 10 => 3,
+                <= 15 => 2, // Nearest 2x
+                _ => 3      // Nearest 3x
             };
 
-            Cv2.Resize(image, scaled, new Size(), scale, scale, InterpolationFlags.Cubic);
+            var interp = attempt <= 10
+                ? InterpolationFlags.Cubic
+                : InterpolationFlags.Nearest;
+
+            Cv2.Resize(image, scaled, new Size(), scale, scale, interp);
 
             // === 2. 灰度 ===
             // BGRA(4通道) 也要转灰度，否则后续 OTSU/自适应阈值会抛 "src_type is CV_8UC4"
@@ -988,6 +996,88 @@ namespace screen_file_transmit
                 case 1:
                 case 2:
                     result = gray.Clone();
+                    break;
+
+                // === Nearest 2x 尝试：attempt 11~15 ===
+                case 11:
+                    // Nearest 2x 后直接灰度，不做二值化
+                    result = gray.Clone();
+                    break;
+
+                case 12:
+                    // Nearest 2x + OTSU
+                    Cv2.Threshold(gray, result, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                    break;
+
+                case 13:
+                    // Nearest 2x + 自适应阈值
+                    Cv2.AdaptiveThreshold(gray, result, 255,
+                        AdaptiveThresholdTypes.GaussianC,
+                        ThresholdTypes.Binary,
+                        11, 2);
+                    break;
+
+                case 14:
+                    // Nearest 2x + 锐化（补模块边缘）
+                    using (Mat kernelSharpen = Mat.FromArray(new float[,]
+                           {
+                               { -1, -1, -1 },
+                               { -1, 9, -1 },
+                               { -1, -1, -1 }
+                           }))
+                    {
+                        Cv2.Filter2D(gray, result, -1, kernelSharpen);
+                    }
+                    break;
+
+                case 15:
+                    // Nearest 2x + 反色 OTSU（应对反色二维码）
+                    using (var binary = new Mat())
+                    {
+                        Cv2.Threshold(gray, binary, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                        Cv2.BitwiseNot(binary, result);
+                    }
+                    break;
+
+                // === Nearest 3x 尝试：attempt 16~20 ===
+                case 16:
+                    // Nearest 3x 后直接灰度
+                    result = gray.Clone();
+                    break;
+
+                case 17:
+                    // Nearest 3x + OTSU
+                    Cv2.Threshold(gray, result, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                    break;
+
+                case 18:
+                    // Nearest 3x + 自适应阈值
+                    Cv2.AdaptiveThreshold(gray, result, 255,
+                        AdaptiveThresholdTypes.GaussianC,
+                        ThresholdTypes.Binary,
+                        11, 2);
+                    break;
+
+                case 19:
+                    // Nearest 3x + 锐化
+                    using (Mat kernelSharpen = Mat.FromArray(new float[,]
+                           {
+                               { -1, -1, -1 },
+                               { -1, 9, -1 },
+                               { -1, -1, -1 }
+                           }))
+                    {
+                        Cv2.Filter2D(gray, result, -1, kernelSharpen);
+                    }
+                    break;
+
+                case 20:
+                    // Nearest 3x + 反色 OTSU
+                    using (var binary = new Mat())
+                    {
+                        Cv2.Threshold(gray, binary, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                        Cv2.BitwiseNot(binary, result);
+                    }
                     break;
 
                 case 3:
