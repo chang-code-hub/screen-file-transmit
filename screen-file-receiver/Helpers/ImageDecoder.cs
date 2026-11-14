@@ -41,17 +41,19 @@ namespace screen_file_transmit
         }
 
         // 所有放大变体（含默认顺序）。顺序在运行期会被成功频率重排。
+        // 默认顺序按「更可能命中」优先：先不放大或轻放大（保持原始模块尺寸、不引入插值模糊），
+        // 再逐级放大；每档内优先 nearest（不引入插值假边），其次 cubic，最后 lanczos。
         private static readonly List<UpscaleVariant> AllVariants = new List<UpscaleVariant>
         {
             new UpscaleVariant("cubic_1x",     InterpolationFlags.Cubic,    1),
             new UpscaleVariant("nearest_2x",   InterpolationFlags.Nearest,  2),
-            new UpscaleVariant("lanczos4_2x",  InterpolationFlags.Lanczos4, 2),
             new UpscaleVariant("cubic_2x",     InterpolationFlags.Cubic,    2),
-            new UpscaleVariant("cubic_3x",     InterpolationFlags.Cubic,    3),
+            new UpscaleVariant("lanczos4_2x",  InterpolationFlags.Lanczos4, 2),
             new UpscaleVariant("nearest_3x",   InterpolationFlags.Nearest,  3),
+            new UpscaleVariant("cubic_3x",     InterpolationFlags.Cubic,    3),
         };
 
-        private const int StrategiesPerVariant = 4;
+        private const int StrategiesPerVariant = 8;
 
         /// <summary>
         /// 解码并行度：CPU 核心数 - 2，至少 1。
@@ -1403,7 +1405,11 @@ namespace screen_file_transmit
             if (count == 0) return results;
 
             int done = 0;
-            int dop = Debugger.IsAttached ? 1 :  Math.Min(DecodeParallelism, count); 
+            int dop = Math.Min(DecodeParallelism, count);
+
+#if SINGLE_THREAD 
+            dop = 1;
+#endif
 
             // 数量太少没必要起线程池
             if (dop <= 1)
@@ -1775,6 +1781,13 @@ namespace screen_file_transmit
         /// <summary>
         /// 对已放大的灰度图做指定策略的预处理（4 种策略各算各的，共享同一个 gray 输入）。
         /// </summary>
+        /// <summary>
+        /// 解码预处理策略（每种放大变体下各试一次，共 StrategiesPerVariant 种）。
+        /// 默认按「成本低 + 更可能命中」排序：先试无需额外处理的组合（ZXing 自己的
+        /// HybridBinarizer 通常已够用），其次才用各种二值化/锐化/增强做补救。
+        /// 顺序：0 直接灰度 → 1 OTSU → 2 自适应阈值 → 3 中值去噪 → 4 形态学闭运算
+        ///        → 5 高反差锐化 → 6 CLAHE 增强 → 7 普通卷积锐化
+        /// </summary>
         private static Mat ApplyStrategy(Mat gray, int strategy)
         {
             Mat result = new Mat();
@@ -1799,6 +1812,48 @@ namespace screen_file_transmit
                     break;
 
                 case 3:
+                    // 中值滤波去噪后 OTSU（针对高斯噪点/扫描杂点干扰模块边缘）
+                    using (var denoised = new Mat())
+                    {
+                        Cv2.MedianBlur(gray, denoised, 3);
+                        Cv2.Threshold(denoised, result, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                    }
+                    break;
+
+                case 4:
+                    // 形态学闭运算填实模块内部小空洞（针对模块边缘断裂/内部杂点）
+                    using (var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(2, 2)))
+                    using (var closed = new Mat())
+                    {
+                        Cv2.MorphologyEx(gray, closed, MorphTypes.Close, kernel);
+                        Cv2.Threshold(closed, result, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                    }
+                    break;
+
+                case 5:
+                    // 高反差保留锐化（补强弱边缘，比普通卷积锐化更保守，不易放大噪声）
+                    using (var blurred = new Mat())
+                    using (var highPass = new Mat())
+                    {
+                        Cv2.GaussianBlur(gray, blurred, new Size(3, 3), 0);
+                        // highPass = gray + (gray - blurred)，即叠加高频细节
+                        Cv2.Subtract(gray, blurred, highPass);
+                        Cv2.Add(gray, highPass, result);
+                    }
+                    break;
+
+                case 6:
+                    // CLAHE 对比度增强后 OTSU（针对整体偏灰/对比度不足，ZXing 难以定位模块边界）
+                    using (var clahe = Cv2.CreateCLAHE(2.0, new Size(8, 8)))
+                    {
+                        var enhanced = new Mat();
+                        clahe.Apply(gray, enhanced);
+                        Cv2.Threshold(enhanced, result, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                        enhanced.Dispose();
+                    }
+                    break;
+
+                case 7:
                     // 锐化（补模块边缘）
                     using (Mat kernelSharpen = Mat.FromArray(new float[,]
                            {
@@ -1814,7 +1869,7 @@ namespace screen_file_transmit
                 default:
                     result = gray.Clone();
                     break;
-            } 
+            }
             return result;
         }
         //private static Mat PreprocessForDecode(Mat image, int attempt)

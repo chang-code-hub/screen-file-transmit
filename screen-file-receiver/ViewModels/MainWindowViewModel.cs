@@ -289,8 +289,9 @@ namespace screen_file_transmit
         // 调试器附加时强制单线程（maxDop=1），避免并发任务在断点/单步时互相干扰。
         private static int GetCpuThreadCount()
         {
-            if (Debugger.IsAttached)
+#if SINGLE_THREAD
                 return 1;
+#endif
 
             int physicalCores = GetPhysicalCoreCount();
             if (physicalCores > 0)
@@ -483,17 +484,14 @@ namespace screen_file_transmit
                 warnings.Add(sb.ToString());
             }
 
-            if (!Debugger.IsAttached)
+            if (warnings.Count > 0)
             {
-                if (warnings.Count > 0)
-                {
-                    var message = Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessWarning")
-                                  + "\n\n" + string.Join("\n", warnings);
-                    MessageBox.Show(message,
-                        Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return false;
-                }
+                var message = Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessWarning")
+                              + "\n\n" + string.Join("\n", warnings);
+                MessageBox.Show(message,
+                    Properties.Resources.ResourceManager.GetString("MsgBox_FileCompletenessTitle"),
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
             }
 
             return true;
@@ -1036,14 +1034,12 @@ namespace screen_file_transmit
                 return;
             }
 
-            var completeItems = FileItems.Where(f => Debugger.IsAttached || f.IsComplete).ToList();
+            var completeItems = FileItems.Where(f => f.IsComplete).ToList();
             if (completeItems.Count == 0)
             {
-                if (!Debugger.IsAttached)
-                {
-                    MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_NoCompleteFiles"));
-                    return;
-                }
+                MessageBox.Show(Properties.Resources.ResourceManager.GetString("Error_NoCompleteFiles"));
+                return;
+
             }
 
             if (completeItems.Any(f => f.HasPassword && string.IsNullOrEmpty(Password)))
@@ -1130,7 +1126,7 @@ namespace screen_file_transmit
                                         ProgressValue = currentNo;
                                         double overallPercent = totalFiles <= 0
                                             ? 0.0
-                                            :  ((currentNo - 1) * 100.0 / totalFiles);
+                                            : ((currentNo - 1) * 100.0 / totalFiles);
                                         StatusText = string.Format(
                                             Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
                                             currentNo, totalFiles) + $" {overallPercent:0.00}%";
@@ -1140,7 +1136,7 @@ namespace screen_file_transmit
                                     double lastPercent = -1;
                                     Action<int, int> decodeProgress = (done, total) =>
                                     {
-                                        double percent = total <= 0 ? 0.0 :  (done * 100.0 / total);
+                                        double percent = total <= 0 ? 0.0 : (done * 100.0 / total);
                                         if (percent == lastPercent) return;
                                         lastPercent = percent;
 
