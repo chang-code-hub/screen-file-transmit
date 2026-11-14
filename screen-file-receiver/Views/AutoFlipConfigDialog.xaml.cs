@@ -137,9 +137,12 @@ namespace screen_file_transmit
 
             _pickRect = rect.Value;
 
-            // 用全屏半透明蒙版盖住屏幕，把拾取用的这次点击挡在蒙版内，
-            // 避免点击传递到下方其它界面元素；只把这一次点击作为拾取结果。
-            _pickOverlay = new PickPointOverlay(OnPickPoint, OnPickCancelled)
+            // 只在选区/目标窗口范围内覆盖一层蒙版并高亮，把拾取的这次点击挡在蒙版内，
+            // 避免传递到该区域下方的界面；其余屏幕不遮挡。只把这一次点击作为拾取结果。
+            _pickOverlay = new PickPointOverlay(
+                rect.Value.Left, rect.Value.Top,
+                rect.Value.Right - rect.Value.Left, rect.Value.Bottom - rect.Value.Top,
+                OnPickPoint, OnPickCancelled)
             {
                 Owner = this
             };
@@ -193,19 +196,85 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 目标窗口/选区的物理屏幕坐标矩形
+        /// 目标窗口/选区的物理屏幕坐标矩形。
+        /// 注意 GetWindowRect 在 DPI 缩放下会被虚拟化，而 TryGetExtendedFrameBounds / 选区是真物理像素，
+        /// 两者混用会导致缩放下坐标错位，故统一换算到真物理像素。
         /// </summary>
         private NativeMethods.RECT? GetTargetRect()
         {
             if (_targetHwnd != IntPtr.Zero && NativeMethods.IsWindow(_targetHwnd))
             {
-                NativeMethods.GetWindowRect(_targetHwnd, out var rc);
+                // DWM 扩展边界本就是物理像素，优先用它
                 if (NativeMethods.TryGetExtendedFrameBounds(_targetHwnd, out var dwmRc))
-                    rc = dwmRc;
-                return rc;
+                    return dwmRc;
+
+                // 回退 GetWindowRect：在 DPI-unaware 进程里是虚拟化坐标，需按缩放换算到物理像素
+                NativeMethods.GetWindowRect(_targetHwnd, out var rc);
+                return VirtualToPhysicalRect(rc);
             }
 
             return _regionRect;
+        }
+
+        /// <summary>
+        /// 把 DPI 虚拟化矩形换算为真物理像素矩形（进程 DPI-unaware 时 GetCursorPos/GetWindowRect 会被虚拟化）
+        /// </summary>
+        private NativeMethods.RECT VirtualToPhysicalRect(NativeMethods.RECT rc)
+        {
+            double sx = 1.0, sy = 1.0;
+            try
+            {
+                var dpi = GetDpiScaleFactor();
+                sx = dpi;
+                sy = dpi;
+            }
+            catch
+            {
+                //ignore
+            }
+
+            return new NativeMethods.RECT
+            {
+                Left = (int)Math.Round(rc.Left * sx),
+                Top = (int)Math.Round(rc.Top * sy),
+                Right = (int)Math.Round(rc.Right * sx),
+                Bottom = (int)Math.Round(rc.Bottom * sy)
+            };
+        }
+
+        /// <summary>
+        /// 取系统的 DPI 缩放比（相对 96 DPI）。优先按窗口句柄，回退系统 DPI。
+        /// </summary>
+        private double GetDpiScaleFactor()
+        {
+            uint dpi = 96;
+            if (_targetHwnd != IntPtr.Zero)
+            {
+                try
+                {
+                    var h = NativeMethods.GetDpiForWindow(_targetHwnd);
+                    if (h != 0) dpi = h;
+                }
+                catch
+                {
+                    //ignore
+                }
+            }
+
+            if (dpi == 96)
+            {
+                try
+                {
+                    var sd = NativeMethods.GetDpiForSystem();
+                    if (sd != 0) dpi = sd;
+                }
+                catch
+                {
+                    //ignore
+                }
+            }
+
+            return dpi / 96.0;
         }
 
         /// <summary>

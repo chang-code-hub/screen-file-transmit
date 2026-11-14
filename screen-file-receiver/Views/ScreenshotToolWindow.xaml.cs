@@ -1385,13 +1385,76 @@ namespace screen_file_transmit
                     _cursorMoved = true;
             }
 
-            NativeMethods.SetCursorPos(pt.Value.X, pt.Value.Y);
+            // SetCursorPos 在 DPI-unaware 进程里接收虚拟化坐标，需把物理点换算回去
+            var vpt = PhysicalToVirtualPoint(pt.Value);
+            NativeMethods.SetCursorPos(vpt.X, vpt.Y);
             System.Threading.Thread.Sleep(50);
             NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, IntPtr.Zero);
             System.Threading.Thread.Sleep(30);
             NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
 
             _lastPageTurnTime = DateTime.Now;
+        }
+
+        /// <summary>
+        /// 把 DPI 虚拟化矩形换算为真物理像素矩形
+        /// </summary>
+        private NativeMethods.RECT VirtualToPhysicalRect(NativeMethods.RECT rc)
+        {
+            double s = GetDpiScaleFactor();
+            return new NativeMethods.RECT
+            {
+                Left = (int)Math.Round(rc.Left * s),
+                Top = (int)Math.Round(rc.Top * s),
+                Right = (int)Math.Round(rc.Right * s),
+                Bottom = (int)Math.Round(rc.Bottom * s)
+            };
+        }
+
+        /// <summary>
+        /// 把真物理像素点换算为 DPI 虚拟化坐标（SetCursorPos/GetWindowRect 用的坐标系）
+        /// </summary>
+        private System.Drawing.Point PhysicalToVirtualPoint(System.Drawing.Point p)
+        {
+            double s = GetDpiScaleFactor();
+            return new System.Drawing.Point(
+                (int)Math.Round(p.X / s),
+                (int)Math.Round(p.Y / s));
+        }
+
+        /// <summary>
+        /// 取系统的 DPI 缩放比（相对 96 DPI）
+        /// </summary>
+        private double GetDpiScaleFactor()
+        {
+            uint dpi = 96;
+            if (_selectedHwnd != IntPtr.Zero)
+            {
+                try
+                {
+                    var h = NativeMethods.GetDpiForWindow(_selectedHwnd);
+                    if (h != 0) dpi = h;
+                }
+                catch
+                {
+                    //ignore
+                }
+            }
+
+            if (dpi == 96)
+            {
+                try
+                {
+                    var sd = NativeMethods.GetDpiForSystem();
+                    if (sd != 0) dpi = sd;
+                }
+                catch
+                {
+                    //ignore
+                }
+            }
+
+            return dpi / 96.0;
         }
 
         /// <summary>
@@ -1403,9 +1466,15 @@ namespace screen_file_transmit
 
             if (_selectedHwnd != IntPtr.Zero)
             {
-                NativeMethods.GetWindowRect(_selectedHwnd, out var wr);
+                // 与拾取点击位置用的矩形保持同一坐标系（真物理像素），避免 DPI 缩放下百分比错位
+                NativeMethods.RECT wr;
                 if (NativeMethods.TryGetExtendedFrameBounds(_selectedHwnd, out var dwmRc))
                     wr = dwmRc;
+                else
+                {
+                    NativeMethods.GetWindowRect(_selectedHwnd, out var raw);
+                    wr = VirtualToPhysicalRect(raw);
+                }
 
                 rc = new System.Drawing.Rectangle(wr.Left, wr.Top, wr.Right - wr.Left, wr.Bottom - wr.Top);
             }

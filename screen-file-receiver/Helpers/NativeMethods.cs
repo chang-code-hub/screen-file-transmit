@@ -20,6 +20,17 @@ namespace screen_file_transmit
         [DllImport("user32.dll")]
         public static extern bool GetCursorPos(out POINT lpPoint);
 
+        // 真实物理像素光标位置，不受进程 DPI 虚拟化影响；Windows 8.1+ 可用
+        [DllImport("user32.dll")]
+        public static extern bool GetPhysicalCursorPos(out POINT lpPoint);
+
+        // DPI 相关（Windows 10 1607+ 可用），用于把虚拟化坐标换算到真物理像素
+        [DllImport("user32.dll")]
+        public static extern uint GetDpiForWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern uint GetDpiForSystem();
+
         [DllImport("dwmapi.dll")]
         public static extern int DwmGetWindowAttribute(IntPtr hwnd, uint dwAttribute, out RECT pvAttribute, int cbAttribute);
 
