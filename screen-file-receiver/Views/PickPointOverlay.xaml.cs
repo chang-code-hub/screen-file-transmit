@@ -33,9 +33,8 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 把窗口定位到蒙版范围。
-        /// 直接用 SetWindowPos 按真实物理像素摆放 Win32 窗口，绕开 WPF 的 DIP 换算，
-        /// 这样在 Windows 显示缩放下不会因 DIP/物理坐标基准不一致而偏移。
+        /// 把窗口定位到蒙版范围。传入的是真实物理像素坐标。
+        /// 用 SetWindowPos 按物理像素直接摆放 Win32 窗口，与拾取光标、选区物理矩形同基准。
         /// </summary>
         private void ApplyMaskRect(double leftPhys, double topPhys, double widthPhys, double heightPhys)
         {
@@ -49,6 +48,16 @@ namespace screen_file_transmit
 
             NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
                 NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+        }
+
+        /// <summary>
+        /// 取光标真实物理像素坐标（与物理矩形同基准），失败回退 GetCursorPos。
+        /// </summary>
+        private static bool TryGetPhysicalCursorPos(out NativeMethods.POINT pt)
+        {
+            if (NativeMethods.GetPhysicalCursorPos(out pt))
+                return true;
+            return NativeMethods.GetCursorPos(out pt);
         }
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -88,17 +97,6 @@ namespace screen_file_transmit
                 Finish();
                 _onCancelled?.Invoke();
             }
-        }
-
-        /// <summary>
-        /// 取光标真实物理像素坐标。优先 GetPhysicalCursorPos（不受进程 DPI 虚拟化影响），
-        /// 失败则回退 GetCursorPos。与选区/窗口的物理矩形保持同一坐标系，避免缩放下错位。
-        /// </summary>
-        private static bool TryGetPhysicalCursorPos(out NativeMethods.POINT pt)
-        {
-            if (NativeMethods.GetPhysicalCursorPos(out pt))
-                return true;
-            return NativeMethods.GetCursorPos(out pt);
         }
 
         private void Finish()

@@ -196,19 +196,18 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 目标窗口/选区的物理屏幕坐标矩形。
-        /// 注意 GetWindowRect 在 DPI 缩放下会被虚拟化，而 TryGetExtendedFrameBounds / 选区是真物理像素，
-        /// 两者混用会导致缩放下坐标错位，故统一换算到真物理像素。
+        /// 目标窗口/选区的真实物理像素矩形。
+        /// 与拾取光标(GetPhysicalCursorPos)、蒙版(SetWindowPos)、区域选区(LogicalToPhysical) 同基准。
+        /// 注意 GetWindowRect 在 DPI-unaware 进程返回虚拟化坐标，须按缩放换算到物理；
+        /// TryGetExtendedFrameBounds 本身就是物理像素，优先用它。
         /// </summary>
         private NativeMethods.RECT? GetTargetRect()
         {
             if (_targetHwnd != IntPtr.Zero && NativeMethods.IsWindow(_targetHwnd))
             {
-                // DWM 扩展边界本就是物理像素，优先用它
                 if (NativeMethods.TryGetExtendedFrameBounds(_targetHwnd, out var dwmRc))
                     return dwmRc;
 
-                // 回退 GetWindowRect：在 DPI-unaware 进程里是虚拟化坐标，需按缩放换算到物理像素
                 NativeMethods.GetWindowRect(_targetHwnd, out var rc);
                 return VirtualToPhysicalRect(rc);
             }
@@ -217,36 +216,22 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 把 DPI 虚拟化矩形换算为真物理像素矩形（进程 DPI-unaware 时 GetCursorPos/GetWindowRect 会被虚拟化）
+        /// 把 DPI 虚拟化矩形换算为真物理像素矩形
         /// </summary>
         private NativeMethods.RECT VirtualToPhysicalRect(NativeMethods.RECT rc)
         {
-            double sx = 1.0, sy = 1.0;
-            try
-            {
-                var dpi = GetDpiScaleFactor();
-                sx = dpi;
-                sy = dpi;
-            }
-            catch
-            {
-                //ignore
-            }
-
+            double s = GetDpiScaleFactor();
             return new NativeMethods.RECT
             {
-                Left = (int)Math.Round(rc.Left * sx),
-                Top = (int)Math.Round(rc.Top * sy),
-                Right = (int)Math.Round(rc.Right * sx),
-                Bottom = (int)Math.Round(rc.Bottom * sy)
+                Left = (int)Math.Round(rc.Left * s),
+                Top = (int)Math.Round(rc.Top * s),
+                Right = (int)Math.Round(rc.Right * s),
+                Bottom = (int)Math.Round(rc.Bottom * s)
             };
         }
 
         /// <summary>
-        /// 取 DIP→物理 缩放比。
-        /// 统一以 WPF 的 TransformToDevice 为准（与 LogicalToPhysical 同源），
-        /// 避免和区域选区传入的物理矩形因 DPI 换算基准不一致而错位；
-        /// 无窗口源时才回退 Win32 系统 DPI。
+        /// 取 DIP→物理 缩放比。以 WPF TransformToDevice 为准，与 LogicalToPhysical 同源。
         /// </summary>
         private double GetDpiScaleFactor()
         {
@@ -254,8 +239,7 @@ namespace screen_file_transmit
             {
                 var source = PresentationSource.FromVisual(this);
                 var m = source?.CompositionTarget?.TransformToDevice ?? System.Windows.Media.Matrix.Identity;
-                if (m.M11 > 0 && m.M22 > 0)
-                    return m.M11;
+                if (m.M11 > 0 && m.M22 > 0) return m.M11;
             }
             catch
             {
