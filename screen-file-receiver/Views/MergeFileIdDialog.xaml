@@ -1,0 +1,170 @@
+<Window
+    x:Class="screen_file_transmit.MergeFileIdDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="{Binding TitleText}"
+    Width="720"
+    Height="480"
+    MinWidth="560"
+    MinHeight="360"
+    ResizeMode="CanResizeWithGrip"
+    ShowInTaskbar="False"
+    WindowStartupLocation="CenterOwner">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+            Grid.Row="0"
+            Margin="0,0,0,6"
+            Text="{Binding InstructionText}"
+            TextWrapping="Wrap" />
+
+        <StackPanel
+            Grid.Row="1"
+            Margin="0,0,0,6"
+            Orientation="Horizontal">
+            <Button
+                MinWidth="110"
+                Padding="10,3"
+                Click="BtnSelectAll_Click"
+                Content="{Binding SelectAllText}" />
+            <Button
+                MinWidth="110"
+                Margin="8,0,0,0"
+                Padding="10,3"
+                Click="BtnSelectNone_Click"
+                Content="{Binding SelectNoneText}" />
+            <TextBlock
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Text="{Binding SummaryText}" />
+        </StackPanel>
+
+        <Border
+            Grid.Row="2"
+            BorderBrush="Gray"
+            BorderThickness="1">
+            <DataGrid
+                x:Name="GroupGrid"
+                AutoGenerateColumns="False"
+                CanUserAddRows="False"
+                HeadersVisibility="Column"
+                ItemsSource="{Binding Groups}"
+                SelectionChanged="GroupGrid_SelectionChanged"
+                SelectionMode="Single"
+                SelectionUnit="FullRow">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasPageConflict}" Value="True">
+                                <Setter Property="Background" Value="#FFF6D6D6" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="42" CanUserSort="False">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding DataContext.ToggleMergeGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"
+                                    IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn
+                        Width="150"
+                        Binding="{Binding SaveFileName}"
+                        Header="{Binding DataContext.ColumnSaveNameText, RelativeSource={RelativeSource AncestorType=Window}}"
+                        IsReadOnly="True" />
+                    <DataGridTextColumn
+                        Width="90"
+                        Binding="{Binding DistinctIdCount}"
+                        Header="{Binding DataContext.ColumnIdCountText, RelativeSource={RelativeSource AncestorType=Window}}"
+                        IsReadOnly="True" />
+                    <DataGridTextColumn
+                        Width="100"
+                        Binding="{Binding PreviewId}"
+                        Header="{Binding DataContext.ColumnTargetIdText, RelativeSource={RelativeSource AncestorType=Window}}"
+                        IsReadOnly="True" />
+                    <DataGridTextColumn
+                        Width="80"
+                        Binding="{Binding TotalPages}"
+                        Header="{Binding DataContext.ColumnTotalPagesText, RelativeSource={RelativeSource AncestorType=Window}}"
+                        IsReadOnly="True" />
+                    <DataGridTextColumn
+                        MinWidth="120"
+                        Binding="{Binding DuplicatePages}"
+                        Header="{Binding DataContext.ColumnDuplicatePagesText, RelativeSource={RelativeSource AncestorType=Window}}"
+                        IsReadOnly="True" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <Expander
+            Grid.Row="3"
+            Margin="0,8,0,0"
+            Header="{Binding DetailHeaderText}">
+            <DataGrid
+                x:Name="DetailGrid"
+                MaxHeight="150"
+                Margin="0,4,0,0"
+                AutoGenerateColumns="False"
+                CanUserAddRows="False"
+                IsReadOnly="True"
+                ItemsSource="{Binding SelectedGroupItems}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn
+                        Width="110"
+                        Binding="{Binding CurrentPage}"
+                        Header="{Binding DataContext.ColumnPageNumberText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <DataGridTextColumn
+                        Width="100"
+                        Binding="{Binding RawFileId}"
+                        Header="{Binding DataContext.ColumnRawIdText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <DataGridTextColumn
+                        Width="100"
+                        Binding="{Binding EffectiveFileId}"
+                        Header="{Binding DataContext.ColumnTargetIdText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <DataGridTextColumn
+                        Width="180"
+                        Binding="{Binding ImageFileName}"
+                        Header="{Binding DataContext.ColumnImageFileNameText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <DataGridTextColumn
+                        Width="200"
+                        Binding="{Binding MetadataInfo}"
+                        Header="{Binding DataContext.ColumnMetadataText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Expander>
+
+        <StackPanel
+            Grid.Row="4"
+            Margin="0,12,0,0"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                MinWidth="90"
+                Padding="16,4"
+                Click="BtnOk_Click"
+                Content="OK"
+                IsDefault="True" />
+            <Button
+                MinWidth="90"
+                Margin="8,0,0,0"
+                Padding="16,4"
+                Click="BtnCancel_Click"
+                Content="{Binding CancelText}"
+                IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

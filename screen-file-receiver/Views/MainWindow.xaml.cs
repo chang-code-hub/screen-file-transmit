@@ -127,7 +127,11 @@ namespace screen_file_transmit
             if (MessageBox.Show(Properties.Resources.ResourceManager.GetString("MsgBox_ConfirmExit"), Properties.Resources.ResourceManager.GetString("MsgBox_Title_Confirm"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             {
                 e.Cancel = true;
+                return;
             }
+
+            // 退出时把放大尝试的排序与统计持久化，下次启动继承
+            try { viewModel?.SaveUpscaleStats(); } catch { }
         }
     }
 }

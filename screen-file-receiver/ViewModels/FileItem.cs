@@ -17,6 +17,7 @@ namespace screen_file_transmit
         private double _progressValue;
         private double _progressMaximum = 100;
         private bool _isComplete;
+        private bool _isUnderfull;
         private string _fullPath;
 
         public bool IsSelected
@@ -128,6 +129,23 @@ namespace screen_file_transmit
             }
         }
 
+        /// <summary>
+        /// 是否「非末页不满载」：解码字节数小于本页满载容量。
+        /// 末页天然不满属正常，不标记。仅用于提示，不影响解码/转换。
+        /// </summary>
+        public bool IsUnderfull
+        {
+            get => _isUnderfull;
+            set
+            {
+                if (_isUnderfull != value)
+                {
+                    _isUnderfull = value;
+                    OnPropertyChanged(nameof(IsUnderfull));
+                }
+            }
+        }
+
         public string FullPath
         {
             get => _fullPath;
@@ -150,6 +168,43 @@ namespace screen_file_transmit
         public int CurrentPage { get; set; }
         public int TotalPages { get; set; }
         public int TotalQrCodeCount { get; set; }
+
+        /// <summary>
+        /// 原始文件ID（来自元数据，来自条码）。合并文件ID后不再改变，
+        /// 组合/排序一律使用 <see cref="EffectiveFileId"/>。
+        /// </summary>
+        public string RawFileId => _fileId;
+
+        private string _effectiveFileId;
+
+        /// <summary>
+        /// 参与分组的文件ID。未合并时与 <see cref="RawFileId"/> 相同；
+        /// 合并后为用户指定的统一文件ID。
+        /// </summary>
+        public string EffectiveFileId
+        {
+            get => _effectiveFileId;
+            set
+            {
+                if (_effectiveFileId != value)
+                {
+                    _effectiveFileId = value;
+                    OnPropertyChanged(nameof(EffectiveFileId));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 元数据特征（除文件ID与页码外的全部元数据项），
+        /// 用于判断若干不同文件ID是否属于同一个文件。
+        /// </summary>
+        public string MetaSignature
+        {
+            get
+            {
+                return $"{MaxRows}x{MaxCols}|{Colorful}|{ColorDepth}|{HasPassword}|{HasErrorCorrection}|{ErrorCorrectionPercent}|{TotalPages}|{TotalQrCodeCount}";
+            }
+        }
 
         //public ICommand DeleteCommand { get; set; }
         //public ICommand RetryCommand { get; set; }

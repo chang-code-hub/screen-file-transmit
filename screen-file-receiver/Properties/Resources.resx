@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -40,6 +40,8 @@
   <data name="Column_SaveFileName" xml:space="preserve"><value>保存文件名</value></data>
   <data name="Column_Metadata" xml:space="preserve"><value>元数据信息</value></data>
   <data name="Column_Status" xml:space="preserve"><value>状态</value></data>
+  <data name="Column_Underfull" xml:space="preserve"><value>未满</value></data>
+  <data name="Mark_Underfull" xml:space="preserve"><value>未满</value></data>
   <data name="Column_ParseProgress" xml:space="preserve"><value>解析进度</value></data>
   <data name="Label_Preview" xml:space="preserve"><value>预览：</value></data>
   <data name="Label_Password" xml:space="preserve"><value>密码：</value></data>
@@ -146,6 +148,22 @@
   <data name="Button_Pause" xml:space="preserve"><value>暂停</value></data>
   <data name="Button_Resume" xml:space="preserve"><value>继续</value></data>
   <data name="Button_Stop" xml:space="preserve"><value>停止</value></data>
+  <data name="Button_MergeFileId" xml:space="preserve"><value>合并文件ID</value></data>
+  <data name="MergeDialog_Title" xml:space="preserve"><value>合并文件ID</value></data>
+  <data name="MergeDialog_Instruction" xml:space="preserve"><value>以下文件因文件ID不同被拆成了多份，缺少部分页面。经识别，这些文件ID实际是同一个文件，合并后页面正好齐全。请确认是否合并：</value></data>
+  <data name="MergeDialog_Detail" xml:space="preserve"><value>明细</value></data>
+  <data name="MergeDialog_ColumnIdCount" xml:space="preserve"><value>文件ID数</value></data>
+  <data name="MergeDialog_ColumnTargetId" xml:space="preserve"><value>合并后ID</value></data>
+  <data name="MergeDialog_ColumnTotalPages" xml:space="preserve"><value>总页数</value></data>
+  <data name="MergeDialog_ColumnDuplicatePages" xml:space="preserve"><value>重复页码</value></data>
+  <data name="MergeDialog_ColumnRawId" xml:space="preserve"><value>原文件ID</value></data>
+  <data name="MergeDialog_SelectedFormat" xml:space="preserve"><value>已选 {0} / {1} 组</value></data>
+  <data name="Button_SelectAll" xml:space="preserve"><value>全选</value></data>
+  <data name="Button_SelectNone" xml:space="preserve"><value>全不选</value></data>
+  <data name="Button_Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="MsgBox_NoMergeCandidates" xml:space="preserve"><value>没有可合并的文件ID。
+只有保存文件名相同、元数据（除页码外）完全相同、但文件ID不同的条目才会出现在合并列表中。</value></data>
+  <data name="Status_MergedFormat" xml:space="preserve"><value>已合并 {0} 组为文件ID {1}</value></data>
   <data name="Status_Paused" xml:space="preserve"><value>已暂停</value></data>
   <data name="Status_Stopped" xml:space="preserve"><value>已停止</value></data>
 </root>

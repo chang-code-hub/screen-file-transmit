@@ -26,6 +26,37 @@ namespace qr_codec_test
 
         private static void Main(string[] args)
         {
+            if (args.Length > 1 && args[0] == "--afverify")
+            {
+                for (int i = 1; i < args.Length; i++)
+                {
+                    try { ProbeAutoFlipVerify.Run(args[i]); }
+                    catch (Exception ex) { Console.WriteLine("AFVERIFY FAIL: " + ex); }
+                    Console.WriteLine("========================================");
+                }
+                return;
+            }
+
+            if (args.Length > 2 && args[0] == "--gencolor")
+            {
+                // --gencolor <input> <outdir>
+                ProbeGenColor.Run(args[1], args[2], true, 2, 20);
+                ProbeGenColor.Run(args[1], args[2], false, 2, 20);
+                ProbeGenColor.Run(args[1], args[2], true, 1, 0);
+                return;
+            }
+
+            if (args.Length > 1 && args[0] == "--qrd")
+            {
+                ProbeQrDiag.Run(args[1]);
+                return;
+            }
+            if (args.Length > 1 && args[0] == "--qrm")
+            {
+                ProbeQrMetrics.Run(args[1]);
+                return;
+            }
+
             TestDecodeDmPng();
             TestEncodeAndDecode();
             TestNoisyDecode(); 

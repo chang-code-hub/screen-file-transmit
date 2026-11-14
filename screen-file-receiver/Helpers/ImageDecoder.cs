@@ -1,5 +1,9 @@
 ﻿using OpenCvSharp;
 using System;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -21,6 +25,180 @@ namespace screen_file_transmit
         private static readonly string rcString = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         private static readonly Encoding Iso88591 = Encoding.GetEncoding("ISO-8859-1");
 
+        // ===== 自适应放大尝试排序 =====
+        // 每个「放大变体」用固定名字标识（持久化时存名字而非下标，避免顺序变化导致错配）。
+        // 尝试顺序按历史成功率动态排序：成功率高的排前面，退出时保存到配置，下次启动继承。
+        public sealed class UpscaleVariant
+        {
+            public string Name { get; }
+            public InterpolationFlags Interp { get; }
+            public double Scale { get; }
+
+            public UpscaleVariant(string name, InterpolationFlags interp, double scale)
+            {
+                Name = name;
+                Interp = interp;
+                Scale = scale;
+            }
+        }
+
+        // 所有放大变体（含默认顺序）。顺序在运行期会被成功频率重排。
+        private static readonly List<UpscaleVariant> AllVariants = new List<UpscaleVariant>
+        {
+            new UpscaleVariant("cubic_1x",     InterpolationFlags.Cubic,    1),
+            new UpscaleVariant("nearest_2x",   InterpolationFlags.Nearest,  2),
+            new UpscaleVariant("lanczos4_2x",  InterpolationFlags.Lanczos4, 2),
+            new UpscaleVariant("cubic_2x",     InterpolationFlags.Cubic,    2),
+            new UpscaleVariant("cubic_3x",     InterpolationFlags.Cubic,    3),
+            new UpscaleVariant("nearest_3x",   InterpolationFlags.Nearest,  3),
+        };
+
+        private const int StrategiesPerVariant = 4;
+
+        /// <summary>
+        /// 解码并行度：CPU 核心数 - 2，至少 1。
+        /// 每个二维码独立解码，可安全并行；留 2 个核心给 UI 与系统。
+        /// </summary>
+        public static readonly int DecodeParallelism = Math.Max(1, Environment.ProcessorCount - 2);
+
+        // 成功/尝试计数（按「固定 attempt 编号」），线程安全：截图工具与转换流程可能并发解码。
+        // attempt 编号 = 变体初始索引 × StrategiesPerVariant + 策略号，共 24 个，固定不变。
+        private static readonly object StatLock = new object();
+        private static readonly Dictionary<int, long> SuccessCount = new Dictionary<int, long>();
+        private static readonly Dictionary<int, long> AttemptCount = new Dictionary<int, long>();
+
+        // 当前尝试顺序（算法名 = 变体名），按各变体下 4 个策略的汇总成功率降序。
+        private static List<string> _variantOrder = AllVariants.Select(v => v.Name).ToList();
+
+        /// <summary>当前放大变体的尝试顺序（算法名列表）。</summary>
+        public static IReadOnlyList<string> VariantOrder
+        {
+            get { lock (StatLock) return _variantOrder.ToList(); }
+        }
+
+        /// <summary>
+        /// 由「初始变体索引 + 策略号」算固定 attempt 编号。
+        /// 用 AllVariants 的初始定义位置，不受运行期排序变化影响。
+        /// </summary>
+        private static int AttemptNo(UpscaleVariant variant, int strategy)
+        {
+            int idx = AllVariants.IndexOf(variant);
+            return idx * StrategiesPerVariant + strategy;
+        }
+
+        /// <summary>
+        /// 记录某个具体 attempt 的解码结果，用于统计成功频率。
+        /// </summary>
+        private static void RecordAttempt(int attemptNo, bool success)
+        {
+            lock (StatLock)
+            {
+                if (!AttemptCount.ContainsKey(attemptNo)) AttemptCount[attemptNo] = 0;
+                if (!SuccessCount.ContainsKey(attemptNo)) SuccessCount[attemptNo] = 0;
+                AttemptCount[attemptNo]++;
+                if (success) SuccessCount[attemptNo]++;
+            }
+        }
+
+        /// <summary>
+        /// 汇总某变体下 4 个策略 attempt 的成功/尝试总数。
+        /// </summary>
+        private static void GetVariantTotals(UpscaleVariant variant, out long suc, out long att)
+        {
+            suc = 0;
+            att = 0;
+            for (int st = 0; st < StrategiesPerVariant; st++)
+            {
+                int no = AttemptNo(variant, st);
+                if (AttemptCount.TryGetValue(no, out var a)) att += a;
+                if (SuccessCount.TryGetValue(no, out var s)) suc += s;
+            }
+        }
+
+        /// <summary>
+        /// 按成功率重新排序变体(算法名)尝试顺序。
+        /// 变体排序分 = 该变体下 4 个策略 attempt 的汇总成功率（Σsuc/Σatt）；
+        /// 样本不足（Σatt < 2）的排后，避免噪声误导；同分保持默认相对顺序。
+        /// </summary>
+        private static void ReorderBySuccessRate()
+        {
+            lock (StatLock)
+            {
+                _variantOrder = AllVariants
+                    .OrderByDescending(v =>
+                    {
+                        GetVariantTotals(v, out long suc, out long att);
+                        if (att < 2) return -1.0; // 样本不足，排后
+                        return (double)suc / att;
+                    })
+                    .ThenBy(v => AllVariants.IndexOf(v)) // 成功率相同时保持默认相对顺序
+                    .Select(v => v.Name)
+                    .ToList();
+            }
+        }
+
+        /// <summary>
+        /// 导出为配置：Order = 算法名逗号串；stat_attempt_{N} = 每个 attempt 的 suc/att。
+        /// </summary>
+        public static Dictionary<string, string> ExportStats()
+        {
+            ReorderBySuccessRate();
+            lock (StatLock)
+            {
+                var d = new Dictionary<string, string>();
+                d["Order"] = string.Join(",", _variantOrder);
+                int total = AllVariants.Count * StrategiesPerVariant;
+                for (int no = 0; no < total; no++)
+                {
+                    long a = AttemptCount.TryGetValue(no, out var ac) ? ac : 0;
+                    long suc = SuccessCount.TryGetValue(no, out var sc) ? sc : 0;
+                    d["stat_attempt_" + no] = suc + "/" + a;
+                }
+                return d;
+            }
+        }
+
+        /// <summary>
+        /// 从配置导入。order 为算法名逗号串；stats 含 stat_attempt_{N}=suc/att 条目。
+        /// 兼容旧格式（stat_变体名）时忽略，不参与 attempt 计数。
+        /// </summary>
+        public static void ImportStats(string order, IEnumerable<KeyValuePair<string, string>> stats)
+        {
+            lock (StatLock)
+            {
+                if (!string.IsNullOrWhiteSpace(order))
+                {
+                    var names = order.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(x => x.Trim()).ToList();
+                    // 只保留真实存在的算法名，并补上缺失的（放后面）
+                    var valid = names.Where(n => AllVariants.Any(v => v.Name == n)).ToList();
+                    foreach (var v in AllVariants)
+                        if (!valid.Contains(v.Name)) valid.Add(v.Name);
+                    if (valid.Count > 0) _variantOrder = valid;
+                }
+
+                if (stats != null)
+                {
+                    foreach (var kv in stats)
+                    {
+                        // 期望键名 stat_attempt_{N}
+                        if (!kv.Key.StartsWith("stat_attempt_")) continue;
+                        if (!int.TryParse(kv.Key.Substring("stat_attempt_".Length), out int no)) continue;
+                        if (no < 0 || no >= AllVariants.Count * StrategiesPerVariant) continue;
+
+                        var parts = (kv.Value ?? "").Split('/');
+                        if (parts.Length == 2 &&
+                            long.TryParse(parts[0], out long suc) &&
+                            long.TryParse(parts[1], out long att))
+                        {
+                            SuccessCount[no] = suc;
+                            AttemptCount[no] = att;
+                        }
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// 从图片读取文件
         /// </summary>
@@ -28,9 +206,10 @@ namespace screen_file_transmit
         /// <param name="fileStream">输出流</param>
         /// <param name="outputFileName">解析出的原始文件名（如果存在）</param>
         /// <returns>是否成功</returns>
-        public static bool ReadToFile(string fileName, Stream fileStream, bool debug)
+        public static bool ReadToFile(string fileName, Stream fileStream, bool debug,
+            Action<int, int> progress = null)
         {
-            var decodeResult = DecodeImageWithMetadata(fileName, debug);
+            var decodeResult = DecodeImageWithMetadata(fileName, debug, progress);
             var meta = decodeResult.Metadata;
             var dataBlocks = decodeResult.DataBlocks;
 
@@ -244,6 +423,22 @@ namespace screen_file_transmit
             /// 用于与元数据的 TotalQrCodeCount 比对以判断解码完整性。
             /// </summary>
             public int DecodedQrCodeAttempts { get; set; }
+
+            /// <summary>
+            /// 解码出的各 block 长度前缀之和（本页实际承载的文件字节数）。
+            /// </summary>
+            public long DecodedPayloadBytes { get; set; }
+
+            /// <summary>
+            /// 单个 cell 的满载容量（取各 block payloadLength 的最大值）。
+            /// </summary>
+            public int SingleCellCapacity { get; set; }
+
+            /// <summary>
+            /// 是否「非末页不满载」：非末页时解码字节数小于满页容量。
+            /// 末页天然不满属正常，不算。仅用于标记，不影响解码成败。
+            /// </summary>
+            public bool IsUnderfull { get; set; }
         }
 
         /// <summary>
@@ -272,7 +467,8 @@ namespace screen_file_transmit
         /// <summary>
         /// 从图片解码所有数据块（包含元数据）
         /// </summary>
-        public static DecodeResult DecodeImageWithMetadata(string imageFile, bool debug)
+        public static DecodeResult DecodeImageWithMetadata(string imageFile, bool debug,
+            Action<int, int> progress = null)
         {
             using (Mat image = Cv2.ImRead(imageFile))
             {
@@ -282,22 +478,24 @@ namespace screen_file_transmit
                         Properties.Resources.ResourceManager.GetString("Error_LoadImageFailed"), imageFile));
                 }
 
-                return DecodeImageWithMetadata(image, debug);
+                return DecodeImageWithMetadata(image, debug, progress);
             }
         }
 
         /// <summary>
         /// 从 Bitmap 解码所有数据块（包含元数据）
         /// </summary>
-        public static DecodeResult DecodeImageWithMetadata(Bitmap bitmap, bool debug)
+        public static DecodeResult DecodeImageWithMetadata(Bitmap bitmap, bool debug,
+            Action<int, int> progress = null)
         {
             using (Mat image = OpenCvSharp.Extensions.BitmapConverter.ToMat(bitmap))
             {
-                return DecodeImageWithMetadata(image, debug);
+                return DecodeImageWithMetadata(image, debug, progress);
             }
         }
 
-        private static DecodeResult DecodeImageWithMetadata(Mat image, bool debug)
+        private static DecodeResult DecodeImageWithMetadata(Mat image, bool debug,
+            Action<int, int> progress = null)
         {
             var result = new DecodeResult();
 
@@ -309,13 +507,13 @@ namespace screen_file_transmit
             if (isColorful)
             {
                 result.DataBlocks = DecodeColorfulMode(image, dataMatrixContours, debug, out int decodedCount,
-                    out int attempts);
+                    out int attempts, progress);
                 result.DecodedQrCodeCount = decodedCount;
                 result.DecodedQrCodeAttempts = attempts;
             }
             else
             {
-                result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours, debug, out int attempts);
+                result.DataBlocks = DecodeGrayscaleMode(image, dataMatrixContours, debug, out int attempts, progress);
                 result.DecodedQrCodeCount = result.DataBlocks.Count;
                 result.DecodedQrCodeAttempts = attempts;
             }
@@ -325,7 +523,79 @@ namespace screen_file_transmit
                 result.DataBlocks = DecodeWithReedSolomon(result.DataBlocks, result.Metadata);
             }
 
+            ComputeDecodeLength(result);
+
             return result;
+        }
+
+        /// <summary>
+        /// 计算解码后 length 自洽信息并标记「非末页不满载」。
+        ///
+        /// 公式：
+        ///   L    = Σ payloadLength_i            各 block 长度前缀之和（本页承载的文件字节数）
+        ///   cap  = max(payloadLength_i)         单 cell 满载容量（非末页逐 cell 填满）
+        ///   Cmax = MaxRows × MaxCols × cap      本页满载容量
+        ///   非末页 (CurrentPage &lt; TotalPages) 且 L &lt; Cmax → IsUnderfull
+        ///   末页天然不满属正常，不标记。
+        ///
+        /// 仅用于标记，不影响解码成败/翻页门禁。
+        /// </summary>
+        private static void ComputeDecodeLength(DecodeResult result)
+        {
+            if (result == null || result.DataBlocks == null) return;
+
+            long total = 0;
+            int cap = 0;
+            foreach (var block in result.DataBlocks)
+            {
+                var bytes = block.data;
+                if (bytes == null || bytes.Length < 6) continue;
+                int payloadLength = (bytes[0] << 8) | bytes[1];
+                if (payloadLength <= 0 || payloadLength + 4 > bytes.Length - 2) continue;
+                total += payloadLength;
+                if (payloadLength > cap) cap = payloadLength;
+            }
+
+            result.DecodedPayloadBytes = total;
+            result.SingleCellCapacity = cap;
+
+            var meta = result.Metadata;
+            bool isLastPage = IsLastPage(meta);
+
+            if (!isLastPage && cap > 0 && meta?.MaxRows > 0 && meta.MaxCols > 0)
+            {
+                long cmax = (long)meta.MaxRows * meta.MaxCols * cap;
+                result.IsUnderfull = total < cmax;
+            }
+            else
+            {
+                result.IsUnderfull = false;
+            }
+        }
+
+        /// <summary>
+        /// 判断本页是否末页。
+        /// 优先用元数据的 totalQrCodeCount（字节7-8 = 发送端实际生成的 cell 数 ×层数）：
+        /// 末页发送端流读完即停，cell 数会小于满页 cell 数，是数据层面的事实。
+        /// 满页 cell 数 = MaxRows×MaxCols（黑白）或 ×colorDepth×3（彩色，totalQrCodeCount 已含）。
+        /// 退回页码声明 CurrentPage &gt;= TotalPages 作兜底。
+        /// </summary>
+        private static bool IsLastPage(MetadataResult meta)
+        {
+            if (meta == null) return false;
+
+            // 数据事实优先：totalQrCodeCount 小于满页应有数 → 末页不满
+            if (meta.TotalQrCodeCount > 0 && meta.MaxRows > 0 && meta.MaxCols > 0)
+            {
+                // totalQrCodeCount = count × (colorful?3:1)，count 为实际 cell 数
+                int cellsPerLayer = meta.MaxRows * meta.MaxCols;
+                int layers = meta.Colorful ? 3 : 1;
+                int fullCount = cellsPerLayer * layers;
+                if (meta.TotalQrCodeCount < fullCount) return true;
+            }
+
+            // 兜底：页码声明
+            return meta.TotalPages > 0 && meta.CurrentPage >= meta.TotalPages;
         }
 
         /// <summary>
@@ -632,29 +902,22 @@ namespace screen_file_transmit
         /// 黑白模式解码
         /// </summary>
         private static List<(int row, int col, byte[] data)> DecodeGrayscaleMode(Mat image, List<Rect> contours,
-            bool debug, out int qrCodeAttempts)
+            bool debug, out int qrCodeAttempts, Action<int, int> progress = null)
         {
-            var results = new List<(int row, int col, byte[] data)>();
-            //reader.Options.TryHarder = true;
-            //reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
-
             // 每个轮廓对应一个 DataMatrix 二维码
             qrCodeAttempts = contours.Count;
 
-            HashSet<(int, int)> rowCols = new HashSet<(int, int)>();
-            foreach (var rect in contours)
-            {
-                var decoded = DecodeDataMatrixAt(image, rect, debug);
-                if (decoded != null)
-                {
-                    if (rowCols.Contains((decoded.Value.row, decoded.Value.col)))
-                    {
-                        continue;
-                    }
+            // 并行解码：各二维码彼此独立，只读同一个 image，安全
+            var decoded = DecodeInParallel(contours.Count,
+                i => DecodeDataMatrixAt(image, contours[i], debug), progress);
 
-                    results.Add(decoded.Value);
-                    rowCols.Add((decoded.Value.row, decoded.Value.col));
-                }
+            var results = new List<(int row, int col, byte[] data)>();
+            var rowCols = new HashSet<(int, int)>();
+            foreach (var item in decoded)
+            {
+                if (item == null) continue;
+                if (!rowCols.Add((item.Value.row, item.Value.col))) continue;
+                results.Add(item.Value);
             }
 
             return results.OrderBy(x => x.row).ThenBy(x => x.col).ToList();
@@ -664,13 +927,8 @@ namespace screen_file_transmit
         /// 彩色模式解码 - 分离 R/G/B 通道分别解码
         /// </summary>
         private static List<(int row, int col, byte[] data)> DecodeColorfulMode(Mat image, List<Rect> contours,
-            bool debug, out int decodedQrCodeCount, out int qrCodeAttempts)
+            bool debug, out int decodedQrCodeCount, out int qrCodeAttempts, Action<int, int> progress = null)
         {
-            var results = new List<(int row, int col, byte[] data)>();
-            var reader = new DataMatrixReader();
-            //reader.Options.TryHarder = true;
-            //reader.Options.PossibleFormats = new[] { BarcodeFormat.DATA_MATRIX };
-
             Mat[] channels = new Mat[3];
             Cv2.Split(image, out channels);
 
@@ -680,29 +938,85 @@ namespace screen_file_transmit
             // 每个轮廓 × 3 个颜色通道 = 3 个 DataMatrix 二维码
             qrCodeAttempts = contours.Count * 3;
 
-            foreach (var rect in contours)
+            try
             {
-                var blockResults = new List<(int layer, int row, int col, byte[] data)>();
-
-                for (int layer = 0; layer < 3; layer++)
+                // 并行解码：各轮廓独立，channel 只读，DataMatrixReader 每次调用新建，安全
+                var perContour = DecodeInParallel(contours.Count, i =>
                 {
-                    var decoded = DecodeDataMatrixFromChannel(rgbChannels[layer], rect, reader, layer, debug);
-                    if (decoded != null)
+                    var rect = contours[i];
+                    var blockResults = new List<(int layer, int row, int col, byte[] data)>();
+                    for (int layer = 0; layer < 3; layer++)
                     {
-                        blockResults.Add((layer, decoded.Value.row, decoded.Value.col, decoded.Value.data));
+                        var decoded = DecodeDataMatrixFromChannel(rgbChannels[layer], rect, layer, debug);
+                        if (decoded != null)
+                        {
+                            blockResults.Add((layer, decoded.Value.row, decoded.Value.col, decoded.Value.data));
+                        }
                     }
+
+                    return blockResults.Count > 0 ? blockResults : null;
+                }, progress);
+
+                var results = new List<(int row, int col, byte[] data)>();
+                foreach (var blockResults in perContour)
+                {
+                    if (blockResults == null) continue;
+                    decodedQrCodeCount += blockResults.Count;
+                    results.Add(MergeLayerData(blockResults));
                 }
 
-                if (blockResults.Count > 0)
+                return results;
+            }
+            finally
+            {
+                foreach (var ch in channels) ch.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 用「CPU 核心数 - 2」个线程并行解码一组独立的二维码，
+        /// 结果按原始顺序返回；每完成一个回调一次 progress(已完成数, 总数)。
+        /// </summary>
+        private static T[] DecodeInParallel<T>(int count, Func<int, T> work, Action<int, int> progress)
+        {
+            var results = new T[count];
+            if (count == 0) return results;
+
+            int done = 0;
+            int dop = Math.Min(DecodeParallelism, count);
+
+            // 数量太少没必要起线程池
+            if (dop <= 1)
+            {
+                for (int i = 0; i < count; i++)
                 {
-                    decodedQrCodeCount += blockResults.Count;
-                    var merged = MergeLayerData(blockResults);
-                    results.Add(merged);
+                    results[i] = work(i);
+                    int d = Interlocked.Increment(ref done);
+                    progress?.Invoke(d, count);
                 }
+
+                return results;
             }
 
-            foreach (var ch in channels) ch.Dispose();
+            int next = -1;
+            var workers = new Task[dop];
+            for (int w = 0; w < dop; w++)
+            {
+                workers[w] = Task.Run(() =>
+                {
+                    while (true)
+                    {
+                        int i = Interlocked.Increment(ref next);
+                        if (i >= count) break;
 
+                        results[i] = work(i);
+                        int d = Interlocked.Increment(ref done);
+                        progress?.Invoke(d, count);
+                    }
+                });
+            }
+
+            Task.WaitAll(workers);
             return results;
         }
 
@@ -710,7 +1024,7 @@ namespace screen_file_transmit
         /// 从单通道解码 DataMatrix
         /// </summary>
         private static (int row, int col, byte[] data)? DecodeDataMatrixFromChannel(
-            Mat channel, Rect rect, DataMatrixReader reader, int layer, bool debug = false)
+            Mat channel, Rect rect, int layer, bool debug = false)
         {
             int padding = 5;
             int x = Math.Max(0, rect.X - padding);
@@ -818,47 +1132,60 @@ namespace screen_file_transmit
         /// <summary>
         /// 尝试解码 DataMatrix
         /// </summary>
-        public static string TryDecodeDataMatrix(Mat image, bool debug = false, int retryCount = 23)
+        /// <summary>
+        /// 尝试解码 DataMatrix。按「历史成功率」动态排序的放大变体依次尝试，
+        /// 每个变体再配 4 种预处理策略。成功即返回并记录该变体的成功统计。
+        /// </summary>
+        public static string TryDecodeDataMatrix(Mat image, bool debug = false)
         {
             // ZXing 的 DataMatrixReader 内部状态可变，非线程安全：
             // 截图工具与转换流程并发调用时共享实例会导致偶发解不出，故每次调用新建。
             var dmReader = new DataMatrixReader();
 
-            for (int attempt = 0; attempt <= retryCount; attempt++)
-            {
-                using (Mat processed = PreprocessForDecode(image, attempt))
-                {
-                    using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(processed))
-                    {
-                        var source = new BitmapLuminanceSource(bitmap);
-                        var binarizer = new HybridBinarizer(source);
-                        var binaryBitmap = new BinaryBitmap(binarizer);
-                        var hints = new Dictionary<DecodeHintType, object>
-                        {
-                            { DecodeHintType.CHARACTER_SET, "ISO-8859-1" },
-                            { DecodeHintType.TRY_HARDER, true }
-                        };
-                        var result = dmReader.decode(binaryBitmap, hints);
+            // 取当前排序（成功率高的在前），未统计到的保持默认顺序
+            List<string> order = VariantOrder.ToList();
+            var variantByName = AllVariants.ToDictionary(v => v.Name);
 
-                        if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
+            foreach (var vName in order)
+            {
+                var variant = variantByName[vName];
+                for (int strategy = 0; strategy < StrategiesPerVariant; strategy++)
+                {
+                    // 固定 attempt 编号（按初始变体定义），与运行期排序无关
+                    int attemptNo = AttemptNo(variant, strategy);
+
+                    using (Mat processed = PreprocessForDecode(image, variant, strategy))
+                    {
+                        using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(processed))
                         {
-                            return result.Text;
+                            var source = new BitmapLuminanceSource(bitmap);
+                            var binarizer = new HybridBinarizer(source);
+                            var binaryBitmap = new BinaryBitmap(binarizer);
+                            var hints = new Dictionary<DecodeHintType, object>
+                            {
+                                { DecodeHintType.CHARACTER_SET, "ISO-8859-1" },
+                                { DecodeHintType.TRY_HARDER, true }
+                            };
+                            var result = dmReader.decode(binaryBitmap, hints);
+
+                            if (result != null && result.BarcodeFormat == BarcodeFormat.DATA_MATRIX)
+                            {
+                                // 记录命中的这个具体 attempt 成功
+                                RecordAttempt(attemptNo, true);
+                                ReorderBySuccessRate();
+                                return result.Text;
+                            }
                         }
                     }
+
+                    // 该 attempt 未命中，记一次失败
+                    RecordAttempt(attemptNo, false);
                 }
             }
 
             if (debug)
             {
                 image.SaveImage(Directory.GetCurrentDirectory() + "/dm.png");
-                for (int attempt = 0; attempt <= retryCount; attempt++)
-                {
-                    using (Mat processed = PreprocessForDecode(image, attempt))
-                    {
-                        processed.SaveImage(Directory.GetCurrentDirectory() + $"/dm_{attempt}.png");
-                    }
-                }
-
                 Cv2.ImShow("DM", image);
                 Cv2.WaitKey();
             }
@@ -951,30 +1278,14 @@ namespace screen_file_transmit
         /// <summary>
         /// 解码预处理
         /// </summary> 
-        private static Mat PreprocessForDecode(Mat image, int attempt)
+        /// <summary>
+        /// 对指定放大变体做指定策略的预处理。
+        /// </summary>
+        private static Mat PreprocessForDecode(Mat image, UpscaleVariant variant, int strategy)
         {
-            // 放大变体按「优先尝试」顺序排列：
-            //   Cubic 1x(原图) -> Nearest 2x -> Lanczos4 2x -> Cubic 2x -> Cubic 3x -> Nearest 3x。
-            // Nearest 零插值零振铃，最适合二值二维码，优先；Lanczos4 2x 边缘最锐利但有振铃，其次；
-            // Cubic 2x/3x 平滑补充；Nearest 3x 用于极小模块兜底。每个变体配 4 种二值化/增强策略。
-            var variants = new (InterpolationFlags interp, double scale)[]
-            {
-                (InterpolationFlags.Cubic, 1),       // 0~3    原图不放大
-                (InterpolationFlags.Nearest, 2),     // 4~7    优先 Nearest 2x
-                (InterpolationFlags.Lanczos4, 2),    // 8~11   再 Lanczos4 2x
-                (InterpolationFlags.Cubic, 2),       // 12~15  Cubic 2x
-                (InterpolationFlags.Cubic, 3),       // 16~19  Cubic 3x
-                (InterpolationFlags.Nearest, 3),     // 20~23  最后 Nearest 3x
-            };
-            const int strategiesPerVariant = 4;
-
-            int vIdx = Math.Min(attempt / strategiesPerVariant, variants.Length - 1);
-            int strategy = attempt % strategiesPerVariant;
-            var (interp, scale) = variants[vIdx];
-
             // === 1. 放大 ===
             Mat scaled = new Mat();
-            Cv2.Resize(image, scaled, new Size(), scale, scale, interp);
+            Cv2.Resize(image, scaled, new Size(), variant.Scale, variant.Scale, variant.Interp);
 
             // === 2. 灰度 ===
             // BGRA(4通道) 也要转灰度，否则后续 OTSU/自适应阈值会抛 "src_type is CV_8UC4"

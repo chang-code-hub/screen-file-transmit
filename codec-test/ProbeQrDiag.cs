@@ -41,7 +41,7 @@ namespace qr_codec_test
                     int w = Math.Min(raw.Width - x, r.Width + 2 * pad), h = Math.Min(raw.Height - y, r.Height + 2 * pad);
                     using (Mat roi = new Mat(raw, new OpenCvSharp.Rect(x, y, w, h)))
                     {
-                        var txt = ImageDecoder.TryDecodeDataMatrix(roi, false, 10);
+                        var txt = ImageDecoder.TryDecodeDataMatrix(roi, false);
                         string status = txt == null ? "FAIL" : ("OK len=" + txt.Length);
                         Console.WriteLine($"[DIAG] [{i}] rect=({r.X},{r.Y},{r.Width}x{r.Height}) pad={pad} -> {status}");
                     }

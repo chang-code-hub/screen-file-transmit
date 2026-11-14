@@ -11,6 +11,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Input;
+using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using System.Threading.Tasks;
 
@@ -184,6 +185,8 @@ namespace screen_file_transmit
         public MainWindowViewModel()
         {
             _appConfig.Load();
+            // 继承上次的放大尝试排序与历史统计
+            ImageDecoder.ImportStats(_appConfig.UpscaleOrder, _appConfig.UpscaleStats);
             _outputFilePath = _appConfig.SaveDirectory;
             if (string.IsNullOrWhiteSpace(_outputFilePath))
             {
@@ -193,6 +196,24 @@ namespace screen_file_transmit
                     Directory.CreateDirectory(_outputFilePath);
                 }
             }
+        }
+
+        /// <summary>
+        /// 把当前放大尝试排序与统计写入配置，程序退出时调用。
+        /// </summary>
+        public void SaveUpscaleStats()
+        {
+            var stats = ImageDecoder.ExportStats();
+            if (stats.TryGetValue("Order", out var order))
+            {
+                _appConfig.UpscaleOrder = order;
+                stats.Remove("Order");
+            }
+
+            _appConfig.UpscaleStats.Clear();
+            foreach (var kv in stats) _appConfig.UpscaleStats[kv.Key] = kv.Value;
+
+            _appConfig.Save();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -232,8 +253,7 @@ namespace screen_file_transmit
         public ICommand BrowseOutputPathCommand => new RelayCommand(_ => BrowseOutputPath(), _ => !IsBusy);
         public ICommand OpenOutputPathCommand => new RelayCommand(_ => OpenOutputPath());
 
-        public ICommand ConvertCommand => new RelayCommand(_ => StartConvert(),
-            _ => !IsBusy && FileItems.Count > 0 && !string.IsNullOrWhiteSpace(OutputFilePath));
+        public ICommand ConvertCommand => new RelayCommand(_ => StartConvert(), _ => !IsBusy);
 
         public ICommand OpenScreenshotToolCommand => new RelayCommand(_ => OpenScreenshotTool(), _ => !IsBusy);
         public ICommand PauseCommand => new RelayCommand(_ => TogglePause(), _ => IsBusy);
@@ -274,6 +294,7 @@ namespace screen_file_transmit
                 }
             }
 
+            RemoveDuplicateItems();
             CheckFileComplete();
         }
 
@@ -283,7 +304,7 @@ namespace screen_file_transmit
 
             var groups = FileItems
                 .Where(f => !string.IsNullOrEmpty(f.FileId) && f.TotalPages > 0)
-                .GroupBy(c => new { c.FileId, c.SaveFileName })
+                .GroupBy(c => new { c.EffectiveFileId, c.SaveFileName })
                 .ToList();
 
             foreach (var group in groups)
@@ -299,7 +320,7 @@ namespace screen_file_transmit
 
                 var sb = new StringBuilder();
                 sb.AppendLine(string.Format("{0} (ID: {1})",
-                    group.Key.SaveFileName, group.Key.FileId));
+                    group.Key.SaveFileName, group.Key.EffectiveFileId));
                 sb.AppendLine(string.Format(
                     Properties.Resources.ResourceManager.GetString("MsgBox_FileGroup_ExpectedPages"),
                     first.TotalPages));
@@ -354,7 +375,7 @@ namespace screen_file_transmit
 
         private void CheckFileComplete()
         {
-            foreach (var group in FileItems.GroupBy(c => new { c.FileId, c.SaveFileName }))
+            foreach (var group in FileItems.GroupBy(c => new { c.EffectiveFileId, c.SaveFileName }))
             {
                 var first = group.FirstOrDefault();
                 if (first == null || first.TotalPages <= 0)
@@ -399,8 +420,21 @@ namespace screen_file_transmit
                     TotalPages = meta?.TotalPages ?? 0,
                     TotalQrCodeCount = meta?.TotalQrCodeCount ?? 0
                 };
+                item.EffectiveFileId = item.FileId;
                 if (meta.TotalPages > 0)
                 {
+                    // 解码取 length 自洽信息，标记「非末页不满载」（不影响解码成败）
+                    try
+                    {
+                        var dec = ImageDecoder.DecodeImageWithMetadata(filePath, false);
+                        item.IsUnderfull = dec?.IsUnderfull ?? false;
+                    }
+                    catch
+                    {
+                        // 解码异常时不标记，交由后续转换/状态列反映
+                        item.IsUnderfull = false;
+                    }
+
                     //item.DeleteCommand = new RelayCommand(_ => DeleteItem(item), _ => !IsBusy);
                     //item.RetryCommand = new RelayCommand(_ => RetryItem(item), _ => !IsBusy);
                     // 页码单独成列，不再混在元数据里
@@ -421,6 +455,7 @@ namespace screen_file_transmit
                     FullPath = filePath,
                     ImageFileName = Path.GetFileName(filePath),
                     SaveFileName = Path.GetFileNameWithoutExtension(filePath),
+                    EffectiveFileId = string.Empty,
                     Status = string.Format(Properties.Resources.ResourceManager.GetString("Status_ReadFailed"),
                         ex.Message)
                 };
@@ -441,7 +476,8 @@ namespace screen_file_transmit
                 _isSyncingProperty = true;
                 foreach (var item in FileItems)
                 {
-                    if (item != changedItem && item.FileId == changedItem.FileId)
+                    if (item != changedItem && item.EffectiveFileId == changedItem.EffectiveFileId
+                        && !string.IsNullOrEmpty(item.EffectiveFileId))
                     {
                         item.SaveFileName = changedItem.SaveFileName;
                     }
@@ -450,6 +486,196 @@ namespace screen_file_transmit
                 _isSyncingProperty = false;
                 CheckFileComplete();
             }
+        }
+
+        /// <summary>
+        /// 转换前的预处理：先按元数据去重（除页码外元数据相同即视为同一张图，
+        /// 每个页码只保留第一个文件仍存在的条目，其余丢弃），
+        /// 再对不完整的文件组识别可合并的文件ID。
+        /// </summary>
+        private void PrepareBeforeConvert()
+        {
+            RemoveDuplicateItems();
+            CheckFileComplete();
+        }
+
+        /// <summary>
+        /// 去重：元数据特征（不含页码）相同的条目视为同一个文件的不同页，
+        /// 每个页码只保留第一个「文件仍存在」的条目，其余从表格中移除。
+        /// 元数据完全一致的同页图片只保留一张。
+        /// </summary>
+        private void RemoveDuplicateItems()
+        {
+            var removed = new List<FileItem>();
+
+            foreach (var group in FileItems
+                         .Where(f => f.TotalPages > 0)
+                         .GroupBy(GetMergeKey)
+                         .ToList())
+            {
+                var keptPages = new HashSet<int>();
+                foreach (var item in group.OrderBy(f => f.RowNumber))
+                {
+                    bool fileExists = !string.IsNullOrEmpty(item.FullPath) && File.Exists(item.FullPath);
+                    if (!fileExists || !keptPages.Add(item.CurrentPage))
+                        removed.Add(item);
+                }
+            }
+
+            if (removed.Count == 0) return;
+
+            _isSyncingProperty = true;
+            foreach (var item in removed)
+            {
+                item.PropertyChanged -= FileItem_PropertyChanged;
+                FileItems.Remove(item);
+            }
+
+            _isSyncingProperty = false;
+        }
+
+        /// <summary>
+        /// 归一化分组键：除页码外的全部元数据。相同即视为同一个文件。
+        /// </summary>
+        private static string GetMergeKey(FileItem item)
+        {
+            return item.MetaSignature;
+        }
+
+        /// <summary>
+        /// 对每个不完整的文件组，找出「合并后恰好补齐全部页码且不重复」的合并方案。
+        /// </summary>
+        private List<MergeCandidateGroup> BuildMergeCandidates()
+        {
+            var result = new List<MergeCandidateGroup>();
+
+            foreach (var g in FileItems
+                         .Where(f => f.TotalPages > 0 && !string.IsNullOrEmpty(f.RawFileId))
+                         .GroupBy(GetMergeKey))
+            {
+                var items = g.ToList();
+                var byId = items.GroupBy(c => c.RawFileId).ToList();
+                if (byId.Count < 2) continue;
+
+                var total = items[0].TotalPages;
+                var selfPages = items.Select(c => c.CurrentPage).ToHashSet();
+                bool selfComplete = Enumerable.Range(1, total).All(selfPages.Contains);
+                if (selfComplete) continue;
+
+                // 枚举 2~Math.Min(4, ID数) 个原始ID 的组合，找合并后恰好补齐的方案
+                MergeCandidateGroup best = null;
+                var ids = byId.Select(x => x.Key).OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
+                foreach (var combo in EnumerateIdCombinations(ids, Math.Min(4, ids.Count)))
+                {
+                    var comboSet = new HashSet<string>(combo);
+                    var comboItems = items.Where(i => comboSet.Contains(i.RawFileId)).ToList();
+                    var pages = comboItems.Select(i => i.CurrentPage).ToList();
+                    if (pages.Count != pages.Distinct().Count()) continue; // 合并后仍有重复页
+                    if (!Enumerable.Range(1, total).All(pages.Contains)) continue; // 合并后仍缺页
+
+                    var candidate = new MergeCandidateGroup
+                    {
+                        SaveFileName = items[0].SaveFileName,
+                        MetaSignature = items[0].MetaSignature,
+                        TotalPages = total,
+                        DistinctIdCount = combo.Count,
+                        Items = comboItems.OrderBy(i => i.CurrentPage).ToList(),
+                        PreviewId = PickPreferredId(comboItems)
+                    };
+
+                    // 优先选涉及 ID 少的方案，其次选图片少的方案
+                    if (best == null
+                        || candidate.DistinctIdCount < best.DistinctIdCount
+                        || (candidate.DistinctIdCount == best.DistinctIdCount && candidate.Items.Count < best.Items.Count))
+                    {
+                        best = candidate;
+                    }
+                }
+
+                if (best != null) result.Add(best);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 枚举 idCount 以内的所有 ID 组合（元素有序，避免重复枚举）。
+        /// </summary>
+        private static IEnumerable<List<string>> EnumerateIdCombinations(List<string> ids, int maxCount)
+        {
+            for (int n = 2; n <= maxCount; n++)
+            {
+                foreach (var combo in EnumerateIdCombinations(ids, n, 0, new List<string>()))
+                    yield return combo;
+            }
+        }
+
+        private static IEnumerable<List<string>> EnumerateIdCombinations(List<string> ids, int n, int start, List<string> current)
+        {
+            if (current.Count == n)
+            {
+                yield return new List<string>(current);
+                yield break;
+            }
+
+            for (int i = start; i <= ids.Count - (n - current.Count); i++)
+            {
+                current.Add(ids[i]);
+                foreach (var combo in EnumerateIdCombinations(ids, n, i + 1, current))
+                    yield return combo;
+                current.RemoveAt(current.Count - 1);
+            }
+        }
+
+        /// <summary>
+        /// 合并后的目标文件ID取该组中出现次数最多的原始ID，平票取字典序最小者。
+        /// </summary>
+        private static string PickPreferredId(IList<FileItem> items)
+        {
+            return items.GroupBy(c => c.RawFileId)
+                .OrderByDescending(x => x.Count())
+                .ThenBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+                .First()
+                .Key;
+        }
+
+        /// <summary>
+        /// 检测到可合并的文件ID后弹窗确认；用户同意则把这些图片并入同一个文件ID，
+        /// 后续解析（分组、完整性判定、输出拼接）都按合并后的文件ID视为同一个文件。
+        /// </summary>
+        private bool ConfirmAndApplyMerges()
+        {
+            var candidates = BuildMergeCandidates();
+            if (candidates.Count == 0) return true;
+
+            var dialog = new MergeFileIdDialog(candidates)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            if (dialog.ShowDialog() != true || dialog.SelectedGroups.Count == 0)
+                return false;
+
+            foreach (var group in dialog.SelectedGroups)
+            {
+                foreach (var item in group.Items)
+                    item.EffectiveFileId = group.PreviewId;
+
+                // 同组保持保存文件名一致，避免合并后同组分家
+                var name = group.Items[0].SaveFileName;
+                if (string.IsNullOrEmpty(name)) continue;
+
+                _isSyncingProperty = true;
+                foreach (var item in group.Items)
+                {
+                    if (item.SaveFileName != name)
+                        item.SaveFileName = name;
+                }
+
+                _isSyncingProperty = false;
+            }
+
+            CheckFileComplete();
+            return true;
         }
 
         private void RemoveFile()
@@ -660,6 +886,15 @@ namespace screen_file_transmit
                 Directory.CreateDirectory(OutputFilePath);
             }
 
+            // 转换前先去重：元数据相同的图片只保留第一个文件仍存在的
+            PrepareBeforeConvert();
+
+            // 文件不全时识别可合并的文件ID，合并后恰好补齐则提示用户合并
+            if (!ConfirmAndApplyMerges())
+            {
+                return;
+            }
+
             if (!ShowFileCompletenessWarnings())
             {
                 return;
@@ -678,7 +913,7 @@ namespace screen_file_transmit
                 return;
             }
 
-            var groups = completeItems.GroupBy(f => new { f.FileId, f.SaveFileName }).ToList();
+            var groups = completeItems.GroupBy(f => new { f.EffectiveFileId, f.SaveFileName }).ToList();
 
             // 重置所有待转换文件的状态和错误信息
             foreach (var item in completeItems)
@@ -742,16 +977,33 @@ namespace screen_file_transmit
                                         return failed;
 
                                     processedCount++;
+                                    int currentNo = processedCount;
 
                                     dispatcher.Invoke(() =>
                                     {
-                                        item.Status =
-                                            string.Format(
-                                                Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
-                                                processedCount, completeItems.Count);
+                                        item.Status = string.Format(
+                                            Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
+                                            currentNo, completeItems.Count);
                                         item.ProgressValue = 0;
-                                        ProgressValue = processedCount;
+                                        ProgressValue = currentNo;
                                     });
+
+                                    // 解码过程中实时刷新该行进度：已解码二维码数 / 总数
+                                    int lastPercent = -1;
+                                    Action<int, int> decodeProgress = (done, total) =>
+                                    {
+                                        int percent = total <= 0 ? 0 : (int)(done * 100.0 / total);
+                                        if (percent == lastPercent) return;
+                                        lastPercent = percent;
+
+                                        dispatcher.Invoke(() =>
+                                        {
+                                            item.ProgressValue = percent;
+                                            item.Status = string.Format(
+                                                Properties.Resources.ResourceManager.GetString("Status_ParsingFormat"),
+                                                currentNo, completeItems.Count) + $" {percent}%";
+                                        });
+                                    };
 
                                     if (string.IsNullOrEmpty(item.FullPath))
                                     {
@@ -764,7 +1016,7 @@ namespace screen_file_transmit
 
                                     try
                                     {
-                                        if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false))
+                                        if (!ImageDecoder.ReadToFile(item.FullPath, encryptedMs, false, decodeProgress))
                                         {
                                             dispatcher.Invoke(() =>
                                                 item.Status =

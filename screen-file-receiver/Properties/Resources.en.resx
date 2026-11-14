@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -138,6 +138,22 @@
   <data name="Button_Pause" xml:space="preserve"><value>Pause</value></data>
   <data name="Button_Resume" xml:space="preserve"><value>Resume</value></data>
   <data name="Button_Stop" xml:space="preserve"><value>Stop</value></data>
+  <data name="Button_MergeFileId" xml:space="preserve"><value>Merge File ID</value></data>
+  <data name="MergeDialog_Title" xml:space="preserve"><value>Merge File ID</value></data>
+  <data name="MergeDialog_Instruction" xml:space="preserve"><value>The files below were split across different file IDs and are missing pages. They appear to be the same file, and merging them yields exactly all pages. Please confirm the merge:</value></data>
+  <data name="MergeDialog_Detail" xml:space="preserve"><value>Details</value></data>
+  <data name="MergeDialog_ColumnIdCount" xml:space="preserve"><value>ID Count</value></data>
+  <data name="MergeDialog_ColumnTargetId" xml:space="preserve"><value>Merged ID</value></data>
+  <data name="MergeDialog_ColumnTotalPages" xml:space="preserve"><value>Total Pages</value></data>
+  <data name="MergeDialog_ColumnDuplicatePages" xml:space="preserve"><value>Duplicate Pages</value></data>
+  <data name="MergeDialog_ColumnRawId" xml:space="preserve"><value>Original ID</value></data>
+  <data name="MergeDialog_SelectedFormat" xml:space="preserve"><value>{0} of {1} group(s) selected</value></data>
+  <data name="Button_SelectAll" xml:space="preserve"><value>Select All</value></data>
+  <data name="Button_SelectNone" xml:space="preserve"><value>Select None</value></data>
+  <data name="Button_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="MsgBox_NoMergeCandidates" xml:space="preserve"><value>No mergeable file IDs found.
+Only entries with the same save file name, identical metadata (except page number) and different file IDs appear in the merge list.</value></data>
+  <data name="Status_MergedFormat" xml:space="preserve"><value>Merged {0} group(s) into file ID {1}</value></data>
   <data name="Status_Paused" xml:space="preserve"><value>Paused</value></data>
   <data name="Status_Stopped" xml:space="preserve"><value>Stopped</value></data>
 </root>

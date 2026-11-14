@@ -19,6 +19,7 @@
     mc:Ignorable="d">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <local:UnderfullTextConverter x:Key="BoolToUnderfullTextConverter" />
     </Window.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -98,6 +99,7 @@
                     Command="{Binding OpenScreenshotToolCommand}"
                     Content="{loc:Loc Button_ScreenshotTool}" />
 
+
             </StackPanel>
         </Grid>
         <Border
@@ -120,6 +122,9 @@
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsComplete}" Value="True">
                                 <Setter Property="Background" Value="LightYellow" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsUnderfull}" Value="True">
+                                <Setter Property="Background" Value="LightSalmon" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -164,6 +169,11 @@
                         MinWidth="80"
                         Binding="{Binding Status}"
                         Header="{loc:Loc Column_Status}"
+                        IsReadOnly="True" />
+                    <DataGridTextColumn
+                        Width="70"
+                        Binding="{Binding IsUnderfull, Converter={StaticResource BoolToUnderfullTextConverter}}"
+                        Header="{loc:Loc Column_Underfull}"
                         IsReadOnly="True" />
                     <DataGridTemplateColumn Width="120" Header="{loc:Loc Column_ParseProgress}">
                         <DataGridTemplateColumn.CellTemplate>
