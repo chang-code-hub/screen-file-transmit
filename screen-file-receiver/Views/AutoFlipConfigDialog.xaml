@@ -27,12 +27,12 @@
             <RadioButton
                 x:Name="RbMouseClick"
                 Margin="0,4"
+                IsChecked="True"
                 Content="{Binding MethodMouseClickText}" />
             <RadioButton
                 x:Name="RbLeftRight"
                 Margin="0,4"
-                Content="{Binding MethodLeftRightText}"
-                IsChecked="True" />
+                Content="{Binding MethodLeftRightText}" />
             <RadioButton
                 x:Name="RbUpDown"
                 Margin="0,4"
