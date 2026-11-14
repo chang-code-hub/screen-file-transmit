@@ -91,3 +91,4 @@ Migrations/
 /samples/
 /*.png
 /*.py
+test/*.png

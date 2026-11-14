@@ -1,4 +1,4 @@
-using OpenCvSharp;
+﻿using OpenCvSharp;
 using screen_file_transmit;
 using System;
 using System.Collections.Generic;
@@ -26,9 +26,22 @@ namespace qr_codec_test
 
         private static void Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "--mapcheck")
+            {
+                ProbeMapCheck.Run();
+                return;
+            }
             if (args.Length > 0 && args[0] == "--dpi")
             {
                 ProbeDpi.Run();
+                return;
+            }
+            if (args.Length > 0 && args[0] == "--gridclick")
+            {
+                string gcPath = args.Length > 1
+                    ? args[1]
+                    : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "test", "image", "region.png");
+                ProbeGridClickRect.Run(Path.GetFullPath(gcPath));
                 return;
             }
             if (args.Length > 1 && args[0] == "--afverify")
@@ -59,6 +72,11 @@ namespace qr_codec_test
             if (args.Length > 1 && args[0] == "--qrm")
             {
                 ProbeQrMetrics.Run(args[1]);
+                return;
+            }
+            if (args.Length > 2 && args[0] == "--underfull")
+            {
+                ProbeUnderfull.Run(args[1], args[2]);
                 return;
             }
 

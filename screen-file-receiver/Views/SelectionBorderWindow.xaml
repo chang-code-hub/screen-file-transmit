@@ -25,6 +25,27 @@
             IsHitTestVisible="False"
             Margin="0,4,4,0"
             Visibility="Collapsed" />
+        <!-- 模拟鼠标点击位置标记：醒目圆点 + 十字线 -->
+        <Canvas x:Name="ClickMarkerCanvas" Background="Transparent" IsHitTestVisible="False">
+            <Ellipse
+                x:Name="ClickMarkerDot"
+                Width="16"
+                Height="16"
+                Fill="Transparent"
+                Stroke="Lime"
+                StrokeThickness="2"
+                Visibility="Collapsed" />
+            <Line
+                x:Name="ClickMarkerHLine"
+                Stroke="Lime"
+                StrokeThickness="1"
+                Visibility="Collapsed" />
+            <Line
+                x:Name="ClickMarkerVLine"
+                Stroke="Lime"
+                StrokeThickness="1"
+                Visibility="Collapsed" />
+        </Canvas>
         <Canvas x:Name="HandleCanvas" Background="Transparent">
             <!-- 手柄由代码动态创建 -->
         </Canvas>

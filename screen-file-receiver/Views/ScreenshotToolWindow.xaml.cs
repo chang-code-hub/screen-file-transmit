@@ -44,8 +44,8 @@ namespace screen_file_transmit
 
         // 自动翻页：模拟鼠标点击翻页
         private bool _useClick;
-        private int _clickOffsetPercentX = 99;
-        private int _clickOffsetPercentY = 15;
+        private double _clickOffsetPercentX = 99;
+        private double _clickOffsetPercentY = 15;
         private System.Drawing.Point _savedCursorPos;
         private bool _cursorSaved;
         private bool _cursorMoved;
@@ -56,8 +56,11 @@ namespace screen_file_transmit
 
         // 自动翻页：数据校验（解码无误才翻页）
         private int _pendingPage = -1;              // 待重试的页码
-        private int _pendingRetries;                // 当前页重试次数
+        private int _pendingRetries;                // 当前页校验失败重试次数
+        private int _underfullRetries;              // 当前页「未满载」重试次数（独立计数）
+        private bool _disableUpscaleUsed;           // 本页是否已尝试过「屏蔽放大算法」的降级解码
         private const int MaxPageRetries = 3;
+        private const int MaxUnderfullRetries = 5;  // 未满载连续重试上限，超过后换算法再试一次
         private const double DecodeQrRatioThreshold = 0.95;
         private string _clickRectDebug = "";
 
@@ -388,11 +391,6 @@ namespace screen_file_transmit
         private void ShowSelectionBorder(Rect region)
         {
             EnsureSelectionBorderWindow();
-            // 闪烁中不要挪边框，避免圆点跟着跳
-            if (_selectionBorderWindow.Blinking)
-            {
-                return;
-            }
 
             _selectionBorderWindow.Left = region.X;
             _selectionBorderWindow.Top = region.Y;
@@ -400,6 +398,15 @@ namespace screen_file_transmit
             _selectionBorderWindow.Height = region.Height;
             _selectionBorderWindow.EditMode = _isEditMode;
             _selectionBorderWindow.Show();
+            SyncClickMarker();
+        }
+
+        private void SyncClickMarker()
+        {
+            if (_selectionBorderWindow == null) return;
+
+            bool show = _useClick && _flipMethod == FlipMethod.MouseClick;
+            _selectionBorderWindow.SetClickMarker(show, _clickOffsetPercentX, _clickOffsetPercentY);
         }
 
         private void EnsureSelectionBorderWindow()
@@ -537,6 +544,7 @@ namespace screen_file_transmit
 
         private void ShowSelectionBorder()
         {
+            SyncClickMarker();
             if (_selectedHwnd != IntPtr.Zero)
             {
                 StartFollowTimer();
@@ -662,7 +670,11 @@ namespace screen_file_transmit
 
         private async void ExecuteCapture()
         {
-            HideSelectionBorder();
+            // 选区模式不 Hide 边框：红框已由 StripBorder 裁掉，Hide/Show 只会让画面抖动。
+            // 窗口模式仍需隐藏，因为边框压在目标窗口上。
+            bool hideBorderForCapture = !(_selectedRegion.Width > 0 && _selectedRegion.Height > 0);
+            if (hideBorderForCapture)
+                HideSelectionBorder();
             string outputDir = _mainVm?.OutputFilePath;
 
             if (string.IsNullOrWhiteSpace(outputDir))
@@ -739,7 +751,8 @@ namespace screen_file_transmit
             _lastCapture?.Dispose();
             _lastCapture = bmp;
             UpdateActionButtonState();
-            ShowSelectionBorder();
+            if (hideBorderForCapture)
+                ShowSelectionBorder();
 
             string fileName = null;
             try
@@ -771,6 +784,7 @@ namespace screen_file_transmit
             {
                 var bitmapSource = ScreenCaptureHelper.ToBitmapSource(bmp);
                 ScreenCaptureHelper.SavePng(bitmapSource, fullPath);
+                ShowGeneratedIndicator();
                 ToastNotification.Show(
                     string.Format(Properties.Resources.ResourceManager.GetString("Toast_SavedTo"), fullPath),
                     Properties.Resources.ResourceManager.GetString("Toast_ScreenshotSuccess"),
@@ -843,7 +857,10 @@ namespace screen_file_transmit
 
         private Bitmap CaptureSelection(bool hideBorder)
         {
-            if (hideBorder)
+            // 选区模式不 Hide 边框：红框已由 StripBorder 裁掉，
+            // Hide/Show 只会让画面抖动。窗口模式确实需要隐藏（边框压在窗口上）。
+            bool needHide = hideBorder && !(_selectedRegion.Width > 0 && _selectedRegion.Height > 0);
+            if (needHide)
                 HideSelectionBorder();
             try
             {
@@ -890,7 +907,7 @@ namespace screen_file_transmit
             }
             finally
             {
-                if (hideBorder)
+                if (needHide)
                     ShowSelectionBorder();
             }
         }
@@ -930,6 +947,11 @@ namespace screen_file_transmit
             {
                 var bitmapSource = ScreenCaptureHelper.ToBitmapSource(bmp);
                 ScreenCaptureHelper.SavePng(bitmapSource, fullPath);
+
+                // 非自动翻页（手动单张）：落盘成功即「上次识别生成」，转深绿。
+                // 自动翻页中保持黄色（自动翻页开启优先），翻页结束再定格到深绿。
+                if (!_isAutoFlipping)
+                    ShowGeneratedIndicator();
                 //string toastTitle = string.Format(Properties.Resources.ResourceManager.GetString("Toast_AutoFlipPageSaved"), meta?.CurrentPage ?? 0, _autoFlipTotalPages);
                 //ToastNotification.Show(string.Format(Properties.Resources.ResourceManager.GetString("Toast_SavedTo"), fullPath), toastTitle, MessageBoxImage.Information);
                 if (_mainVm != null)
@@ -957,6 +979,9 @@ namespace screen_file_transmit
 
         private void StartAutoFlip()
         {
+            // 清掉上一次残留的圆点状态
+            _selectionBorderWindow?.HideDot();
+
             bool hasSelection = _selectedHwnd != IntPtr.Zero || _selectedRegion != Rect.Empty;
             if (!hasSelection)
             {
@@ -995,6 +1020,8 @@ namespace screen_file_transmit
             _lastProcessedPage = -1;
             _pendingPage = -1;
             _pendingRetries = 0;
+            _underfullRetries = 0;
+            _disableUpscaleUsed = false;
             _cursorSaved = false;
             _cursorMoved = false;
             _lastCapture?.Dispose();
@@ -1057,6 +1084,19 @@ namespace screen_file_transmit
                 configDialog.SetMaskRectDip(border.Left, border.Top, border.Width, border.Height);
             }
 
+            // 用条码框定内容区域，计算默认点击位置百分比（99%/15%）
+            try
+            {
+                using (var clickBmp = new Bitmap(bmp))
+                {
+                    configDialog.SetScreenshot(clickBmp);
+                }
+            }
+            catch
+            {
+                //ignore
+            }
+
             configDialog.Owner = this;
             var configResult = configDialog.ShowDialog();
             if (configResult != true)
@@ -1071,9 +1111,12 @@ namespace screen_file_transmit
             _clickOffsetPercentX = configDialog.ClickOffsetPercentX;
             _clickOffsetPercentY = configDialog.ClickOffsetPercentY;
 
+            // 用户选了模拟鼠标点击，立刻在选区控件上标注点击位置
+            SyncClickMarker();
+
             Thread.Sleep(200);
             if (_isClosing) return;
-            BlinkOnSave();
+            ShowAutoFlipIndicator();
             SaveCapture(bmp, meta);
             _lastProcessedPage = meta.CurrentPage;
             _autoFlipTotalPages = meta.TotalPages;
@@ -1103,15 +1146,19 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 保存成功后在选区右上角内侧闪一个绿色小圆点。
-        /// 圆点画在选区控件上，跟随选区移动，不进截图（截图前边框已 Hide）。
+        /// 深绿常亮：上一次识别生成成功。圆点画在选区控件上，跟随选区移动。
         /// </summary>
-        private void BlinkOnSave()
+        private void ShowGeneratedIndicator()
         {
-            if (_selectionBorderWindow == null || !_selectionBorderWindow.IsVisible)
-                return;
+            _selectionBorderWindow?.ShowGeneratedSteady();
+        }
 
-            _selectionBorderWindow.BlinkBorder();
+        /// <summary>
+        /// 黄色常亮：自动翻页开启中。在 sleep(200) 之后、截图之前切换。
+        /// </summary>
+        private void ShowAutoFlipIndicator()
+        {
+            _selectionBorderWindow?.ShowAutoFlipSteady();
         }
 
         private void AutoFlipTick(object sender, EventArgs e)
@@ -1170,15 +1217,19 @@ namespace screen_file_transmit
                 return;
             }
 
+            // 新页面：校验失败计数与未满载计数分开维护，互不干扰
+            if (_pendingPage != meta.CurrentPage)
+            {
+                _pendingPage = meta.CurrentPage;
+                _pendingRetries = 0;
+                _underfullRetries = 0;
+                _disableUpscaleUsed = false;
+            }
+
             // 新页面：解码无误才保存并翻页，否则留在本页重试
             if (!decodeVerified)
             {
                 bmp.Dispose();
-                if (_pendingPage != meta.CurrentPage)
-                {
-                    _pendingPage = meta.CurrentPage;
-                    _pendingRetries = 0;
-                }
 
                 _pendingRetries++;
                 if (_pendingRetries > MaxPageRetries)
@@ -1202,16 +1253,12 @@ namespace screen_file_transmit
             // IsUnderfull 内部已含末页判定（末页天然不满为 false），故无需再判末页。
             if (decodeResult != null && decodeResult.IsUnderfull)
             {
-                if (_pendingPage != meta.CurrentPage)
-                {
-                    _pendingPage = meta.CurrentPage;
-                    _pendingRetries = 0;
-                }
+                _underfullRetries++;
 
-                _pendingRetries++;
-                if (_pendingRetries > MaxPageRetries)
+                // 前 5 次：先等 200ms 让发送端把剩余单元格刷出来，再重截重试。
+                // 同时把降级标记复位，下一 tick 若仍不满，第 6 次会走「屏蔽放大」路径。
+                if (_underfullRetries <= MaxUnderfullRetries)
                 {
-                    // 重试耗尽仍不满：保底保存这张未满的（文件列表会标记 IsUnderfull），继续翻页不丢数据
                     Thread.Sleep(200);
                     if (_isClosing)
                     {
@@ -1219,48 +1266,97 @@ namespace screen_file_transmit
                         return;
                     }
 
-                    if (_flipMethod == FlipMethod.Wait)
-                        BlinkOnSave();
-                    SaveCapture(bmp, meta, overwrite: true);
+                    _disableUpscaleUsed = false;
                     bmp.Dispose();
-
-                    _lastProcessedPage = meta.CurrentPage;
-                    _pendingPage = -1;
-                    _pendingRetries = 0;
-                    _autoFlipTotalPages = meta.TotalPages;
-                    _autoFlipFileName = meta.FileName;
-
-                    if (meta.CurrentPage >= meta.TotalPages)
-                    {
-                        StopAutoFlip();
-                        BtnAutoFlip.IsChecked = false;
-                        MessageBox.Show(
-                            Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"),
-                            Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-                        ShowSelectionBorder();
-                        return;
-                    }
-
-                    SimulatePageTurn();
                     return;
                 }
 
-                // 未超重试上限：不保存，留在本页，下一 tick 重截
+                // 5 次重试仍不满：屏蔽放大算法换一种识别方式，用当前帧再试一次
+                if (!_disableUpscaleUsed)
+                {
+                    _disableUpscaleUsed = true;
+                    ImageDecoder.DisableUpscale = true;
+                    try
+                    {
+                        using (var retryBmp = new Bitmap(bmp))
+                        {
+                            decodeResult = ImageDecoder.DecodeImageWithMetadata(retryBmp, false);
+                            decodeVerified = ImageDecoder.VerifyDecodeResult(decodeResult, meta, DecodeQrRatioThreshold);
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        //ignore
+                    }
+                    finally
+                    {
+                        ImageDecoder.DisableUpscale = false;
+                    }
+
+                    // 换算法后仍然未满（或校验失败）：不再重试，走下面的保底保存
+                    if (decodeVerified && decodeResult != null && decodeResult.IsUnderfull)
+                    {
+                        // 换算法后解码出更多单元格但仍不满载：再等 200ms，下一 tick 重截
+                        Thread.Sleep(200);
+                        if (_isClosing)
+                        {
+                            bmp.Dispose();
+                            return;
+                        }
+
+                        bmp.Dispose();
+                        return;
+                    }
+                }
+
+                // 重试耗尽仍不满：保底保存这张未满的（文件列表会标记 IsUnderfull），继续翻页不丢数据
+                Thread.Sleep(200);
+                if (_isClosing)
+                {
+                    bmp.Dispose();
+                    return;
+                }
+
+                ShowAutoFlipIndicator();
+                SaveCapture(bmp, meta, overwrite: true);
                 bmp.Dispose();
+
+                _lastProcessedPage = meta.CurrentPage;
+                _pendingPage = -1;
+                _pendingRetries = 0;
+                _underfullRetries = 0;
+                _disableUpscaleUsed = false;
+                _autoFlipTotalPages = meta.TotalPages;
+                _autoFlipFileName = meta.FileName;
+
+                if (meta.CurrentPage >= meta.TotalPages)
+                {
+                    StopAutoFlip();
+                    BtnAutoFlip.IsChecked = false;
+                    MessageBox.Show(
+                        Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"),
+                        Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    ShowSelectionBorder();
+                    return;
+                }
+
+                SimulatePageTurn();
                 return;
             }
 
             Thread.Sleep(200);
             if (_isClosing) return;
 
-            BlinkOnSave();
+            ShowAutoFlipIndicator();
             SaveCapture(bmp, meta);
             bmp.Dispose();
 
             _lastProcessedPage = meta.CurrentPage;
             _pendingPage = -1;
             _pendingRetries = 0;
+            _underfullRetries = 0;
+            _disableUpscaleUsed = false;
             _autoFlipTotalPages = meta.TotalPages;
             _autoFlipFileName = meta.FileName;
 
@@ -1281,6 +1377,10 @@ namespace screen_file_transmit
         private void StopAutoFlip()
         {
             _isAutoFlipping = false;
+
+            // 停止翻页后隐藏点击位置标记
+            if (_selectionBorderWindow != null)
+                _selectionBorderWindow.SetClickMarker(false, 0, 0);
             if (_autoFlipTimer != null)
             {
                 _autoFlipTimer.Stop();
@@ -1290,6 +1390,12 @@ namespace screen_file_transmit
 
             UnhookAutoFlipKeyboard();
             RestoreCursor();
+
+            // 自动翻页结束：本次有产物就定格深绿（上次识别生成），否则收掉圆点
+            if (_lastCapture != null)
+                ShowGeneratedIndicator();
+            else
+                _selectionBorderWindow?.HideDot();
         }
 
         /// <summary>

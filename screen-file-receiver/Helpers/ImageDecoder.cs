@@ -75,6 +75,13 @@ namespace screen_file_transmit
         }
 
         /// <summary>
+        /// 临时屏蔽所有「放大」（Resize）步骤：轮廓检测与单码解码都跳过放大，
+        /// 只保留灰度+4 种预处理策略。仅由截图工具在特定重试场景切换，
+        /// 非线程安全，切换前后须确保没有其他解码流程在跑。
+        /// </summary>
+        public static volatile bool DisableUpscale = false;
+
+        /// <summary>
         /// 由「初始变体索引 + 策略号」算固定 attempt 编号。
         /// 用 AllVariants 的初始定义位置，不受运行期排序变化影响。
         /// </summary>
@@ -335,74 +342,112 @@ namespace screen_file_transmit
             }
         }
 
+        /// <summary>
+        /// 条码检测结果：原图坐标系下的外接矩形 + 解码文本。
+        /// Rect 已从「拉伸+旋转」坐标系映射回原图坐标系。
+        /// </summary>
+        public struct BarcodeHit
+        {
+            public Rect Rect;
+            public string Text;
+        }
+
         public static List<string> DetectBarcodes(Mat rawImg, bool isLeft = true, bool debug = false)
         {
+            var hits = DetectBarcodesWithRects(rawImg, isLeft, debug);
             var results = new List<string>();
+            foreach (var h in hits)
+            {
+                if (h.Text != null)
+                {
+                    results.Add(h.Text);
+                    Console.WriteLine($"    DECODED: {h.Text}");
+                }
+            }
+            return results;
+        }
+
+        /// <summary>
+        /// 检测一侧的竖排 Code128 条码，返回原文本和**原图坐标**的外接矩形。
+        /// 内部流程与 DetectBarcodes 完全一致：裁 1/10 宽 → 水平拉 3 倍 → 逆时针转 90° → DetectBarcodesInRoi，
+        /// 只是额外把旋转坐标系下的矩形映射回原图坐标系。
+        /// </summary>
+        public static List<BarcodeHit> DetectBarcodesWithRects(Mat rawImg, bool isLeft = true, bool debug = false)
+        {
+            var hits = new List<BarcodeHit>();
 
             var img = StretchSideRegion(rawImg, isLeft);
-            Cv2.Rotate(img, img, RotateFlags.Rotate90Counterclockwise);
+            if (img == null || img.Empty()) return hits;
 
-            double imgWidth = img.Width;
-            double imgHeight = img.Height;
-            int edgeWidth = (int)imgWidth;
+            Mat rotated = new Mat();
+            Cv2.Rotate(img, rotated, RotateFlags.Rotate90Counterclockwise);
 
-            Mat debugImg = img.Clone();
-            var allRects = new List<Rect>();
+            // DetectBarcodesInRoi 的 roiOffset 仅用于原样回传，检测时只用 roi 本身
+            var roiOffset = new Rect(0, 0, rotated.Width, rotated.Height);
+            var found = DetectBarcodesInRoi(rotated, isLeft ? "Left" : "Right", roiOffset, debug);
 
-            Console.WriteLine($"  Image size: {imgWidth}x{imgHeight}");
+            var reader = new BarcodeReader();
+            reader.Options.TryHarder = true;
+            reader.Options.PossibleFormats = new[] { BarcodeFormat.CODE_128 };
 
-            int x0 = isLeft ? 0 : (int)imgWidth - edgeWidth;
-            var roiRect = new Rect(x0, 0, edgeWidth, (int)imgHeight);
-            using (Mat roi = new Mat(img, roiRect))
+            foreach (var r in found)
             {
-                var found = DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, false);
-                allRects = found;
-
-                var reader = new BarcodeReader();
-                reader.Options.TryHarder = true;
-                reader.Options.PossibleFormats = new[] { BarcodeFormat.CODE_128 };
-
-                foreach (var r in found)
+                string text = null;
+                using (var barcodeRoi = new Mat(rotated, r))
+                using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(barcodeRoi))
                 {
-                    var absRect = new Rect(r.X + x0, r.Y, r.Width, r.Height);
-                    var color = isLeft ? new Scalar(0, 0, 255) : new Scalar(0, 255, 255);
-                    Cv2.Rectangle(debugImg, absRect, color, 3);
-
-                    using (Mat barcodeRoi = new Mat(img, absRect))
-                    using (var bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(barcodeRoi))
-                    {
-                        var decodeResult = reader.Decode(bitmap);
-                        if (decodeResult != null)
-                        {
-                            results.Add(decodeResult.Text);
-                            Console.WriteLine($"    DECODED: {decodeResult.Text}");
-                        }
-                    }
+                    var decodeResult = reader.Decode(bitmap);
+                    if (decodeResult != null) text = decodeResult.Text;
                 }
+
+                hits.Add(new BarcodeHit
+                {
+                    Rect = MapRotatedRectToOriginal(r, isLeft, img.Width, img.Height, rawImg.Width, rawImg.Height),
+                    Text = text
+                });
             }
 
-            Cv2.PutText(debugImg, $"Detected: {allRects.Count}", new Point(10, 30),
-                HersheyFonts.HersheySimplex, 1, new Scalar(0, 0, 255), 2);
-            Cv2.PutText(debugImg, $"Decoded: {results.Count}", new Point((int)imgWidth - 250, 30),
-                HersheyFonts.HersheySimplex, 1, new Scalar(0, 255, 255), 2);
+            rotated.Dispose();
+            img.Dispose();
 
-            Console.WriteLine($"  {(isLeft ? "Left" : "Right")} Barcodes : {allRects.Count}");
-            foreach (var r in allRects)
-                Console.WriteLine($"    -> [{r.X},{r.Y}] {r.Width}x{r.Height}");
-            if (debug)
-            {
-                if ((isLeft && results.Count < 1) || (!isLeft && results.Count < 2))
-                {
-                    using (Mat roi = new Mat(img, roiRect))
-                        DetectBarcodesInRoi(roi, isLeft ? "Left" : "Right", roiRect, debug);
-                    Cv2.ImShow($"{(isLeft ? "Left" : "Right")} Detection Result", debugImg);
-                    Cv2.WaitKey();
-                }
-            }
+            return hits;
+        }
 
-            debugImg.Dispose();
+        /// <summary>
+        /// 把「裁剪+拉伸+逆时针转90°」坐标系下的矩形映射回原图坐标系。
+        /// 流程：原图裁 origW/10 宽 → 水平拉 3 倍（stretchedW×stretchedH）→ np.rot90(CCW)。
+        /// np.rot90(CCW) 的像素映射：dst[i,j] = src[j, W-1-i]，逆映射 src[r,c] = dst[W-1-c, r]。
+        /// 因此对旋转图矩形 (x1..x2, y1..y2)：
+        ///   拉伸图 src_x 范围 = (stretchedW-1-y2) .. (stretchedW-1-y1)
+        ///   拉伸图 src_y 范围 = x1 .. x2
+        /// 再把拉伸图坐标除以 3，并加上裁剪偏移，回到原图。
+        /// </summary>
+        private static Rect MapRotatedRectToOriginal(Rect r, bool isLeft,
+            double stretchedW, double stretchedH, int origW, int origH)
+        {
+            const double stretch = 3.0;
 
-            return results;
+            double x1 = r.X, y1 = r.Y, x2 = r.Right - 1, y2 = r.Bottom - 1;
+
+            // 旋转图 → 拉伸图（注意：旋转图的 y 对应拉伸图的 x）
+            double sL = stretchedW - 1 - y2;
+            double sR = stretchedW - 1 - y1;
+            double sT = x1;
+            double sB = x2;
+
+            // 拉伸图 → 原图：除以 stretch，再加上裁剪偏移
+            double cropOffsetX = isLeft ? 0 : (origW - origW / 10.0);
+            int ix = (int)Math.Round(sL / stretch + cropOffsetX);
+            int iy = (int)Math.Round(sT / stretch);
+            int iw = (int)Math.Round((sR - sL) / stretch);
+            int ih = (int)Math.Round((sB - sT) / stretch);
+
+            ix = Math.Max(0, Math.Min(origW - 1, ix));
+            iy = Math.Max(0, Math.Min(origH - 1, iy));
+            iw = Math.Max(1, Math.Min(origW - ix, iw));
+            ih = Math.Max(1, Math.Min(origH - iy, ih));
+
+            return new Rect(ix, iy, iw, ih);
         }
 
         /// <summary>
@@ -807,11 +852,137 @@ namespace screen_file_transmit
         /// 3. 用聚类估计预期的单元格尺寸，过滤异常大/小的轮廓；
         /// 4. 多阈值取并集，宁可多检也不漏检。
         /// </summary>
-        private static List<Rect> FindDataMatrixContours(Mat image)
+        /// <summary>
+        /// 计算图中 DataMatrix 网格整体覆盖的矩形（从左上角 cell 到右下角 cell）。
+        /// 用于确定网格内默认点击位置等相对定位。
+        /// </summary>
+        /// <param name="bitmap">截图位图</param>
+        /// <returns>网格覆盖矩形；未检测到时返回 null</returns>
+        public static Rect? GetDataMatrixGridRect(Bitmap bitmap)
+        {
+            using (var mat = OpenCvSharp.Extensions.BitmapConverter.ToMat(bitmap))
+            {
+                return GetDataMatrixGridRect(mat);
+            }
+        }
+
+        /// <summary>
+        /// 计算图中 DataMatrix 网格整体覆盖的矩形。
+        /// </summary>
+        public static Rect? GetDataMatrixGridRect(Mat image)
+        {
+            var contours = FindDataMatrixContours(image);
+            if (contours == null || contours.Count == 0) return null;
+
+            int left = contours.Min(r => r.X);
+            int top = contours.Min(r => r.Y);
+            int right = contours.Max(r => r.Right);
+            int bottom = contours.Max(r => r.Bottom);
+
+            return new Rect(left, top, right - left, bottom - top);
+        }
+
+        /// <summary>
+        /// 用左右两侧 Code128 条码框定内容区域，计算默认点击位置的百分比。
+        /// 算法：检测左右条码 → 取条码 x 坐标确定左右边界 →
+        /// 用行扫描（黑白跳变 > 200）确定内容 y 范围（跳过顶部工具栏）→
+        /// 框定矩形内取 99%/15% 处的点 → 换算成相对整图的百分比。
+        /// </summary>
+        /// <param name="image">截图（截图像素坐标，即选区坐标）</param>
+        /// <param name="percentX">输出：横向百分比（0-100）</param>
+        /// <param name="percentY">输出：纵向百分比（0-100）</param>
+        /// <returns>是否成功计算出百分比</returns>
+        public static bool TryDetectClickPercent(Mat image, out double percentX, out double percentY)
+        {
+            percentX = 99;
+            percentY = 15;
+
+            if (image == null || image.Empty()) return false;
+
+            var leftBars = DetectBarcodesWithRects(image, isLeft: true);
+            var rightBars = DetectBarcodesWithRects(image, isLeft: false);
+
+            if (leftBars.Count == 0 && rightBars.Count == 0) return false;
+
+            // 用条码的 x 坐标确定左右边界（取所有条码的并集 x 范围）
+            int leftX = leftBars.Count > 0 ? leftBars.Min(b => b.Rect.X) : 0;
+            int rightX = rightBars.Count > 0 ? rightBars.Max(b => b.Rect.Right) : image.Width;
+
+            // 用内容区域（DataMatrix 网格）的完整高度作为 y 范围
+            var contentRect = FindContentYRange(image, leftX, rightX);
+
+            var box = new Rect(leftX, contentRect.Y, rightX - leftX, contentRect.Height);
+            if (box.Width <= 0 || box.Height <= 0) return false;
+
+            // 矩形内 99%/15% 处的点，换算成相对整图的百分比
+            double gx = box.X + box.Width * 0.99;
+            double gy = box.Y + box.Height * 0.15;
+
+            percentX = Math.Min(100, Math.Max(0, gx * 100.0 / image.Width));
+            percentY = Math.Min(100, Math.Max(0, gy * 100.0 / image.Height));
+            return true;
+        }
+
+        /// <summary>
+        /// 找内容区域（DataMatrix 网格）的 y 范围。
+        /// 在条码 x 范围之间扫描每行的黑白跳变次数，跳变多的行属于网格内容。
+        /// 阈值取 200 以跳过顶部工具栏按钮（约 60~120 跳变）。
+        /// </summary>
+        private static Rect FindContentYRange(Mat image, int leftX, int rightX)
         {
             using (Mat gray = new Mat())
             {
                 Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
+
+                int x0 = Math.Max(0, leftX);
+                int x1 = Math.Min(image.Width - 1, rightX);
+                if (x1 <= x0) return new Rect(0, 0, image.Width, image.Height);
+
+                int top = -1, bottom = -1;
+                for (int y = 0; y < gray.Height; y++)
+                {
+                    int transitions = 0;
+                    byte prev = gray.At<byte>(y, x0);
+                    for (int x = x0 + 1; x <= x1; x++)
+                    {
+                        byte cur = gray.At<byte>(y, x);
+                        if ((prev < 128) != (cur < 128)) transitions++;
+                        prev = cur;
+                    }
+
+                    if (transitions > 200)
+                    {
+                        if (top < 0) top = y;
+                        bottom = y;
+                    }
+                }
+
+                if (top < 0) return new Rect(0, 0, image.Width, image.Height);
+                return new Rect(0, top, image.Width, bottom - top + 1);
+            }
+        }
+
+        private static List<Rect> FindDataMatrixContours(Mat image)
+        {
+            Mat work = image;
+            Mat noUpscale = null;
+            if (DisableUpscale)
+            {
+                // 不放大：直接在原图上做轮廓检测，跳过 EstimateModuleSize 的放大假设
+                noUpscale = new Mat();
+                if (image.Channels() == 4)
+                    Cv2.CvtColor(image, noUpscale, ColorConversionCodes.BGRA2GRAY);
+                else if (image.Channels() == 3)
+                    Cv2.CvtColor(image, noUpscale, ColorConversionCodes.BGR2GRAY);
+                else
+                    image.CopyTo(noUpscale);
+                work = noUpscale;
+            }
+
+            using (Mat gray = work == image ? new Mat() : noUpscale)
+            {
+                if (work == image)
+                    Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
 
                 double module = EstimateModuleSize(gray);
                 double minCell = module * 10;
@@ -1139,7 +1310,14 @@ namespace screen_file_transmit
         /// 尝试解码 DataMatrix。按「历史成功率」动态排序的放大变体依次尝试，
         /// 每个变体再配 4 种预处理策略。成功即返回并记录该变体的成功统计。
         /// </summary>
-        public static string TryDecodeDataMatrix(Mat image, bool debug = false)
+        /// <param name="image">待解码图</param>
+        /// <param name="debug">调试开关</param>
+        /// <param name="allowedVariants">
+        /// 允许尝试的放大变体名白名单（null = 全部）。传入后只尝试列表内的变体，
+        /// 其余变体跳过不计数、不记录统计。
+        /// </param>
+        public static string TryDecodeDataMatrix(Mat image, bool debug = false,
+            IEnumerable<string> allowedVariants = null)
         {
             // ZXing 的 DataMatrixReader 内部状态可变，非线程安全：
             // 截图工具与转换流程并发调用时共享实例会导致偶发解不出，故每次调用新建。
@@ -1148,6 +1326,15 @@ namespace screen_file_transmit
             // 取当前排序（成功率高的在前），未统计到的保持默认顺序
             List<string> order = VariantOrder.ToList();
             var variantByName = AllVariants.ToDictionary(v => v.Name);
+
+            // 变体白名单（null = 不过滤）
+            HashSet<string> allowedSet = null;
+            if (allowedVariants != null)
+            {
+                allowedSet = new HashSet<string>(allowedVariants);
+                // 只保留排序里真实存在的名字，避免白名单含无效名导致空遍历
+                order = order.Where(n => allowedSet.Contains(n)).ToList();
+            }
 
             foreach (var vName in order)
             {
@@ -1287,8 +1474,13 @@ namespace screen_file_transmit
         private static Mat PreprocessForDecode(Mat image, UpscaleVariant variant, int strategy)
         {
             // === 1. 放大 ===
+            // DisableUpscale=true 时跳过放大，只保留灰度+预处理策略，
+            // 用于「多次识别失败后临时换算法」的降级路径。
             Mat scaled = new Mat();
-            Cv2.Resize(image, scaled, new Size(), variant.Scale, variant.Scale, variant.Interp);
+            if (!DisableUpscale)
+                Cv2.Resize(image, scaled, new Size(), variant.Scale, variant.Scale, variant.Interp);
+            else
+                image.CopyTo(scaled);
 
             // === 2. 灰度 ===
             // BGRA(4通道) 也要转灰度，否则后续 OTSU/自适应阈值会抛 "src_type is CV_8UC4"

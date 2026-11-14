@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Drawing;
 using System.Threading;
 using System.Windows;
 using System.Windows.Input;
@@ -46,10 +47,10 @@ namespace screen_file_transmit
         public bool UseMouseClick => SelectedMethod == FlipMethod.MouseClick;
 
         /// <summary>点击位置横向百分比（0-100）</summary>
-        public int ClickOffsetPercentX { get; set; } = 99;
+        public double ClickOffsetPercentX { get; set; } = 99;
 
         /// <summary>点击位置纵向百分比（0-100）</summary>
-        public int ClickOffsetPercentY { get; set; } = 15;
+        public double ClickOffsetPercentY { get; set; } = 15;
 
         public string TitleText { get; set; } = "自动翻页设置";
         public string InstructionText { get; set; } = "请先在发送端窗口中测试键盘翻页，然后选择要使用的翻页方式：";
@@ -221,10 +222,10 @@ namespace screen_file_transmit
             double px = (cx - l) * 100.0 / w;
             double py = (cy - t) * 100.0 / h;
 
-            ClickOffsetPercentX = (int)Math.Round(Math.Min(100, Math.Max(0, px)));
-            ClickOffsetPercentY = (int)Math.Round(Math.Min(100, Math.Max(0, py)));
+            ClickOffsetPercentX = Math.Min(100, Math.Max(0, px));
+            ClickOffsetPercentY = Math.Min(100, Math.Max(0, py));
 
-            TxtClickPos.Text = $"{ClickOffsetPercentX}% , {ClickOffsetPercentY}%";
+            TxtClickPos.Text = $"{ClickOffsetPercentX:F1}% , {ClickOffsetPercentY:F1}%";
         }
 
         /// <summary>
@@ -310,6 +311,26 @@ namespace screen_file_transmit
             _maskDipTop = top;
             _maskDipWidth = width;
             _maskDipHeight = height;
+        }
+
+        /// <summary>
+        /// 设置选区截图（截图像素），用于计算默认点击位置的百分比。
+        /// 直接把截图交给 ImageDecoder.TryDetectClickPercent，
+        /// 用左右条码框定内容区域后取 99%/15% 处的点。
+        /// </summary>
+        public void SetScreenshot(Bitmap screenshot)
+        {
+            if (screenshot == null) return;
+
+            using (var mat = OpenCvSharp.Extensions.BitmapConverter.ToMat(screenshot))
+            {
+                if (ImageDecoder.TryDetectClickPercent(mat, out double px, out double py))
+                {
+                    ClickOffsetPercentX = px;
+                    ClickOffsetPercentY = py;
+                    TxtClickPos.Text = $"{ClickOffsetPercentX:F1}% , {ClickOffsetPercentY:F1}%";
+                }
+            }
         }
 
         protected override void OnClosed(EventArgs e)

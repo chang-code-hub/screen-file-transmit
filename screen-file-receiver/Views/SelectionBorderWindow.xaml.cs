@@ -6,7 +6,6 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using System.Windows.Threading;
 
 namespace screen_file_transmit
 {
@@ -23,6 +22,10 @@ namespace screen_file_transmit
         private Rectangle _handleTL, _handleT, _handleTR;
         private Rectangle _handleL, _handleR;
         private Rectangle _handleBL, _handleB, _handleBR;
+
+        // 模拟点击位置标记（百分比，0-100）
+        private bool _showClickMarker;
+        private double _clickPercentX, _clickPercentY;
 
         private bool _isResizing;
         private ResizeEdge _resizeEdge;
@@ -53,52 +56,38 @@ namespace screen_file_transmit
         /// <summary>选区边框线宽（物理像素）。截图后按此宽度裁掉红框。</summary>
         public const int BorderThicknessPx = 2;
 
-        private const int BlinkTotalTicks = 4;
-        private DispatcherTimer _blinkTimer;
-        private int _blinkCount;
+        /// <summary>深绿：上一次识别生成成功。</summary>
+        private static readonly Brush GeneratedBrush = new SolidColorBrush(Colors.DarkGreen);
 
-        public bool Blinking { get; private set; }
+        /// <summary>黄色：自动翻页开启中。</summary>
+        private static readonly Brush AutoFlipBrush = new SolidColorBrush(Colors.Yellow);
 
         /// <summary>
-        /// 在选区右上角内侧闪烁绿色小圆点，表示保存成功。
-        /// 边框本身保持红色不动。
+        /// 深绿常亮：上一次识别生成成功。
+        /// 圆点是「状态」不是「闪烁」—— 不设定时器，改一次颜色即定住。
         /// </summary>
-        public void BlinkBorder()
+        public void ShowGeneratedSteady()
         {
-            _blinkTimer?.Stop();
-            _blinkCount = 0;
-            Blinking = true;
-            BlinkDot.Visibility = Visibility.Visible;
+            BlinkDot.Fill = GeneratedBrush;
             BlinkDot.Opacity = 1;
-
-            _blinkTimer = new DispatcherTimer(DispatcherPriority.Normal)
-            {
-                Interval = TimeSpan.FromMilliseconds(200)
-            };
-            _blinkTimer.Tick += (s, e) =>
-            {
-                _blinkCount++;
-                if (_blinkCount >= BlinkTotalTicks)
-                {
-                    _blinkTimer.Stop();
-                    BlinkDot.Visibility = Visibility.Collapsed;
-                    Blinking = false;
-                    return;
-                }
-
-                BlinkDot.Opacity = (_blinkCount % 2) == 1 ? 0.15 : 1;
-            };
-            _blinkTimer.Start();
+            BlinkDot.Visibility = Visibility.Visible;
         }
 
-        /// <summary>立即停止闪烁并隐藏圆点。</summary>
-        public void StopBlink()
+        /// <summary>
+        /// 黄色常亮：自动翻页开启中。与深绿互斥，后调者覆盖前一个。
+        /// </summary>
+        public void ShowAutoFlipSteady()
         {
-            _blinkTimer?.Stop();
-            _blinkCount = 0;
+            BlinkDot.Fill = AutoFlipBrush;
+            BlinkDot.Opacity = 1;
+            BlinkDot.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>隐藏圆点（自动翻页结束、无生成结果时清理）。</summary>
+        public void HideDot()
+        {
             BlinkDot.Opacity = 1;
             BlinkDot.Visibility = Visibility.Collapsed;
-            Blinking = false;
         }
 
         private enum ResizeEdge
@@ -158,6 +147,7 @@ namespace screen_file_transmit
             HandleCanvas.Children.Add(_handleBL);
             HandleCanvas.Children.Add(_handleB);
             HandleCanvas.Children.Add(_handleBR);
+            UpdateClickMarkerPosition();
 
             UpdateHandlesVisibility();
         }
@@ -193,6 +183,7 @@ namespace screen_file_transmit
         private void OnSizeChanged(object sender, SizeChangedEventArgs e)
         {
             UpdateHandlePositions();
+            UpdateClickMarkerPosition();
         }
 
         private void UpdateHandlePositions()
@@ -229,6 +220,63 @@ namespace screen_file_transmit
 
             Canvas.SetLeft(_handleBR, w - half);
             Canvas.SetTop(_handleBR, h - half);
+        }
+
+        /// <summary>
+        /// 显示/隐藏模拟鼠标点击位置标记。
+        /// </summary>
+        /// <param name="show">是否显示</param>
+        /// <param name="percentX">横向百分比（0-100）</param>
+        /// <param name="percentY">纵向百分比（0-100）</param>
+        public void SetClickMarker(bool show, double percentX, double percentY)
+        {
+            _showClickMarker = show;
+            _clickPercentX = percentX;
+            _clickPercentY = percentY;
+            UpdateClickMarkerPosition();
+        }
+
+        /// <summary>
+        /// 把标记摆到选区内百分比对应位置：绿色圆点 + 十字准星。
+        /// </summary>
+        private void UpdateClickMarkerPosition()
+        {
+            if (!_showClickMarker)
+            {
+                ClickMarkerDot.Visibility = Visibility.Collapsed;
+                ClickMarkerHLine.Visibility = Visibility.Collapsed;
+                ClickMarkerVLine.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            double w = ActualWidth;
+            double h = ActualHeight;
+            if (w <= 0 || h <= 0) return;
+
+            double px = Math.Min(100, Math.Max(0, _clickPercentX)) / 100.0;
+            double py = Math.Min(100, Math.Max(0, _clickPercentY)) / 100.0;
+            double cx = w * px;
+            double cy = h * py;
+
+            const double dotSize = 16;
+            const double crossLen = 24;
+
+            ClickMarkerDot.Visibility = Visibility.Visible;
+            ClickMarkerHLine.Visibility = Visibility.Visible;
+            ClickMarkerVLine.Visibility = Visibility.Visible;
+
+            Canvas.SetLeft(ClickMarkerDot, cx - dotSize / 2);
+            Canvas.SetTop(ClickMarkerDot, cy - dotSize / 2);
+
+            ClickMarkerHLine.X1 = cx - crossLen / 2;
+            ClickMarkerHLine.Y1 = cy;
+            ClickMarkerHLine.X2 = cx + crossLen / 2;
+            ClickMarkerHLine.Y2 = cy;
+
+            ClickMarkerVLine.X1 = cx;
+            ClickMarkerVLine.Y1 = cy - crossLen / 2;
+            ClickMarkerVLine.X2 = cx;
+            ClickMarkerVLine.Y2 = cy + crossLen / 2;
         }
 
         private System.Windows.Point ScreenToLogical(System.Windows.Point screenPoint)
