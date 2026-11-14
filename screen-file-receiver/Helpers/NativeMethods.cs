@@ -14,14 +14,6 @@ namespace screen_file_transmit
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
-        [DllImport("user32.dll")]
-        public static extern int GetSystemMetrics(int nIndex);
-
-        // 虚拟屏（多屏并集）边界，物理像素
-        public const int SM_XVIRTUALSCREEN = 76;
-        public const int SM_YVIRTUALSCREEN = 77;
-        public const int SM_CXVIRTUALSCREEN = 78;
-        public const int SM_CYVIRTUALSCREEN = 79;
 
         [DllImport("user32.dll")]
         public static extern IntPtr WindowFromPoint(POINT point);

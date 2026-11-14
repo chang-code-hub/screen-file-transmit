@@ -388,8 +388,8 @@ namespace screen_file_transmit
         private void ShowSelectionBorder(Rect region)
         {
             EnsureSelectionBorderWindow();
-            // 闪烁中不要挪边框，否则圆点的摆放基准会跟着跳
-            if (_blinkDotOverlay != null && _blinkDotOverlay.Blinking)
+            // 闪烁中不要挪边框，避免圆点跟着跳
+            if (_selectionBorderWindow.Blinking)
             {
                 return;
             }
@@ -1103,33 +1103,15 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 保存成功后在选区红框外侧右上角闪一个绿色小圆点。
-        /// 圆点在独立的小窗口里，不落在红框上，也不会进截图。
-        /// 注意：不能用「边框是否可见」做前置判断 —— 截图时边框被 Hide 了，
-        /// 而本方法紧跟在截图之后调用，那时边框还没 Show 回来。
+        /// 保存成功后在选区右上角内侧闪一个绿色小圆点。
+        /// 圆点画在选区控件上，跟随选区移动，不进截图（截图前边框已 Hide）。
         /// </summary>
         private void BlinkOnSave()
         {
-            if (_selectionBorderWindow == null)
+            if (_selectionBorderWindow == null || !_selectionBorderWindow.IsVisible)
                 return;
 
-            var rc = _selectionBorderWindow.ScreenRectPx;
-            if (rc.IsEmpty || rc.Width <= 0 || rc.Height <= 0)
-                return;
-
-            EnsureBlinkDotOverlay();
-            _blinkDotOverlay.PositionOutsideTopRight(rc.Left, rc.Top, rc.Right);
-            _blinkDotOverlay.StartBlink();
-        }
-
-        private BlinkDotOverlay _blinkDotOverlay;
-
-        private void EnsureBlinkDotOverlay()
-        {
-            if (_blinkDotOverlay != null) return;
-
-            _blinkDotOverlay = new BlinkDotOverlay();
-            // 不设 Owner，避免被工具窗口的位置/激活牵连
+            _selectionBorderWindow.BlinkBorder();
         }
 
         private void AutoFlipTick(object sender, EventArgs e)

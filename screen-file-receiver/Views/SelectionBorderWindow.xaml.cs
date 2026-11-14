@@ -47,27 +47,59 @@ namespace screen_file_transmit
 
         public bool IsResizing => _isResizing;
 
-        /// <summary>
-        /// 选区红框在屏幕上的物理像素矩形（含边框），供圆点摆到框外。
-        /// </summary>
-        public System.Drawing.Rectangle ScreenRectPx
-        {
-            get
-            {
-                var hwnd = new WindowInteropHelper(this).Handle;
-                if (hwnd == IntPtr.Zero)
-                    return System.Drawing.Rectangle.Empty;
-
-                NativeMethods.GetWindowRect(hwnd, out var rc);
-                return System.Drawing.Rectangle.FromLTRB(rc.Left, rc.Top, rc.Right, rc.Bottom);
-            }
-        }
-
         private const double HandleSize = 8;
         private const double EdgeDetectThickness = 6;
 
         /// <summary>选区边框线宽（物理像素）。截图后按此宽度裁掉红框。</summary>
         public const int BorderThicknessPx = 2;
+
+        private const int BlinkTotalTicks = 4;
+        private DispatcherTimer _blinkTimer;
+        private int _blinkCount;
+
+        public bool Blinking { get; private set; }
+
+        /// <summary>
+        /// 在选区右上角内侧闪烁绿色小圆点，表示保存成功。
+        /// 边框本身保持红色不动。
+        /// </summary>
+        public void BlinkBorder()
+        {
+            _blinkTimer?.Stop();
+            _blinkCount = 0;
+            Blinking = true;
+            BlinkDot.Visibility = Visibility.Visible;
+            BlinkDot.Opacity = 1;
+
+            _blinkTimer = new DispatcherTimer(DispatcherPriority.Normal)
+            {
+                Interval = TimeSpan.FromMilliseconds(200)
+            };
+            _blinkTimer.Tick += (s, e) =>
+            {
+                _blinkCount++;
+                if (_blinkCount >= BlinkTotalTicks)
+                {
+                    _blinkTimer.Stop();
+                    BlinkDot.Visibility = Visibility.Collapsed;
+                    Blinking = false;
+                    return;
+                }
+
+                BlinkDot.Opacity = (_blinkCount % 2) == 1 ? 0.15 : 1;
+            };
+            _blinkTimer.Start();
+        }
+
+        /// <summary>立即停止闪烁并隐藏圆点。</summary>
+        public void StopBlink()
+        {
+            _blinkTimer?.Stop();
+            _blinkCount = 0;
+            BlinkDot.Opacity = 1;
+            BlinkDot.Visibility = Visibility.Collapsed;
+            Blinking = false;
+        }
 
         private enum ResizeEdge
         {

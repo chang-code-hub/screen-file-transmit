@@ -15,6 +15,16 @@
             Background="Transparent"
             BorderBrush="Red"
             BorderThickness="2" />
+        <Ellipse
+            x:Name="BlinkDot"
+            Width="10"
+            Height="10"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Fill="DarkGreen"
+            IsHitTestVisible="False"
+            Margin="0,4,4,0"
+            Visibility="Collapsed" />
         <Canvas x:Name="HandleCanvas" Background="Transparent">
             <!-- 手柄由代码动态创建 -->
         </Canvas>
