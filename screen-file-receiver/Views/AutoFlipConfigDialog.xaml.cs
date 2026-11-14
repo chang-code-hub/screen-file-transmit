@@ -20,7 +20,7 @@ namespace screen_file_transmit
         private readonly IntPtr _targetHwnd;
         private NativeMethods.RECT _regionRect;
         private NativeMethods.RECT _pickRect;
-        private bool _picking;
+        private PickPointOverlay _pickOverlay;
 
         public FlipMethod SelectedMethod
         {
@@ -136,70 +136,32 @@ namespace screen_file_transmit
             }
 
             _pickRect = rect.Value;
-            _picking = true;
 
-            // 不隐藏对话框：保持 ShowDialog 的模态状态，改为捕获鼠标，
-            // 用户在发送端画面上点击一次即记录落点（对话框始终可见）。
-            Mouse.Capture(this);
-        }
-
-        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
-        {
-            base.OnPreviewMouseDown(e);
-            if (!_picking) return;
-
-            // Preview 阶段吞掉按下事件，避免冒泡到子控件（OK/Cancel 等）。
-            // 这里不结束拾取——抬起才算一次完整点击。
-            e.Handled = true;
-        }
-
-        protected override void OnPreviewMouseUp(MouseButtonEventArgs e)
-        {
-            base.OnPreviewMouseUp(e);
-            if (!_picking) return;
-
-            // 抬起时完成拾取并记录落点，同时吞掉抬起事件，避免其冒泡触发按钮 Click
-            EndPick(true);
-            e.Handled = true;
-        }
-
-        protected override void OnPreviewMouseMove(MouseEventArgs e)
-        {
-            base.OnPreviewMouseMove(e);
-            if (!_picking) return;
-
-            // 捕获期间鼠标可能移出窗口，移动时跟随更新预览位置
-            if (NativeMethods.GetCursorPos(out var p))
-                PreviewPickedPoint(p.X, p.Y);
-
-            e.Handled = true;
-        }
-
-        protected override void OnKeyDown(KeyEventArgs e)
-        {
-            base.OnKeyDown(e);
-            if (!_picking) return;
-            if (e.Key == Key.Escape)
+            // 用全屏半透明蒙版盖住屏幕，把拾取用的这次点击挡在蒙版内，
+            // 避免点击传递到下方其它界面元素；只把这一次点击作为拾取结果。
+            _pickOverlay = new PickPointOverlay(OnPickPoint, OnPickCancelled)
             {
-                EndPick(false);
-                e.Handled = true;
-            }
+                Owner = this
+            };
+            _pickOverlay.Show();
         }
 
         /// <summary>
-        /// 结束鼠标拾取。成功则用当前光标位置计算百分比，取消则保留原值。
+        /// 蒙版内的那一次点击作为拾取结果，用其物理坐标反算百分比。
         /// </summary>
-        private void EndPick(bool apply)
+        private void OnPickPoint(int screenX, int screenY)
         {
-            if (!_picking) return;
-            _picking = false;
+            _pickOverlay = null;
+            ApplyPickedPoint(screenX, screenY);
+            Activate();
+        }
 
-            var h = Mouse.Captured;
-            if (h != null) Mouse.Capture(null);
-
-            if (apply && NativeMethods.GetCursorPos(out var pt))
-                ApplyPickedPoint(pt.X, pt.Y);
-
+        /// <summary>
+        /// 蒙版内按 Esc 取消拾取，保留原值。
+        /// </summary>
+        private void OnPickCancelled()
+        {
+            _pickOverlay = null;
             Activate();
         }
 
@@ -256,9 +218,9 @@ namespace screen_file_transmit
 
         protected override void OnClosed(EventArgs e)
         {
-            _picking = false;
-            if (Mouse.Captured != null)
-                Mouse.Capture(null);
+            // 对话框关闭时确保拾取蒙版一并关闭
+            _pickOverlay?.Close();
+            _pickOverlay = null;
 
             base.OnClosed(e);
         }

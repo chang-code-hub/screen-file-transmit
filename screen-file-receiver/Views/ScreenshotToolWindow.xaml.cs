@@ -50,6 +50,10 @@ namespace screen_file_transmit
         private bool _cursorSaved;
         private bool _cursorMoved;
 
+        // 自动翻页：全局键盘钩子，捕获 ESC 打断翻页（此时焦点在发送端窗口）
+        private IntPtr _autoFlipKeyboardHook;
+        private NativeMethods.LowLevelKeyboardProc _autoFlipKeyboardProc;
+
         // 自动翻页：数据校验（解码无误才翻页）
         private int _pendingPage = -1;              // 待重试的页码
         private int _pendingRetries;                // 当前页重试次数
@@ -128,6 +132,17 @@ namespace screen_file_transmit
         {
             if (e.Key == Key.Escape)
             {
+                // 自动翻页进行中：ESC 只停止翻页，保留当前选区，方便重新开始
+                if (_isAutoFlipping)
+                {
+                    StopAutoFlip();
+                    if (BtnAutoFlip != null)
+                        BtnAutoFlip.IsChecked = false;
+                    ShowSelectionBorder();
+                    e.Handled = true;
+                    return;
+                }
+
                 CancelSelection();
                 e.Handled = true;
                 return;
@@ -1076,6 +1091,7 @@ namespace screen_file_transmit
             ShowSelectionBorder();
 
             _isAutoFlipping = true;
+            HookAutoFlipKeyboard();
             _autoFlipTimer = new DispatcherTimer(DispatcherPriority.Normal)
             {
                 Interval = TimeSpan.FromMilliseconds(500)
@@ -1238,7 +1254,56 @@ namespace screen_file_transmit
                 _autoFlipTimer = null;
             }
 
+            UnhookAutoFlipKeyboard();
             RestoreCursor();
+        }
+
+        /// <summary>
+        /// 安装低级键盘钩子，用于在自动翻页期间（焦点可能在发送端窗口）按 ESC 打断
+        /// </summary>
+        private void HookAutoFlipKeyboard()
+        {
+            if (_autoFlipKeyboardHook != IntPtr.Zero) return;
+
+            _autoFlipKeyboardProc = AutoFlipKeyboardHookCallback;
+            _autoFlipKeyboardHook = NativeMethods.SetWindowsHookEx(
+                NativeMethods.WH_KEYBOARD_LL,
+                _autoFlipKeyboardProc,
+                IntPtr.Zero,
+                0);
+        }
+
+        private void UnhookAutoFlipKeyboard()
+        {
+            if (_autoFlipKeyboardHook != IntPtr.Zero)
+            {
+                NativeMethods.UnhookWindowsHookEx(_autoFlipKeyboardHook);
+                _autoFlipKeyboardHook = IntPtr.Zero;
+            }
+        }
+
+        private IntPtr AutoFlipKeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0
+                && (wParam == (IntPtr)NativeMethods.WM_KEYDOWN || wParam == (IntPtr)NativeMethods.WM_SYSKEYDOWN))
+            {
+                var kbd = System.Runtime.InteropServices.Marshal.PtrToStructure<NativeMethods.KBDLLHOOKSTRUCT>(lParam);
+                if (kbd.vkCode == NativeMethods.VK_ESCAPE && _isAutoFlipping)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (!_isAutoFlipping) return;
+                        StopAutoFlip();
+                        if (BtnAutoFlip != null)
+                            BtnAutoFlip.IsChecked = false;
+                        ShowSelectionBorder();
+                    }));
+                    // 吞掉 ESC，避免其传递到发送端窗口触发别的动作
+                    return (IntPtr)1;
+                }
+            }
+
+            return NativeMethods.CallNextHookEx(_autoFlipKeyboardHook, nCode, wParam, lParam);
         }
 
         /// <summary>
