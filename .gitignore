@@ -88,3 +88,6 @@ Migrations/
 *.tgz
 /screen-file-sender.binlog
 .claude/settings.local.json
+/samples/
+/*.png
+/*.py
