@@ -49,6 +49,6 @@ using System.Windows;
 // [assembly: AssemblyVersion("1.0.*")]
 // Version injected by npm/publish.js at publish time (from the npm package version).
 // AssemblyVersion / AssemblyFileVersion need a 4-part numeric version; AssemblyInformationalVersion keeps the original SemVer format.
-[assembly: AssemblyVersion("2.2.50.0")]
-[assembly: AssemblyFileVersion("2.2.50.0")]
-[assembly: AssemblyInformationalVersion("2.2.50")]
+[assembly: AssemblyVersion("2.2.52.0")]
+[assembly: AssemblyFileVersion("2.2.52.0")]
+[assembly: AssemblyInformationalVersion("2.2.52")]
