@@ -237,6 +237,24 @@ namespace screen_file_transmit
         }
 
         /// <summary>
+        /// 隐藏点击位置标记（模拟点击前调用，避免标记遮挡点击位置影响识别）。
+        /// </summary>
+        public void HideClickMarker()
+        {
+            ClickMarkerDot.Visibility = Visibility.Collapsed;
+            ClickMarkerHLine.Visibility = Visibility.Collapsed;
+            ClickMarkerVLine.Visibility = Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// 恢复点击位置标记（模拟点击后调用）。
+        /// </summary>
+        public void ShowClickMarker()
+        {
+            if (_showClickMarker) UpdateClickMarkerPosition();
+        }
+
+        /// <summary>
         /// 把标记摆到选区内百分比对应位置：绿色圆点 + 十字准星。
         /// </summary>
         private void UpdateClickMarkerPosition()

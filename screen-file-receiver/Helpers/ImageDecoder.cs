@@ -969,7 +969,7 @@ namespace screen_file_transmit
         /// 用左右两侧 Code128 条码框定内容区域，计算默认点击位置的百分比。
         /// 算法：检测左右条码 → 取条码 x 坐标确定左右边界 →
         /// 用行扫描（黑白跳变 > 200）确定内容 y 范围（跳过顶部工具栏）→
-        /// 框定矩形内取 99%/15% 处的点 → 换算成相对整图的百分比。
+        /// 框定矩形内取 99%/10% 处的点 → 换算成相对整图的百分比。
         /// </summary>
         /// <param name="image">截图（截图像素坐标，即选区坐标）</param>
         /// <param name="percentX">输出：横向百分比（0-100）</param>
@@ -978,7 +978,7 @@ namespace screen_file_transmit
         public static bool TryDetectClickPercent(Mat image, out double percentX, out double percentY)
         {
             percentX = 99;
-            percentY = 15;
+            percentY = 10;
 
             if (image == null || image.Empty()) return false;
 
@@ -997,9 +997,9 @@ namespace screen_file_transmit
             var box = new Rect(leftX, contentRect.Y, rightX - leftX, contentRect.Height);
             if (box.Width <= 0 || box.Height <= 0) return false;
 
-            // 矩形内 99%/15% 处的点，换算成相对整图的百分比
+            // 矩形内 99%/10% 处的点，换算成相对整图的百分比
             double gx = box.X + box.Width * 0.99;
-            double gy = box.Y + box.Height * 0.15;
+            double gy = box.Y + box.Height * 0.10;
 
             percentX = Math.Min(100, Math.Max(0, gx * 100.0 / image.Width));
             percentY = Math.Min(100, Math.Max(0, gy * 100.0 / image.Height));

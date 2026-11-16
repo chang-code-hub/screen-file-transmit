@@ -23,6 +23,14 @@ namespace screen_file_transmit
             if (VersionFlag.Handle(e.Args))
                 return; // VersionFlag exits the process itself
 
+#if DEBUG
+            // 调试 UI 时：WinExe 没有控制台，把 Console 输出重定向到 Trace，
+            // 附加调试器后可在 VS 输出窗口看到 ImageDecoder 等处的 Console.WriteLine。
+            // 必须放在 VersionFlag 之后，否则 `-v` 的版本号输出会被 Trace 吞掉。
+            Console.SetOut(new ConsoleTraceWriter());
+            Console.SetError(new ConsoleTraceWriter());
+#endif
+
             base.OnStartup(e);
             ExtractUnmanagedDlls();
         }

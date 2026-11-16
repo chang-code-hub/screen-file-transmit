@@ -27,9 +27,9 @@
             <RadioButton
                 x:Name="RbMouseClick"
                 Margin="0,4"
-                IsChecked="True"
                 Checked="MethodRadio_CheckedChanged"
-                Content="{Binding MethodMouseClickText}" />
+                Content="{Binding MethodMouseClickText}"
+                IsChecked="True" />
             <RadioButton
                 x:Name="RbLeftRight"
                 Margin="0,4"
@@ -66,7 +66,7 @@
                     Margin="0,0,8,0"
                     VerticalAlignment="Center"
                     FontWeight="Bold"
-                    Text="99% , 15%" />
+                    Text="99% , 10%" />
                 <Button
                     Padding="10,3"
                     Click="BtnPickPoint_Click"
@@ -74,27 +74,27 @@
             </StackPanel>
             <TextBlock
                 Margin="0,6,0,0"
-                Foreground="Gray"
                 FontSize="11"
+                Foreground="Gray"
                 Text="{Binding PickPointHintText}"
                 TextWrapping="Wrap" />
         </StackPanel>
 
-<!--         <Button -->
-<!--             Grid.Row="2" -->
-<!--             Margin="0,8,0,0" -->
-<!--             Padding="12,4" -->
-<!--             HorizontalAlignment="Left" -->
-<!--             Click="BtnTest_Click" -->
-<!--             Content="{Binding TestButtonText}" /> -->
+        <!--  <Button  -->
+        <!--  Grid.Row="2"  -->
+        <!--  Margin="0,8,0,0"  -->
+        <!--  Padding="12,4"  -->
+        <!--  HorizontalAlignment="Left"  -->
+        <!--  Click="BtnTest_Click"  -->
+        <!--  Content="{Binding TestButtonText}" />  -->
 
-<!--         <TextBlock -->
-<!--             x:Name="TestResultText" -->
-<!--             Grid.Row="3" -->
-<!--             Margin="0,4,0,0" -->
-<!--             Foreground="Green" -->
-<!--             Text="" -->
-<!--             Visibility="Collapsed" /> -->
+        <!--  <TextBlock  -->
+        <!--  x:Name="TestResultText"  -->
+        <!--  Grid.Row="3"  -->
+        <!--  Margin="0,4,0,0"  -->
+        <!--  Foreground="Green"  -->
+        <!--  Text=""  -->
+        <!--  Visibility="Collapsed" />  -->
 
         <StackPanel
             Grid.Row="4"

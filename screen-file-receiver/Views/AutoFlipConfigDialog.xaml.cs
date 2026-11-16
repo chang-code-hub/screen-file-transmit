@@ -56,7 +56,7 @@ namespace screen_file_transmit
         public double ClickOffsetPercentX { get; set; } = 99;
 
         /// <summary>点击位置纵向百分比（0-100）</summary>
-        public double ClickOffsetPercentY { get; set; } = 15;
+        public double ClickOffsetPercentY { get; set; } = 10;
 
         // 从截图条码算出的默认百分比（模拟鼠标方案用）
         private bool _hasAutoPercent;
@@ -219,7 +219,7 @@ namespace screen_file_transmit
 
         /// <summary>
         /// 选中「模拟鼠标点击」时，应用该方案的默认点击百分比：
-        /// 优先用户手动拾取值，否则用条码计算值，再否则保持 99/15。
+        /// 优先用户手动拾取值，否则用条码计算值，再否则保持 99/10。
         /// 默认选项即模拟鼠标，所以对话框打开后需立即调用一次。
         /// </summary>
         private void ApplyMouseClickPercent()
@@ -361,7 +361,7 @@ namespace screen_file_transmit
         }
 
         /// <summary>
-        /// 设置选区截图（截图像素），用左右条码框定内容区域后取 99%/15% 处的点，
+        /// 设置选区截图（截图像素），用左右条码框定内容区域后取 99%/10% 处的点，
         /// 作为「模拟鼠标点击」方案的默认百分比。
         /// 若当前已选中模拟鼠标（默认选项即是），立即应用。
         /// </summary>

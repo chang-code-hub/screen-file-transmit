@@ -8,7 +8,7 @@ using System.Linq;
 namespace qr_codec_test
 {
     /// <summary>
-    /// 用「左上 / 右下」两个 Code128 条码框定一个矩形，在该矩形内取 99%/15% 处的点，
+    /// 用「左上 / 右下」两个 Code128 条码框定一个矩形，在该矩形内取 99%/10% 处的点，
     /// 再换算成相对整图（=选区）的百分比，并标注到输出图上。
     /// 条码检测直接复用 ImageDecoder.DetectBarcodesWithRects（与 ReadMetadata 同一套逻辑）。
     ///
@@ -82,9 +82,9 @@ namespace qr_codec_test
                 var box = new Rect(leftX, contentRect.Y, rightX - leftX, contentRect.Height);
                 Console.WriteLine($"[GRIDCLICK] 框定矩形: {box}");
 
-                // 矩形内 99%/15% 处的点
+                // 矩形内 99%/10% 处的点
                 double gx = box.X + box.Width * 0.99;
-                double gy = box.Y + box.Height * 0.15;
+                double gy = box.Y + box.Height * 0.10;
                 Console.WriteLine($"[GRIDCLICK] 默认点击点(截图像素): ({gx:F1}, {gy:F1})");
 
                 // 相对整图（=选区）width/height 的百分比
