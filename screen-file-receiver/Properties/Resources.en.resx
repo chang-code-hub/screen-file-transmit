@@ -128,6 +128,7 @@
   <data name="AutoFlipConfigDialog_TestButton" xml:space="preserve"><value>Test</value></data>
   <data name="AutoFlipConfigDialog_TestSent" xml:space="preserve"><value>Test key sent</value></data>
   <data name="MsgBox_AutoFlipTimeout" xml:space="preserve"><value>No new page detected within 10 seconds after paging. Auto flip has stopped. Please check if the sender responds to paging correctly.</value></data>
+  <data name="MsgBox_AutoFlipTimeoutDetail" xml:space="preserve"><value>No new page detected within 30 seconds after paging. Auto flip has stopped. Last processed page: {0}, pending page: {1}, last decode error: {2}. Please check if the sender responds to paging correctly.</value></data>
   <data name="MsgBox_FileCompletenessWarning" xml:space="preserve"><value>The following file groups are incomplete. Please add missing pages or remove unnecessary files:</value></data>
   <data name="MsgBox_FileCompletenessTitle" xml:space="preserve"><value>File Completeness Check</value></data>
   <data name="MsgBox_FileGroup_MissingPages" xml:space="preserve"><value>  Missing pages: {0}</value></data>

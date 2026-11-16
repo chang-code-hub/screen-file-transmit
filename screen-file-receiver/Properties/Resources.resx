@@ -134,6 +134,7 @@
   <data name="AutoFlipConfigDialog_TestButton" xml:space="preserve"><value>测试</value></data>
   <data name="AutoFlipConfigDialog_TestSent" xml:space="preserve"><value>已发送测试按键</value></data>
   <data name="MsgBox_AutoFlipTimeout" xml:space="preserve"><value>翻页后10秒内未检测到新页面，自动翻页已停止。请检查发送端是否正常响应翻页操作。</value></data>
+  <data name="MsgBox_AutoFlipTimeoutDetail" xml:space="preserve"><value>翻页后30秒内未检测到新页面，自动翻页已停止。已处理页：{0}，待处理页：{1}，最近解码错误：{2}。请检查发送端是否正常响应翻页操作。</value></data>
   <data name="MsgBox_AutoFlipVerifyFailed" xml:space="preserve"><value>第 {0} 页数据解码未通过校验，已重试 {1} 次仍不完整，自动翻页已停止。请检查画面清晰度或重新截取该页。</value></data>
   <data name="AutoFlipConfigDialog_MethodMouseClick" xml:space="preserve"><value>模拟鼠标点击</value></data>
   <data name="AutoFlipConfigDialog_ClickPos" xml:space="preserve"><value>点击位置</value></data>

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Threading;
@@ -36,6 +37,9 @@ namespace screen_file_transmit
         private DispatcherTimer _autoFlipTimer;
         private bool _isAutoFlipping;
         private int _lastProcessedPage = -1;
+        private string _lastDecodeError;   // 最近一次解码异常，用于超时提示诊断
+        private DateTime _lastRefireTime;  // 上次「补发翻页」的时间，用于限频
+        private const int RefireIntervalMs = 2000;  // 页面未变化时补发翻页的最小间隔
         private int _autoFlipTotalPages;
         private string _autoFlipFileName;
         private FlipMethod _flipMethod = FlipMethod.LeftRight;
@@ -45,7 +49,7 @@ namespace screen_file_transmit
         // 自动翻页：模拟鼠标点击翻页
         private bool _useClick;
         private double _clickOffsetPercentX = 99;
-        private double _clickOffsetPercentY = 15;
+        private double _clickOffsetPercentY = 10;
         private System.Drawing.Point _savedCursorPos;
         private bool _cursorSaved;
         private bool _cursorMoved;
@@ -1093,7 +1097,7 @@ namespace screen_file_transmit
                 configDialog.SetMaskRectDip(border.Left, border.Top, border.Width, border.Height);
             }
 
-            // 用条码框定内容区域，计算默认点击位置百分比（99%/15%）
+            // 用条码框定内容区域，计算默认点击位置百分比（99%/10%）
             try
             {
                 using (var clickBmp = new Bitmap(bmp))
@@ -1128,6 +1132,7 @@ namespace screen_file_transmit
             ShowAutoFlipIndicator();
             SaveCapture(bmp, meta);
             _lastProcessedPage = meta.CurrentPage;
+            _lastRefireTime = DateTime.MinValue;
             _autoFlipTotalPages = meta.TotalPages;
             _autoFlipFileName = meta.FileName;
 
@@ -1180,6 +1185,7 @@ namespace screen_file_transmit
             ImageDecoder.MetadataResult meta = null;
             ImageDecoder.DecodeResult decodeResult = null;
             bool decodeVerified = false;
+            _lastDecodeError = null;
             try
             {
                 using (var metaBmp = new Bitmap(bmp))
@@ -1196,7 +1202,7 @@ namespace screen_file_transmit
             }
             catch (Exception ex)
             {
-                //ignore
+                _lastDecodeError = ex.Message;
             }
 
             if ((DateTime.Now - _lastPageTurnTime).TotalSeconds > AutoFlipTimeoutSeconds)
@@ -1205,7 +1211,9 @@ namespace screen_file_transmit
                 StopAutoFlip();
                 BtnAutoFlip.IsChecked = false;
                 MessageBox.Show(
-                    Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipTimeout"),
+                    string.Format(
+                        Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipTimeoutDetail"),
+                        _lastProcessedPage, _pendingPage, _lastDecodeError ?? "-"),
                     Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
@@ -1219,9 +1227,38 @@ namespace screen_file_transmit
                 return;
             }
 
-            // 页面未变化：等待发送端完成翻页，不做任何处理
-            if (_lastProcessedPage == meta.CurrentPage)
+            // 页面未变化：等待发送端完成翻页，不做任何处理。
+            // 但若该页已进入校验重试流程（_pendingPage 命中），说明本页仍需推进，
+            // 不能被这里短路——否则校验失败/未满载会永远卡在本页，直到超时。
+            if (_lastProcessedPage == meta.CurrentPage && _pendingPage != meta.CurrentPage)
             {
+                // 本页已识别成功且是末页：翻页动作在上一轮已发出，这里只需定格完成提示，
+                // 不再补翻（否则最后一轮会多翻一次）。
+                if (meta.CurrentPage >= meta.TotalPages)
+                {
+                    bmp.Dispose();
+                    StopAutoFlip();
+                    BtnAutoFlip.IsChecked = false;
+                    MessageBox.Show(
+                        Properties.Resources.ResourceManager.GetString("MsgBox_AutoFlipComplete"),
+                        Properties.Resources.ResourceManager.GetString("ScreenshotTool_Title"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    ShowSelectionBorder();
+                    return;
+                }
+
+                // 本页已识别成功（_lastProcessedPage 已记录该页，且不在重试队列中）：
+                // 发送端可能没接收到上一次翻页信号，补发一次，避免卡在本页直到超时。
+                // 每 500ms 的 tick 会重复命中这里，故按 RefireIntervalMs 限频，避免刷爆发送端。
+                if ((DateTime.Now - _lastRefireTime).TotalMilliseconds >= RefireIntervalMs)
+                {
+                    _lastRefireTime = DateTime.Now;
+                    bmp.Dispose();
+                    SimulatePageTurn();
+                    return;
+                }
+
                 bmp.Dispose();
                 return;
             }
@@ -1331,6 +1368,7 @@ namespace screen_file_transmit
                 bmp.Dispose();
 
                 _lastProcessedPage = meta.CurrentPage;
+                _lastRefireTime = DateTime.MinValue;
                 _pendingPage = -1;
                 _pendingRetries = 0;
                 _underfullRetries = 0;
@@ -1362,6 +1400,7 @@ namespace screen_file_transmit
             bmp.Dispose();
 
             _lastProcessedPage = meta.CurrentPage;
+            _lastRefireTime = DateTime.MinValue;
             _pendingPage = -1;
             _pendingRetries = 0;
             _underfullRetries = 0;
@@ -1486,7 +1525,7 @@ namespace screen_file_transmit
             if (_selectedHwnd != IntPtr.Zero)
             {
                 NativeMethods.SetForegroundWindow(_selectedHwnd);
-                System.Threading.Thread.Sleep(50);
+                //System.Threading.Thread.Sleep(50);
             }
 
             if (_useClick)
@@ -1536,14 +1575,31 @@ namespace screen_file_transmit
                     _cursorMoved = true;
             }
 
-            // 落点是物理像素，与拾取 GetPhysicalCursorPos 同基准，直接喂 SetCursorPos
-            NativeMethods.SetCursorPos(pt.Value.X, pt.Value.Y);
+            // pt 是物理像素，但 SetCursorPos 接收的是 DPI 虚拟化坐标，必须先转换。
+            // 与 RestoreCursor 里的 PhysicalToVirtualPoint 保持一致，否则缩放 >100% 时
+            // 落点会被放大到错误位置，第一次可能碰巧命中、后续全部点空。
+            var vp = PhysicalToVirtualPoint(pt.Value);
+
+            // 点击前隐藏选框上的十字准星标记，避免标记遮挡点击位置影响识别；
+            // 点击后恢复显示。
+            _selectionBorderWindow?.HideClickMarker();
+
+            // WPF 渲染是异步的：改 Visibility 只更新视觉树状态，
+            // 真正绘制要等 Dispatcher 空闲时执行 Layout/Render pass。
+            // 这里同步 Invoke 一次，强制处理挂起的 UI 消息，确保隐藏真正生效后再点击。
+            Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Render, new Action(() => { }));
+
+            NativeMethods.SetCursorPos(vp.X, vp.Y);
             System.Threading.Thread.Sleep(50);
 
             // 真实点击
             NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, IntPtr.Zero);
-            System.Threading.Thread.Sleep(30);
+            System.Threading.Thread.Sleep(50);
             NativeMethods.mouse_event(NativeMethods.MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
+
+            _selectionBorderWindow?.ShowClickMarker();
+            Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Render, new Action(() => { }));
+            Trace.WriteLine("Click");
 
             _lastPageTurnTime = DateTime.Now;
         }
